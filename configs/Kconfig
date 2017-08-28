@@ -1476,6 +1476,17 @@ config ARCH_BOARD_CUSTOM
 		Don't see the board you want?  You must first select the exact MCU part
 		number, then the boards supporting that part will be available for selection.
 
+config ARCH_BOARD_STM32F779I_EVAL
+	bool "STMicro STM32F779I-Eval board"
+	depends on ARCH_CHIP_STM32F779NI
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
+	select ARCH_HAVE_IRQBUTTONS
+	---help---
+		STMicro STM32F779I-EVAL development board featuring the STM32F779NI
+		MCU. The STM32F779NI is a 216MHz Cortex-M7 with 2048Kb Flash
+		memory and 512Kb SRAM.
+
 endchoice
 
 if ARCH_BOARD_CUSTOM
@@ -1680,6 +1691,7 @@ config ARCH_BOARD
 	default "zkit-arm-1769"            if ARCH_BOARD_ZKITARM
 	default "sim"                      if ARCH_BOARD_SIM
 	default "moxa"                     if ARCH_BOARD_MOXA
+	default "stm32f779i-eval"          if ARCH_BOARD_STM32F779I_EVAL
 
 comment "Common Board Options"
 
@@ -2138,6 +2150,9 @@ source "configs/sim/Kconfig"
 endif
 if ARCH_BOARD_CUSTOM
 source "configs/dummy/Kconfig"
+endif
+if ARCH_BOARD_STM32F779I_EVAL
+source "configs/stm32f779i-eval/Kconfig"
 endif
 
 config BOARD_CRASHDUMP

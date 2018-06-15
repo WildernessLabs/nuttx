@@ -406,6 +406,9 @@ int pthread_attr_getaffinity_np(FAR const pthread_attr_t *attr,
 int pthread_attr_setstacksize(FAR pthread_attr_t *attr, long stacksize);
 int pthread_attr_getstacksize(FAR const pthread_attr_t *attr, long *stackaddr);
 
+/* get attributes of created thread */
+int pthread_getattr_np(pthread_t thread, FAR pthread_attr_t *attr);
+
 /* To create a thread object and runnable thread, a routine must be specified
  * as the new thread's start routine.  An argument may be passed to this
  * routine, as an untyped address; an untyped address may also be returned as

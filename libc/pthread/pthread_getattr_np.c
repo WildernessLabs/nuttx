@@ -1,8 +1,8 @@
 /****************************************************************************
  * libc/pthread/pthread_getattr_np.c
  *
- *   Copyright (C) 2018 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <gnutt@nuttx.org>
+ *   Copyright (C) 2018 Wilderness Labs. All rights reserved.
+ *   Author: Alex Mikunov <avm_cite@hotmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -78,7 +78,8 @@ int pthread_getattr_np(pthread_t thread_id, FAR pthread_attr_t *attr)
   }
 
   /* init output */
-  memcpy(attr, &g_default_pthread_attr, sizeof(pthread_attr_t));
+  memset(attr, 0, sizeof(pthread_attr_t));
+  //memcpy(attr, &g_default_pthread_attr, sizeof(pthread_attr_t));
 
   /* get task control block (TCB) from thread ID */
 	FAR struct pthread_tcb_s *thread = (FAR struct pthread_tcb_s *)sched_gettcb((pid_t)thread_id);
@@ -102,6 +103,7 @@ int pthread_getattr_np(pthread_t thread_id, FAR pthread_attr_t *attr)
  
   /* populate attr based on thread info */
  	attr->stacksize = thread->cmn.adj_stack_size;
+  attr->stackaddr = thread->cmn.stack_alloc_ptr;
   attr->priority = thread->cmn.sched_priority;
 
 #ifdef CONFIG_SMP

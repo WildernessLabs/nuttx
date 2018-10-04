@@ -48,6 +48,10 @@ brew install osx-cross/arm/arm-gcc-bin
 ```
 brew install stlink
 ```
+3. Install ccache:
+```
+brew install --HEAD ccache
+```
 
 ### Step 3: Configure the Build
 

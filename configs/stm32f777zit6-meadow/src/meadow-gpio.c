@@ -1,13 +1,15 @@
 /****************************************************************************
- * configs/stm32f103-minimum/src/stm32_gpio.c
- *
+ * configs/stm32f777-zit6-meadow/src/meadow-gpio.c
+ * 
+ *   Copyright (C) 2019 Wilderness Labs. All rights reserved.
  *   Copyright (C) 2017 Gregory Nutt. All rights reserved.
  *   Copyright (C) 2017 Alan Carvalho de Assis. All rights reserved.
- *   Author:  Alan Carvalho de Assis <acassis@gmail.com>
+ *   Author:  Wilderness Labs
  *
- *   Based on: configs/sim/src/sim_gpio.c
- *   Author:  Gregory Nutt <gnutt@nuttx.org>
- *
+ *   Based on: configs/stm32f103-minimum/src/stm32_gpio.c
+ *   Authors:  Gregory Nutt <gnutt@nuttx.org>
+ *             Alan Carvalho de Assis <acassis@gmail.com>
+ * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -41,13 +43,19 @@
  * Included Files
  ****************************************************************************/
 
+#include <string.h>
+
 #include <nuttx/config.h>
 
 #include <nuttx/fs/fs.h>
+#include <nuttx/kmalloc.h>
+#include <arch/board/board.h>
+#include <nuttx/mqueue.h>
 
 #include <stdbool.h>
 #include <assert.h>
 #include <debug.h>
+#include <errno.h>
 
 #include <nuttx/clock.h>
 #include <nuttx/wdog.h>
@@ -56,11 +64,13 @@
 #include <arch/board/board.h>
 
 #include "chip.h"
-//#include <arch/arm/src/stm32/stm32.h>
-
+#include "fcntl.h"
 #include "stm32f777zit6-meadow.h"
+#include "stm32_adc.h"
+#include "chip/stm32_adc.h"
 
 #if defined(CONFIG_DEV_GPIO) && !defined(CONFIG_GPIO_LOWER_HALF)
+
 
 /****************************************************************************
  * Private Types
@@ -91,14 +101,14 @@ static const struct file_operations g_gpiops =
   .ioctl = gpi_ioctl
 };
 
-
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
+
 static int gpi_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 {
-  struct gpio_pin_state stateRequest;
   uint32_t int32Request;
+  struct gpio_pin_state stateRequest;
 
   switch(cmd)
   {
@@ -143,7 +153,7 @@ static int gpi_close(struct file *filep)
 int meadow_gpio_initialize(void)
 {
   syslog(0, "+meadow_gpio_initialize");
-
+  
   // register the driver
   int ret = register_driver("/dev/gpio", &g_gpiops, 0666, NULL);
   if (ret)

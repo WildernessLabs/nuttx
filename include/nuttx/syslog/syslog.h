@@ -121,6 +121,8 @@ struct syslog_channel_s
   syslog_write_t sc_write;  /* Write multiple bytes */
 #endif
 
+  struct syslog_channel_s* sc_next; /* Syslog channel chain */
+
   /* Implementation specific logic may follow */
 };
 

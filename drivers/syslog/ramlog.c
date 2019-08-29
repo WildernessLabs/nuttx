@@ -97,7 +97,7 @@ struct ramlog_dev_s
 
 /* Syslog channel methods */
 
-#ifdef CONFIG_RAMLOG_SYSLOG
+#if defined(CONFIG_RAMLOG)
 static int ramlog_flush(void);
 #endif
 
@@ -124,7 +124,7 @@ static int     ramlog_poll(FAR struct file *filep, FAR struct pollfd *fds,
  * Private Data
  ****************************************************************************/
 
-#ifdef CONFIG_RAMLOG_SYSLOG
+#ifdef CONFIG_RAMLOG
 static const struct syslog_channel_s g_ramlog_syslog_channel =
 {
   ramlog_putc,
@@ -157,7 +157,7 @@ static const struct file_operations g_ramlogfops =
  * for the syslogging function.
  */
 
-#if defined(CONFIG_RAMLOG_CONSOLE) || defined(CONFIG_RAMLOG_SYSLOG)
+#if defined(CONFIG_RAMLOG)
 static char g_sysbuffer[CONFIG_RAMLOG_BUFSIZE];
 
 /* This is the device structure for the console or syslogging function.  It
@@ -189,7 +189,7 @@ static struct ramlog_dev_s g_sysdev =
  * Name: ramlog_flush
  ****************************************************************************/
 
-#ifdef CONFIG_RAMLOG_SYSLOG
+#if defined(CONFIG_RAMLOG)
 static int ramlog_flush(void)
 {
   return OK;
@@ -712,6 +712,22 @@ int ramlog_register(FAR const char *devpath, FAR char *buffer, size_t buflen)
 
   return ret;
 }
+
+extern const struct syslog_channel_s *g_syslog_channel;
+
+int ramlog_register_sysdev(void)
+{
+  FAR struct ramlog_dev_s *priv = &g_sysdev;
+
+  /* Register the console character driver */
+
+  int ret = register_driver("/dev/ramlog", &g_ramlogfops, 0666, priv);
+
+  ((struct syslog_channel_s *)g_syslog_channel)->sc_next =
+    (struct syslog_channel_s *)&g_ramlog_syslog_channel;
+
+  return ret;
+}
 #endif
 
 /****************************************************************************
@@ -772,7 +788,7 @@ int ramlog_syslog_channel(void)
  *
  ****************************************************************************/
 
-#if defined(CONFIG_RAMLOG_CONSOLE) || defined(CONFIG_RAMLOG_SYSLOG)
+#if defined(CONFIG_RAMLOG)
 int ramlog_putc(int ch)
 {
   FAR struct ramlog_dev_s *priv = &g_sysdev;

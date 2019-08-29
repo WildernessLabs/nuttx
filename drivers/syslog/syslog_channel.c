@@ -81,21 +81,33 @@ const struct syslog_channel_s g_default_channel =
 {
   ramlog_putc,
   ramlog_putc,
-  syslog_default_flush
+  syslog_default_flush,
+#ifdef CONFIG_SYSLOG_WRITE
+  NULL,
+#endif
+  NULL
 };
 #elif defined(HAVE_LOWPUTC)
 const struct syslog_channel_s g_default_channel =
 {
   up_putc,
   up_putc,
-  syslog_default_flush
+  syslog_default_flush,
+#ifdef CONFIG_SYSLOG_WRITE
+  NULL,
+#endif
+  NULL
 };
 #else
 const struct syslog_channel_s g_default_channel =
 {
   syslog_default_putc,
   syslog_default_putc,
-  syslog_default_flush
+  syslog_default_flush,
+#ifdef CONFIG_SYSLOG_WRITE
+  NULL,
+#endif
+  NULL
 };
 #endif
 

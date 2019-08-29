@@ -291,13 +291,17 @@ int syslog_add_intbuffer(int ch)
 int syslog_flush_intbuffer(FAR const struct syslog_channel_s *channel,
                            bool force)
 {
-  syslog_putc_t putfunc;
+  syslog_putc_t putfunc, putfunc_next;
   int ch;
   int ret = OK;
 
   /* Select which putc function to use for this flush */
 
   putfunc = force ? channel->sc_putc : channel->sc_force;
+
+  putfunc_next = NULL;
+  if (channel->sc_next != NULL)
+    putfunc_next = force ? channel->sc_next->sc_putc : channel->sc_next->sc_force;
 
   /* This logic is performed with the scheduler disabled to protect from
    * concurrent modification by other tasks.
@@ -317,6 +321,9 @@ int syslog_flush_intbuffer(FAR const struct syslog_channel_s *channel,
       if (ch != EOF)
         {
           ret = putfunc(ch);
+
+          if (putfunc_next != NULL)
+            putfunc_next(ch);
         }
     }
   while (ch != EOF && ret >= 0);

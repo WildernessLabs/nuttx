@@ -105,6 +105,7 @@ int syslog_initialize(enum syslog_init_e phase)
       /* Use the console device as the SYSLOG device */
 
       ret = syslog_console_channel();
+      ramlog_register_sysdev();
     }
 
 #endif

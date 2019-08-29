@@ -144,6 +144,7 @@ extern "C"
 
 #if !defined(CONFIG_RAMLOG_CONSOLE) && !defined(CONFIG_RAMLOG_SYSLOG)
 int ramlog_register(FAR const char *devpath, FAR char *buffer, size_t buflen);
+int ramlog_register_sysdev(void);
 #endif
 
 /****************************************************************************
@@ -186,7 +187,7 @@ int ramlog_syslog_channel(void);
  *
  ****************************************************************************/
 
-#if defined(CONFIG_RAMLOG_CONSOLE) || defined(CONFIG_RAMLOG_SYSLOG)
+#if defined(CONFIG_RAMLOG)
 int ramlog_putc(int ch);
 #endif
 

@@ -84,6 +84,10 @@ ifeq ($(CONFIG_SYSLOG_CHARDEV),y)
 CSRCS += syslog_chardev.c
 endif
 
+ifeq ($(CONFIG_SYSLOG_SEMIHOSTING),y)
+CSRCS += syslog_semihosting.c
+endif
+
 ifeq ($(CONFIG_CONSOLE_SYSLOG),y)
   CSRCS += syslog_console.c
 endif

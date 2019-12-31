@@ -3237,6 +3237,8 @@ int up_putc(int ch)
 
 #else /* USE_SERIALDRIVER */
 
+#ifndef CONFIG_ARM_SEMIHOSTING_SYSLOG
+
 /****************************************************************************
  * Name: up_putc
  *
@@ -3261,5 +3263,7 @@ int up_putc(int ch)
 #endif
   return ch;
 }
+
+#endif /* CONFIG_ARM_SEMIHOSTING_SYSLOG */
 
 #endif /* USE_SERIALDRIVER */

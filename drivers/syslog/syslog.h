@@ -186,6 +186,25 @@ int syslog_console_channel(void);
 #endif
 
 /****************************************************************************
+ * Name: syslog_semihosting_channel
+ *
+ * Description:
+ *   Configure to use ARM semihosting as the SYSLOG channel.
+ *
+ * Input Parameters:
+ *   None
+ *
+ * Returned Value:
+ *   Zero (OK) is returned on success; a negated errno value is returned on
+ *   any failure.
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_SYSLOG_SEMIHOSTING
+int syslog_semihosting_channel(void);
+#endif
+
+/****************************************************************************
  * Name: syslog_register
  *
  * Description:

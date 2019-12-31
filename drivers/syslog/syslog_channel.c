@@ -42,6 +42,8 @@
 #include <sys/types.h>
 #include <assert.h>
 #include <errno.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include <nuttx/syslog/syslog.h>
 
@@ -70,6 +72,9 @@
 #ifdef NEED_LOWPUTC
 static int syslog_default_putc(int ch);
 #endif
+#ifdef CONFIG_SYSLOG_WRITE
+static int syslog_default_puts(FAR const char *buffer, size_t buflen);
+#endif
 static int syslog_default_flush(void);
 
 /****************************************************************************
@@ -81,21 +86,30 @@ const struct syslog_channel_s g_default_channel =
 {
   ramlog_putc,
   ramlog_putc,
-  syslog_default_flush
+  syslog_default_flush,
+#ifdef CONFIG_SYSLOG_WRITE
+  NULL
+#endif
 };
 #elif defined(HAVE_LOWPUTC)
 const struct syslog_channel_s g_default_channel =
 {
   up_putc,
   up_putc,
-  syslog_default_flush
+  syslog_default_flush,
+#ifdef CONFIG_SYSLOG_WRITE
+  syslog_default_puts
+#endif
 };
 #else
 const struct syslog_channel_s g_default_channel =
 {
   syslog_default_putc,
   syslog_default_putc,
-  syslog_default_flush
+  syslog_default_flush,
+#ifdef CONFIG_SYSLOG_WRITE
+  NULL
+#endif
 };
 #endif
 
@@ -108,7 +122,7 @@ FAR const struct syslog_channel_s *g_syslog_channel = &g_default_channel;
  ****************************************************************************/
 
 /****************************************************************************
- * Name: syslog_default_putc and syslog_default_flush
+ * Name: syslog_default_putc, syslog_default_puts and syslog_default_flush
  *
  * Description:
  *   Dummy, no-nothing channel interface methods
@@ -119,6 +133,20 @@ FAR const struct syslog_channel_s *g_syslog_channel = &g_default_channel;
 static int syslog_default_putc(int ch)
 {
   return ch;
+}
+#endif
+
+#ifdef CONFIG_SYSLOG_WRITE
+static int syslog_default_puts(FAR const char *buffer, size_t buflen)
+{
+  char * msg = (char *)malloc(buflen + 1);
+  memcpy(msg, buffer, buflen);
+  msg[buflen] = '\0';
+
+  up_puts(buffer);
+  free(msg);
+
+  return OK;
 }
 #endif
 

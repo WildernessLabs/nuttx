@@ -107,6 +107,14 @@ int syslog_initialize(enum syslog_init_e phase)
       ret = syslog_console_channel();
     }
 
+#elif defined(CONFIG_SYSLOG_SEMIHOSTING)
+  if (phase == SYSLOG_INIT_EARLY)
+    {
+      /* Use the semihosting device as the SYSLOG device */
+
+      ret = syslog_semihosting_channel();
+    }
+
 #endif
 
 #ifdef CONFIG_SYSLOG_CHARDEV

@@ -14,7 +14,7 @@ config ARCH_SYSLOG
 # Selected if the SYSLOG device supports multi-byte write operations
 
 config SYSLOG_WRITE
-	bool
+	bool "Syslog multi-byte write support"
 	default n
 
 config RAMLOG
@@ -146,7 +146,6 @@ choice
 	prompt "System log device"
 	default SYSLOG_CONSOLE if DEV_CONSOLE
 	default SYSLOG_NONE if !DEV_CONSOLE
-	depends on !ARCH_SYSLOG
 
 config SYSLOG_CHAR
 	bool "Log to a character device"
@@ -237,5 +236,15 @@ config SYSLOG_CHARDEV
 		NOTE that unlike other syslog output, this data is unformatted raw
 		byte output with no time-stamping or any other SYSLOG features
 		supported.
+
+config SYSLOG_SEMIHOSTING
+	bool "SYSLOG semihosting channel"
+	default n
+	depends on ARM_SEMIHOSTING_SYSLOG
+	select SYSLOG_WRITE
+	---help---
+		Enables syslog channel that sends output via ARM semihosting.
+		Enabling SYSLOG_BUFFER is highly recommend since it will greatly
+		speed up syslog output by doing it in a single semihosting operation.
 
 endmenu # System logging

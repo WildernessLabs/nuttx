@@ -279,14 +279,14 @@ static inline void mpu_priv_stronglyordered(uintptr_t base, size_t size)
 
   putreg32(region, MPU_RNR);
 
-  /* Select the region base address */
-
-  putreg32((base & MPU_RBAR_ADDR_MASK) | region | MPU_RBAR_VALID, MPU_RBAR);
-
   /* Select the region size and the sub-region map */
 
   l2size     = mpu_log2regionceil(size);
   subregions = mpu_subregion(base, size, l2size);
+
+  /* Select the region base address */
+
+  putreg32((base & ~((1 << l2size) - 1)) | region, MPU_RBAR);
 
   /* The configure the region */
 
@@ -319,14 +319,14 @@ static inline void mpu_user_flash(uintptr_t base, size_t size)
 
   putreg32(region, MPU_RNR);
 
-  /* Select the region base address */
-
-  putreg32((base & MPU_RBAR_ADDR_MASK) | region, MPU_RBAR);
-
   /* Select the region size and the sub-region map */
 
   l2size     = mpu_log2regionceil(size);
   subregions = mpu_subregion(base, size, l2size);
+
+  /* Select the region base address */
+
+  putreg32((base & ~((1 << l2size) - 1)) | region, MPU_RBAR);
 
   /* The configure the region */
 
@@ -357,14 +357,14 @@ static inline void mpu_priv_flash(uintptr_t base, size_t size)
 
   putreg32(region, MPU_RNR);
 
-  /* Select the region base address */
-
-  putreg32((base & MPU_RBAR_ADDR_MASK) | region, MPU_RBAR);
-
   /* Select the region size and the sub-region map */
 
   l2size     = mpu_log2regionceil(size);
   subregions = mpu_subregion(base, size, l2size);
+
+  /* Select the region base address */
+
+  putreg32((base & ~((1 << l2size) - 1)) | region, MPU_RBAR);
 
   /* The configure the region */
 
@@ -394,15 +394,17 @@ static inline void mpu_user_intsram(uintptr_t base, size_t size)
   /* Select the region */
 
   putreg32(region, MPU_RNR);
-
-  /* Select the region base address */
-
-  putreg32((base & MPU_RBAR_ADDR_MASK) | region, MPU_RBAR);
-
+  
   /* Select the region size and the sub-region map */
 
   l2size     = mpu_log2regionceil(size);
   subregions = mpu_subregion(base, size, l2size);
+
+  /* Select the region base address */
+
+base &= ~((1 << l2size) - 1);
+
+  putreg32((base & ~((1 << l2size) - 1)) | region, MPU_RBAR);
 
   /* The configure the region */
 
@@ -411,7 +413,7 @@ static inline void mpu_user_intsram(uintptr_t base, size_t size)
            ((uint32_t)subregions << MPU_RASR_SRD_SHIFT) | /* Sub-regions   */
            // HACK HACK HACK -- sharable dcache memory doesn't seem to support ldrex/strex.  We need to move our atomics around if we need sharable
            // probably just use the dram though
-           //MPU_RASR_S                                   | /* Shareable     */
+           MPU_RASR_S                                   | /* Shareable     */
            MPU_RASR_C                                   | /* Cacheable     */
            MPU_RASR_AP_RWRW;                              /* P:RW   U:RW   */
   putreg32(regval, MPU_RASR);
@@ -436,14 +438,14 @@ static inline void mpu_priv_intsram(uintptr_t base, size_t size)
 
   putreg32(region, MPU_RNR);
 
-  /* Select the region base address */
-
-  putreg32((base & MPU_RBAR_ADDR_MASK) | region, MPU_RBAR);
-
   /* Select the region size and the sub-region map */
 
   l2size     = mpu_log2regionceil(size);
   subregions = mpu_subregion(base, size, l2size);
+
+  /* Select the region base address */
+
+  putreg32((base & ~((1 << l2size) - 1)) | region, MPU_RBAR);
 
   /* The configure the region */
 
@@ -475,14 +477,14 @@ static inline void mpu_user_extsram(uintptr_t base, size_t size)
 
   putreg32(region, MPU_RNR);
 
-  /* Select the region base address */
-
-  putreg32((base & MPU_RBAR_ADDR_MASK) | region, MPU_RBAR);
-
   /* Select the region size and the sub-region map */
 
   l2size     = mpu_log2regionceil(size);
   subregions = mpu_subregion(base, size, l2size);
+
+  /* Select the region base address */
+
+  putreg32((base & ~((1 << l2size) - 1)) | region, MPU_RBAR);
 
   /* The configure the region */
 
@@ -515,14 +517,14 @@ static inline void mpu_priv_extsram(uintptr_t base, size_t size)
 
   putreg32(region, MPU_RNR);
 
-  /* Select the region base address */
-
-  putreg32((base & MPU_RBAR_ADDR_MASK) | region, MPU_RBAR);
-
   /* Select the region size and the sub-region map */
 
   l2size     = mpu_log2regionceil(size);
   subregions = mpu_subregion(base, size, l2size);
+
+  /* Select the region base address */
+
+  putreg32((base & ~((1 << l2size) - 1)) | region, MPU_RBAR);
 
   /* The configure the region */
 
@@ -555,14 +557,14 @@ static inline void mpu_peripheral(uintptr_t base, size_t size)
 
   putreg32(region, MPU_RNR);
 
-  /* Select the region base address */
-
-  putreg32((base & MPU_RBAR_ADDR_MASK) | region, MPU_RBAR);
-
   /* Select the region size and the sub-region map */
 
   l2size     = mpu_log2regionceil(size);
   subregions = mpu_subregion(base, size, l2size);
+
+  /* Select the region base address */
+
+  putreg32((base & ~((1 << l2size) - 1)) | region, MPU_RBAR);
 
   /* Then configure the region */
 

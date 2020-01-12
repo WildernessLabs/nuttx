@@ -39,7 +39,7 @@
  * Included Files
  ****************************************************************************/
 
-#include "hcom_common.h"
+#include "../hcom_common.h"
 
 #include <nuttx/arch.h>
 #include <nuttx/mtd/mtd.h>

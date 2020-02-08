@@ -214,7 +214,7 @@ static int upd_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
           designator,
           cfg.risingEdge,
           cfg.fallingEdge,
-          0,
+          true,
           upd_gpio_interrupt,
           &s_interruptPinMap[index]);        
       }
@@ -524,11 +524,17 @@ static int upd_open(struct file *filep)
   attr.mq_msgsize = QUEUE_MSG_SIZE;
   attr.mq_curmsgs = 0;
 
+  // open the queue used for interrupts
   if(s_int_queue == 0)
   {
     s_int_queue = mq_open(QUEUE_NAME, O_WRONLY | O_CREAT, 0660, &attr);
   }
-  return OK;
+
+  // initialize interrupt map to all zeros
+  for(int i = 0 ; i < 26 ; i++)
+  {
+    s_interruptPinMap[i] = 0;
+  }
 }
 
 static int upd_close(struct file *filep)

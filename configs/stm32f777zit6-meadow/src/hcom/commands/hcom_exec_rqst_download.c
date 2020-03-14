@@ -167,7 +167,7 @@ void hcom_exec_rqst_download_file_rqst_start(const uint8_t *recvPacketData, cons
       if (ret < 0)
       {
         _fileSystemOpenFailed = true;
-        f7syslog(LOG_ERR, "%s@%d-Error:from call to open file in flash:%d\n", thisFile, __LINE__, ret);
+        f7syslog(LOG_ERR, "%s@%d-from call to open file in flash:%d\n", thisFile, __LINE__, ret);
       }
       free(fileNameBuffer);
       break;
@@ -187,7 +187,7 @@ void hcom_exec_rqst_download_file_rqst_start(const uint8_t *recvPacketData, cons
       {
         _fileSystemOpenFailed = true;
         _currentHcomDataPacketAction = CurrentHcomDataPacketActionNone;
-        f7syslog(LOG_ERR, "%s@%d-Error:from call for ESP32 start transfer:%d\n", thisFile, __LINE__, ret);
+        f7syslog(LOG_ERR, "%s@%d-from call for ESP32 start transfer:%d\n", thisFile, __LINE__, ret);
       }
       break;
 
@@ -220,7 +220,7 @@ void hcom_exec_rqst_download_data_packet(const uint8_t *packet, const size_t pac
     if(!_fileDownloadFailedNoted)
     {
       // New feature - p-m This should send a message to host to stop sending
-      f7syslog(LOG_ERR, "%s@%d-Error:Data packets ignored, previous error.\n", thisFile, __LINE__);
+      f7syslog(LOG_ERR, "%s@%d-Data packets ignored, previous error.\n", thisFile, __LINE__);
       _fileDownloadFailedNoted = true;
     }
     return;
@@ -269,14 +269,14 @@ void hcom_exec_rqst_download_data_packet(const uint8_t *packet, const size_t pac
 
     default:
       ret = -1;
-      f7syslog(LOG_ERR, "%s@%d-Error:Data Packet (SeqNumb=%d), unknown data packet action\n",
+      f7syslog(LOG_ERR, "%s@%d-Data Packet (SeqNumb=%d), unknown data packet action\n",
               thisFile, __LINE__, seqNumb);
       break;
   }
 
   if (ret < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:Data packet file write failed:%d seq:%d\n",
+    f7syslog(LOG_ERR, "%s@%d-Data packet file write failed:%d seq:%d\n",
              thisFile, __LINE__, ret, seqNumb); usleep(10 * 1000);
   }
 }
@@ -299,7 +299,7 @@ void hcom_exec_rqst_download_file_rqst_end(uint32_t userData)
       ret = hcom_file_commands_close_active_file();
       if (ret < 0)
       {
-        f7syslog(LOG_ERR, "%s@%d-Error:File close:%d\n", thisFile, __LINE__, ret);
+        f7syslog(LOG_ERR, "%s@%d-File close:%d\n", thisFile, __LINE__, ret);
       }
 
       // Compare results and report to host
@@ -341,7 +341,7 @@ void hcom_exec_rqst_download_file_rqst_end(uint32_t userData)
       ret = hcom_esp32_exec_add_flash_end(userData);
       if (ret < 0)
       {
-        f7syslog(LOG_ERR, "%s@%d-Error:ESP32 File end error:%d\n", thisFile, __LINE__, ret);
+        f7syslog(LOG_ERR, "%s@%d-ESP32 File end error:%d\n", thisFile, __LINE__, ret);
       }
 
       // Compare the two MD5 hashs
@@ -366,7 +366,7 @@ void hcom_exec_rqst_download_file_rqst_end(uint32_t userData)
       break;
 
       default:
-        f7syslog(LOG_ERR, "%s@%d-Error:unknown end data packet action:%d \n", thisFile, __LINE__, _currentHcomDataPacketAction);
+        f7syslog(LOG_ERR, "%s@%d-unknown end data packet action:%d \n", thisFile, __LINE__, _currentHcomDataPacketAction);
         //DEBUGASSERT(false); //Unknown file download request
         break;
   }

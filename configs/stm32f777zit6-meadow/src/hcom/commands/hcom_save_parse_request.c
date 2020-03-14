@@ -74,14 +74,15 @@ int hcom_save_parse_request_setup()
   _hcom_cbuf = (struct host_com_cir_buffer_s *)malloc(sizeof(struct host_com_cir_buffer_s));
   if (_hcom_cbuf == NULL)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:cir buf alloc\n", thisFile, __LINE__);
+    f7syslog(LOG_ERR, "%s@%d-cir buf alloc\n", thisFile, __LINE__);
     return -1;
   }
 
-  int result = hcom_cirbuf_init(_hcom_cbuf, HCOM_CIRCULAR_BUF_MEM_SIZE);
+  int result = hcom_cirbuf_init(_hcom_cbuf, HCOM_CIRCULAR_BUF_MEM_SIZE,
+          HCOM_PROTOCOL_PACKET_DELIMITER_VALUE);
   if (result == HCOM_CIR_BUF_INIT_FAILED)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:hcom_cirbuf_init\n", thisFile, __LINE__);
+    f7syslog(LOG_ERR, "%s@%d-hcom_cirbuf_init\n", thisFile, __LINE__);
     return -1;
   }
 
@@ -129,7 +130,7 @@ int hcom_comms_recv_process_raw_data(uint8_t recvBuff[], const ssize_t recvByteC
 
       if (result == HCOM_CIR_BUF_GET_NONE_FOUND || result == HCOM_CIR_BUF_GET_DEST_NO_ROOM)
       {
-        f7syslog(LOG_ERR, "%s@%d-Error:pull packets from cir buf %d\n",
+        f7syslog(LOG_ERR, "%s@%d-pull packets from cir buf %d\n",
                  thisFile, __LINE__, result);
         return OK;    // Report and throw data away.
       }
@@ -137,12 +138,12 @@ int hcom_comms_recv_process_raw_data(uint8_t recvBuff[], const ssize_t recvByteC
     else if (result == HCOM_CIR_BUF_ADD_BAD_ARG)
     {
       // Bad argument
-      f7syslog(LOG_ERR, "%s@%d-Error:Bad argument to cir buf\n", thisFile, __LINE__);
+      f7syslog(LOG_ERR, "%s@%d-Bad argument to cir buf\n", thisFile, __LINE__);
       return OK; // Report and throw data away and keep going
     }
     else
     {
-      f7syslog(LOG_ERR, "%s@%d-Error:Unknown cir buf add err:%d\n", thisFile, __LINE__, result);
+      f7syslog(LOG_ERR, "%s@%d-Unknown cir buf add err:%d\n", thisFile, __LINE__, result);
       return OK; // Report and throw data away and keep going
     }
   }
@@ -193,13 +194,13 @@ int hcom_comms_recvpull_all_packets_from_buffer()
     }
     else if (result < 0)
     {
-      f7syslog(LOG_ERR, "%s@%d-Error:processing data:%d\n", thisFile, __LINE__, result);
+      f7syslog(LOG_ERR, "%s@%d-processing data:%d\n", thisFile, __LINE__, result);
       return result;
       // If ever supported NEED TO SEND NAK TO HOST TO RESEND BAD DATA
     }
     else
     {
-      f7syslog(LOG_ERR, "%s@%d-Error:unknown value %d\n",
+      f7syslog(LOG_ERR, "%s@%d-unknown value %d\n",
               thisFile, __LINE__, result);
       return result;
     }
@@ -256,8 +257,7 @@ void hcom_execute_host_command_type(const uint8_t *recvOrigData, const size_t re
         protocolVersion, (uint16_t)HCOM_PROTOCOL_HCOM_VERSION_NUMBER);
 
     DEBUGASSERT(stringLen < HCOM_SHORT_HOST_STRING_BUFF_LENGTH);
-    f7syslog(LOG_ERR, "Error:%s\n", hostMsg);
-
+    f7syslog(LOG_ERR, "%s\n", hostMsg);
     hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_ERROR, 0, hostMsg,
             thisFile, __LINE__);
     return;
@@ -432,17 +432,17 @@ void hcom_execute_host_command_type(const uint8_t *recvOrigData, const size_t re
 
     case HCOM_MDOW_REQUEST_NO_TRACE_TO_HOST:
       hcom_comms_send_header_msg(HCOM_HOST_REQUEST_TEXT_ACCEPTED, 0, thisFile, __LINE__);
-      hcom_exec_rqst_misc_no_trace_msg_to_host(userData);
+      hcom_trace_ramlog_no_trace_msg_to_host(userData);
       hcom_comms_send_header_msg(HCOM_HOST_REQUEST_TEXT_CONCLUDED, 0, thisFile, __LINE__);
       break;
 
     case HCOM_MDOW_REQUEST_SEND_TRACE_TO_HOST:
       hcom_comms_send_header_msg(HCOM_HOST_REQUEST_TEXT_ACCEPTED, 0, thisFile, __LINE__);
-      hcom_exec_rqst_misc_send_trace_to_host(userData);
+      hcom_trace_ramlog_send_trace_to_host(userData);
       hcom_comms_send_header_msg(HCOM_HOST_REQUEST_TEXT_CONCLUDED, 0, thisFile, __LINE__);
       break;
 
-    case HCOM_HOST_REQUEST_DEBUGGER_MSG:
+    case HCOM_HOST_REQUEST_MONO_DEBUGGER_MSG:
       // Accepted and concluded not needed here!
       hcom_remote_dbg_recv_host_send_to_mono(recvPayload, recvPayloadSize, userData);
       break;
@@ -500,7 +500,7 @@ void hcom_execute_host_command_type(const uint8_t *recvOrigData, const size_t re
       hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_REJECTED, 0, hostMsg,
               thisFile, __LINE__);
 
-      f7syslog(LOG_ERR, "%s@%d-Error:Received unsupported cmd:0x%04x\n",
+      f7syslog(LOG_ERR, "%s@%d-Received unsupported cmd:0x%04x\n",
              thisFile, __LINE__, requestType);
       hcom_utils_diag_print_buffer(recvOrigData, recvOrigDataSize, LOG_ERR);
       

@@ -637,7 +637,6 @@ void hcom_exec_rqst_testing_developer_2(uint32_t userData)
 //     syslog(0, "%s() - thread create failed = %d\n", __func__, pid);
 //     return;
 //   }
-
 }
 
 //=============================================================
@@ -646,13 +645,14 @@ void hcom_exec_rqst_testing_developer_3(uint32_t userData)
   // int ret;
   int i;
 
-  for(i = 1; i <= userData; i++)
-  {
-    if((i % 50) == 0)
-      syslog(0, "Number is %d\n", i);
-    f7syslog_host(0, "From %s. i=%d\n", __func__, i);
-  }
-  syslog(0, "Sent %d\n", i);
+//p-m ramlog NOT NEEDED
+  // for(i = 1; i <= userData; i++)
+  // {
+  //   if((i % 50) == 0)
+  //     syslog(0, "Number is %d\n", i);
+  //   f7syslog_host(0, "From %s. i=%d\n", __func__, i);
+  // }
+  // syslog(0, "Sent %d\n", i);
 
   // syslog(0, "%s() - userData = %d\n", __func__, userData);
   // int argc = 1;

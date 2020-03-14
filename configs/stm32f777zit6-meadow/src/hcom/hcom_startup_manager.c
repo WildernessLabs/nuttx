@@ -113,7 +113,7 @@ int hcom_manager_syslog_mask_init()
   int ret = setlogmask(syslog_mask);
   if (ret < 0)
   {
-    f7syslog(LOG_CRIT, "%s@%d-Error:setlogmask err:%d\n", thisFile, __LINE__, ret);
+    f7syslog(LOG_CRIT, "%s@%d-setlogmask err:%d\n", thisFile, __LINE__, ret);
     return ret;
   }
 
@@ -145,14 +145,20 @@ int hcom_manager_setup(FAR struct mtd_dev_s *mtd)
   // it checks if special action is necessary.
   hcom_utils_boot_time_mono_check();
 
-  // Note: the calling thread is the nuttx startup thread. Any activity here may delay the
-  //  remainder of nuttx from starting, which may be determined to be a good thing.
+  ret = hcom_trace_ramlog_setup();
+  if (ret < 0)
+  {
+      f7syslog(LOG_CRIT, "%s@%d-setup log tracing %d\n", thisFile, __LINE__, ret);
+      return ret;
+  }
 
   // Sets the MTD for the file system
+  // Note: the calling thread is the nuttx startup thread. Any activity here may delay the
+  //  remainder of nuttx from starting, which may be determined to be a good thing.
   ret = hcom_exec_flash_fs_setup(mtd);
   if (ret < 0)
   {
-      f7syslog(LOG_CRIT, "%s@%d-Error:setup F/S %d\n", thisFile, __LINE__, ret);
+      f7syslog(LOG_CRIT, "%s@%d-setup F/S %d\n", thisFile, __LINE__, ret);
       return ret;
   }
 
@@ -160,7 +166,7 @@ int hcom_manager_setup(FAR struct mtd_dev_s *mtd)
   ret = hcom_exec_rqst_misc_setup(mtd);
   if (ret < 0)
   {
-      f7syslog(LOG_CRIT, "%s@%d-Error:setup misc %d\n", thisFile, __LINE__, ret);
+      f7syslog(LOG_CRIT, "%s@%d-setup misc %d\n", thisFile, __LINE__, ret);
       return ret;
   }
 
@@ -168,7 +174,7 @@ int hcom_manager_setup(FAR struct mtd_dev_s *mtd)
   ret = hcom_exec_rqst_download_file_rqst_setup();
   if (ret < 0)
   {
-    f7syslog(LOG_CRIT, "%s@%d-Error:setup file download %d\n", thisFile, __LINE__, ret);
+    f7syslog(LOG_CRIT, "%s@%d-setup file download %d\n", thisFile, __LINE__, ret);
     return ret;
   }
 
@@ -176,7 +182,7 @@ int hcom_manager_setup(FAR struct mtd_dev_s *mtd)
   ret = hcom_file_commands_setup();
   if (ret < 0)
   {
-      f7syslog(LOG_CRIT, "%s@%d-Error:setup file cmds %d\n", thisFile, __LINE__, ret);
+      f7syslog(LOG_CRIT, "%s@%d-setup file cmds %d\n", thisFile, __LINE__, ret);
       return ret;
   }
 
@@ -184,14 +190,14 @@ int hcom_manager_setup(FAR struct mtd_dev_s *mtd)
   ret = hcom_save_parse_request_setup();
   if (ret < 0)
   {
-      f7syslog(LOG_CRIT, "%s@%d-Error:setup host request %d\n", thisFile, __LINE__, ret);
+      f7syslog(LOG_CRIT, "%s@%d-setup host request %d\n", thisFile, __LINE__, ret);
       return ret;
   }
 
   ret = hcom_fs_setup(mtd);
   if (ret < 0)
   {
-      f7syslog(LOG_CRIT, "%s@%d-Error:setup F/S helper %d\n", thisFile, __LINE__, ret);
+      f7syslog(LOG_CRIT, "%s@%d-setup F/S helper %d\n", thisFile, __LINE__, ret);
       return ret;
   }
 
@@ -199,7 +205,7 @@ int hcom_manager_setup(FAR struct mtd_dev_s *mtd)
   ret = hcom_exec_rqst_testing_setup(mtd);
   if (ret < 0)
   {
-      f7syslog(LOG_CRIT, "%s@%d-Error:setup testing %d\n", thisFile, __LINE__, ret);
+      f7syslog(LOG_CRIT, "%s@%d-setup testing %d\n", thisFile, __LINE__, ret);
       return ret;
   }
 #endif
@@ -207,7 +213,7 @@ int hcom_manager_setup(FAR struct mtd_dev_s *mtd)
   ret = hcom_comms_setup();
   if (ret < 0)
   {
-      f7syslog(LOG_CRIT, "%s@%d-Error:setup Host comms %d\n", thisFile, __LINE__, ret);
+      f7syslog(LOG_CRIT, "%s@%d-setup Host comms %d\n", thisFile, __LINE__, ret);
       return ret;
   }
 
@@ -219,7 +225,7 @@ int hcom_manager_setup(FAR struct mtd_dev_s *mtd)
   ret = hcom_fs_init_file_system();
   if (ret < 0)
   {
-      f7syslog(LOG_CRIT, "%s@%d-Error:setup F/S helper %d\n", thisFile, __LINE__, ret);
+      f7syslog(LOG_CRIT, "%s@%d-setup F/S helper %d\n", thisFile, __LINE__, ret);
       return ret;
   }
 #endif
@@ -229,7 +235,7 @@ int hcom_manager_setup(FAR struct mtd_dev_s *mtd)
   ret = hcom_mono_pipe_setup();
   if (ret < 0)
   {
-      f7syslog(LOG_CRIT, "%s@%d-Error:setup mono pipe %d\n", thisFile, __LINE__, ret);
+      f7syslog(LOG_CRIT, "%s@%d-setup mono pipe %d\n", thisFile, __LINE__, ret);
       return ret;
   }
 #endif
@@ -239,7 +245,7 @@ int hcom_manager_setup(FAR struct mtd_dev_s *mtd)
   ret = hcom_remote_dbg_setup();
   if (ret < 0)
   {
-      f7syslog(LOG_CRIT, "%s@%d-Error:setup remote dbg %d\n", thisFile, __LINE__, ret);
+      f7syslog(LOG_CRIT, "%s@%d-setup remote dbg %d\n", thisFile, __LINE__, ret);
       return ret;
   }
 #endif
@@ -247,7 +253,7 @@ int hcom_manager_setup(FAR struct mtd_dev_s *mtd)
   ret = hcom_esp32_uart_comms_setup();
   if (ret < 0)
   {
-    f7syslog(LOG_CRIT, "%s@%d-Error:setup esp32 comms %d\n", thisFile, __LINE__, ret);
+    f7syslog(LOG_CRIT, "%s@%d-setup esp32 comms %d\n", thisFile, __LINE__, ret);
     return ret;
   }
 
@@ -255,7 +261,7 @@ int hcom_manager_setup(FAR struct mtd_dev_s *mtd)
   ret = hcom_manager_create_worker_thread();
   if (ret < 0)
   {
-      f7syslog(LOG_CRIT, "%s@%d-Error:create hcom thread %s\n", thisFile, __LINE__, ret);
+      f7syslog(LOG_CRIT, "%s@%d-create hcom thread %s\n", thisFile, __LINE__, ret);
       return ret;
   }
 
@@ -297,7 +303,7 @@ int hcom_manager_create_worker_thread()
   ret = pthread_create(&thread, &attr, hcom_comms_recv_worker_pthread, NULL);
   if (ret < 0)
   {
-    f7syslog(LOG_CRIT, "%s@%d-Error:%s thread err:%d\n", thisFile, __LINE__,
+    f7syslog(LOG_CRIT, "%s@%d-%s thread err:%d\n", thisFile, __LINE__,
             HCOM_THREAD_NAME_HCOM_RECEIVE, ret);
     return ret;
   }
@@ -319,14 +325,14 @@ FAR void *hcom_comms_recv_worker_pthread(FAR void *arg)
 
 #if HCOM_TASK_SHOW_CREATED_TASK_INFORMATION > 0
   struct tcb_s *rtcb = this_task();
-  syslog(0, "Created Task:'%s' as #%d\n", rtcb->name, getpid());
+  syslog(0, "Task:'%s' as #%d\n", rtcb->name, getpid());
 #endif
 
   // Creates Semaphore for utils
   ret = hcom_utils_setup();
   if (ret < 0)
   {
-    f7syslog(LOG_CRIT, "%s@%d-Error:setup hcom utils:%d\n", thisFile, __LINE__, ret);
+    f7syslog(LOG_CRIT, "%s@%d-setup hcom utils:%d\n", thisFile, __LINE__, ret);
     return ret;
   }
 
@@ -334,7 +340,7 @@ FAR void *hcom_comms_recv_worker_pthread(FAR void *arg)
   ret = hcom_comms_msg_builder_setup();
   if (ret < 0)
   {
-    f7syslog(LOG_CRIT, "%s@%d-Error:setup host msg builder:%d\n", thisFile, __LINE__, ret);
+    f7syslog(LOG_CRIT, "%s@%d-setup host msg builder:%d\n", thisFile, __LINE__, ret);
     return ret;
   }
 
@@ -344,7 +350,7 @@ FAR void *hcom_comms_recv_worker_pthread(FAR void *arg)
   ret = hcom_comms_recv_thread_loop();
   if (ret < 0)
   {
-    f7syslog(LOG_CRIT, "%s@%d-Error:%s thread exit:%d\n", thisFile, __LINE__, HCOM_THREAD_NAME_HCOM_RECEIVE, ret);
+    f7syslog(LOG_CRIT, "%s@%d-%s thread exit:%d\n", thisFile, __LINE__, HCOM_THREAD_NAME_HCOM_RECEIVE, ret);
   }
 
   hcom_manager_shutdown();

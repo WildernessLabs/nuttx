@@ -94,7 +94,7 @@ int hcom_mono_pipe_setup()
   _pipeTextMsg = malloc(HCOM_MONO_APP_DBG_PIPE_BUFF_SIZE);
   if(_pipeTextMsg == NULL)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:Mem alloc\n", thisFile, __LINE__);
+    f7syslog(LOG_ERR, "%s@%d-Mem alloc\n", thisFile, __LINE__);
     return -1;
   }
     
@@ -111,7 +111,7 @@ void hcom_mono_pipe_shutdown()
   int ret = close(_pipe_fd);
   if(ret < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:%s close, errno:%d\n",
+    f7syslog(LOG_ERR, "%s@%d-%s close, errno:%d\n",
       thisFile, __LINE__, HCOM_MONO_MAIN_STDOUT_PIPE, errno);
   }
   _pipe_fd = -1;
@@ -128,7 +128,7 @@ int hcom_mono_pipe_create_infrastructure()
   ret = mkfifo(HCOM_MONO_MAIN_STDOUT_PIPE, 0666);
   if (ret < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:%s mkfifo, errno:%d\n",
+    f7syslog(LOG_ERR, "%s@%d-%s mkfifo, errno:%d\n",
       thisFile, __LINE__, HCOM_MONO_MAIN_STDOUT_PIPE, errno);
     return -1;
   }
@@ -137,7 +137,7 @@ int hcom_mono_pipe_create_infrastructure()
   ret = hcom_mono_pipe_make_thread();
   if (ret < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:thread create, errno:%d\n",
+    f7syslog(LOG_ERR, "%s@%d-thread create, errno:%d\n",
       thisFile, __LINE__, errno);
     return -1;
   }
@@ -174,7 +174,7 @@ int hcom_mono_pipe_make_thread()
     ret = pthread_create(&thread, &attr, hcom_mono_pipe_pthread, NULL);
     if (ret < 0)
     {
-      f7syslog(LOG_CRIT, "%s@%d-Error:Thread create error:%d\n", thisFile, __LINE__, ret);
+      f7syslog(LOG_CRIT, "%s@%d-Thread create error:%d\n", thisFile, __LINE__, ret);
       return ret;
     }
   #endif
@@ -208,7 +208,7 @@ FAR void *hcom_mono_pipe_pthread(FAR void *arg)
   
 #if HCOM_TASK_SHOW_CREATED_TASK_INFORMATION > 0
   struct tcb_s *rtcb = this_task();
-  syslog(0, "Created Task:'%s' as #%d\n", rtcb->name, getpid());
+  syslog(0, "Task:'%s' as #%d\n", rtcb->name, getpid());
 #endif
 
   while(!_shutting_down)
@@ -247,7 +247,7 @@ int hcom_mono_pipe_open_pipe()
   _pipe_fd = open(HCOM_MONO_MAIN_STDOUT_PIPE, O_RDONLY);
   if (_pipe_fd < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:open %s, errno:%d\n",
+    f7syslog(LOG_ERR, "%s@%d-open %s, errno:%d\n",
       thisFile, __LINE__, HCOM_MONO_MAIN_STDOUT_PIPE, errno);
     return -1;
   }
@@ -270,7 +270,7 @@ int hcom_mono_pipe_read_pipe_loop()
     readReturn = read(_pipe_fd, buffer, HCOM_MONO_APP_DBG_PIPE_BUFF_SIZE);
     if (readReturn < 0 )
     {
-      f7syslog(LOG_ERR, "%s@%d-Error:pipe read, readReturn:%d, errno:%d\n",
+      f7syslog(LOG_ERR, "%s@%d-pipe read, readReturn:%d, errno:%d\n",
         thisFile, __LINE__, readReturn, errno);
       return -errno;
     }
@@ -287,7 +287,6 @@ int hcom_mono_pipe_read_pipe_loop()
 
       // Send to host
       int ret = hcom_mono_pipe_route_mono_text_stdout(buffer, readReturn);
-
       if (ret < 0 )
       {
         if(ret == -EAGAIN)
@@ -300,7 +299,7 @@ int hcom_mono_pipe_read_pipe_loop()
           continue;
         }
 
-        f7syslog(LOG_ERR, "%s@%d-Error:stdout to host, ret:%d\n",
+        f7syslog(LOG_ERR, "%s@%d-stdout to host, ret:%d\n",
                 thisFile, __LINE__, ret);
         return ret;
       }
@@ -326,12 +325,8 @@ int hcom_mono_pipe_route_mono_text_stdout(uint8_t *recvBuff, int numbBytes)
     availBufSpace = numbBytes;
 
   // Includes ctrl chararacter
-  int ret = hcom_comms_send_raw_string_msg(HCOM_HOST_REQUEST_TEXT_MONO_MSG, 0, (char *) recvBuff, availBufSpace);
-  if (ret < 0)
-  {
-    if(ret != -EAGAIN)      // Transmission blocked. EAGAIN is not an error it means the message was blocked
-      f7syslog(LOG_ERR, "%s@%d-Host xmit err:%d\n", thisFile, __LINE__, ret);
-  }
+  int ret = hcom_comms_send_raw_string_msg(HCOM_HOST_REQUEST_TEXT_MONO_MSG, 0, (char *) recvBuff,
+          availBufSpace, thisFile, __LINE__);
 
   return ret;
 }

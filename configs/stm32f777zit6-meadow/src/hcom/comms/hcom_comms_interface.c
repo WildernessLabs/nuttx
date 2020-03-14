@@ -153,7 +153,7 @@ int hcom_comms_recv_thread_loop()
     if (ret < 0)
     {
       // TODO - should not output messages every second (timer or count).
-      f7syslog(LOG_ERR, "%s@%d-Error:connection not made, %d\n", thisFile, __LINE__, ret);
+      f7syslog(LOG_ERR, "%s@%d-connection not made, %d\n", thisFile, __LINE__, ret);
       sleep(1);   // Can't leave this loop or all hcom will stop
       continue;
     }
@@ -211,7 +211,10 @@ int hcom_comms_open_connection()
 
   while(!_shutting_down)
   {
-    // Open reader
+    // Open reader. file_open differs from 'open' in that open uses the
+    // file descriptor that is part of a task where as file_open allows
+    // for a "disconnected" file descriptor which can be shared by different
+    // threads/tasks.
     int ret = file_open(&_connection_read_file_fd, deviceName, O_RDONLY);
     if(ret >= 0)
     {
@@ -297,7 +300,7 @@ bool hcom_comms_receive_data()
       }
       else
       {
-        f7syslog(LOG_ERR, "%s@%d-Error:HCOM recv error:%d\n", thisFile, __LINE__, readResult);        
+        f7syslog(LOG_ERR, "%s@%d-HCOM recv error:%d\n", thisFile, __LINE__, readResult);        
         delayBeforeRetry = false;    // No retry delay
       }
 
@@ -406,7 +409,7 @@ int hcom_comms_recv_timer_start(timer_t timerid, time_t sec)
   if (ret < 0)
   {
     int errorcode = errno;
-    f7syslog(LOG_ERR, "%s@%d-Error:setting timer errno:%d\n", thisFile, __LINE__, errorcode);
+    f7syslog(LOG_ERR, "%s@%d-setting timer errno:%d\n", thisFile, __LINE__, errorcode);
     return -errorcode;
   }
   return OK;
@@ -435,7 +438,7 @@ int hcom_comms_recv_timer_init()
   if (ret < 0)
   {
     int errorcode = errno;
-    f7syslog(LOG_ERR, "%s@%d-Error:create timer errno:%d\n", thisFile, __LINE__, errorcode);
+    f7syslog(LOG_ERR, "%s@%d-create timer errno:%d\n", thisFile, __LINE__, errorcode);
     return -errorcode;
   }
 
@@ -448,7 +451,7 @@ int hcom_comms_recv_timer_init()
   if (ret < 0)
   {
     int errorcode = errno;
-    f7syslog(LOG_ERR, "%s@%d-Error:attach signal errno:%d\n", thisFile, __LINE__, errorcode);
+    f7syslog(LOG_ERR, "%s@%d-attach signal errno:%d\n", thisFile, __LINE__, errorcode);
     return -errorcode;
   }
   return OK;
@@ -492,7 +495,7 @@ static int hcom_comms_open_connection_write(void)
     O_WRONLY|O_NONBLOCK);
   if(ret < 0)
   {
-    f7syslog_x(LOG_ERR, "%s@%d-Error:Open USB write errno:%d\n", thisFile, __LINE__, errno);
+    f7syslog_x(LOG_ERR, "%s@%d-Open USB write errno:%d\n", thisFile, __LINE__, errno);
     return ret;
   }
 
@@ -642,7 +645,7 @@ int hcom_comms_transmit_to_host(FAR uint8_t xmitBuffer[], size_t xmitLength)
       return writeRet;
     }
 
-    f7syslog_x(LOG_ERR, "%s@%d-Error:USB  host write, error:%d\n", thisFile, __LINE__, writeRet);
+    f7syslog_x(LOG_ERR, "%s@%d-USB  host write, error:%d\n", thisFile, __LINE__, writeRet);
 
     file_close(&_connection_write_file_fd);
     _is_connection_write_open = false;

@@ -144,7 +144,7 @@ int hcom_fs_init_file_system()
         HCOM_NUMBER_OF_FS_PARTITIONS);
   if (ret < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:F/S creation, error:%d\n", thisFile, __LINE__, ret);
+    f7syslog(LOG_ERR, "%s@%d-F/S creation, error:%d\n", thisFile, __LINE__, ret);
     return ret;
   }
 #endif
@@ -172,7 +172,7 @@ int hcom_fs_create_partition_initialize_and_mount_fs(FAR struct mtd_dev_s *mtd,
   ret = hcom_fs_init_partitions(mtd, numbOfPartitions);
   if (ret < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:partitioning FS:%d\n", thisFile, __LINE__, ret);
+    f7syslog(LOG_ERR, "%s@%d-partitioning FS:%d\n", thisFile, __LINE__, ret);
     return ret;
   }
 
@@ -188,7 +188,7 @@ int hcom_fs_create_partition_initialize_and_mount_fs(FAR struct mtd_dev_s *mtd,
     ret = hcom_fs_smartfs_init_part_fs(partCounter, _mtdPartArray[partCounter]);
     if (ret < 0)
     {
-      f7syslog(LOG_ERR, "%s@%d-Error:SmartFS error:%d while initg part %d\n",
+      f7syslog(LOG_ERR, "%s@%d-SmartFS error:%d while initg part %d\n",
                thisFile, __LINE__, ret, partCounter);
       return ret;
     }
@@ -198,7 +198,7 @@ int hcom_fs_create_partition_initialize_and_mount_fs(FAR struct mtd_dev_s *mtd,
     ret = hcom_fs_littlefs_init_part_fs(partCounter, _mtdPartArray[partCounter]);
     if (ret < 0)
     {
-      f7syslog(LOG_ERR, "%s@%d-Error:LittleFS error:%d part:%d\n",
+      f7syslog(LOG_ERR, "%s@%d-LittleFS error:%d part:%d\n",
                thisFile, __LINE__, ret, partCounter);
       return ret;
     }
@@ -210,14 +210,14 @@ int hcom_fs_create_partition_initialize_and_mount_fs(FAR struct mtd_dev_s *mtd,
 
   for (partCounter = 0; partCounter < numbOfPartitions; partCounter++)
   {
-    hcom_comms_dbg(LOG_DEBUG, "%s@%d-Error:Mount part %d\n", thisFile, __LINE__, partCounter);
+    hcom_comms_dbg(LOG_DEBUG, "%s@%d-Mount part %d\n", thisFile, __LINE__, partCounter);
 
     // Attempt to mount - if fails format and attempt to mount again
 #if defined(CONFIG_FS_SMARTFS)
     ret = hcom_fs_smartfs_mount_format(partCounter);
     if (ret < 0)
     {
-      f7syslog(LOG_ERR, "%s@%d-Error:mount failed '%s' to '%s' for type '%s' on PartitionID %d Error %d\n",
+      f7syslog(LOG_ERR, "%s@%d-mount failed '%s' to '%s' for type '%s' on PartitionID %d error:%d\n",
             thisFile, __LINE__, HCOM_FILE_MOUNT_POINT_SOURCE, HCOM_FILE_MOUNT_POINT_TARGET,
             HCOM_FILE_MOUNT_FILE_SYS_TYPE, partitionId, ret);
       return ret;
@@ -226,7 +226,7 @@ int hcom_fs_create_partition_initialize_and_mount_fs(FAR struct mtd_dev_s *mtd,
     ret = hcom_fs_littlefs_mount_format(partCounter);
     if (ret < 0)
     {
-      f7syslog(LOG_ERR, "%s@%d-Error:mount failed '%s' to '%s' for type '%s', Part %d Error:%d\n",
+      f7syslog(LOG_ERR, "%s@%d-mount failed '%s' to '%s' for type '%s', Part %d error:%d\n",
             thisFile, __LINE__, HCOM_FILE_MOUNT_POINT_SOURCE, HCOM_FILE_MOUNT_POINT_TARGET,
             HCOM_FILE_MOUNT_FILE_SYS_TYPE, partCounter, ret);
     }
@@ -330,7 +330,7 @@ int hcom_fs_get_list_files_in_partition(uint32_t partitionId)
   dirp = opendir(fullMountPtName);
   if ( !dirp )
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:opendir(\"%s\") errno:%d\n",
+    f7syslog(LOG_ERR, "%s@%d-opendir(\"%s\") errno:%d\n",
               thisFile, __LINE__, fullMountPtName, errno);
     free(fullMountPtName);
     free(singleFileFound);
@@ -393,7 +393,7 @@ int hcom_fs_get_list_files_in_partition_and_crc(uint32_t partitionId)
   dirp = opendir(fullMountPtName);
   if ( !dirp )
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:opendir '%s' errno:%d\n",
+    f7syslog(LOG_ERR, "%s@%d-opendir '%s' errno:%d\n",
             thisFile, __LINE__, fullMountPtName, errno);
 
     free(fullMountPtName);
@@ -461,7 +461,7 @@ int hcom_fs_init_partitions(FAR struct mtd_dev_s *mtd, uint32_t numberOfPartitio
   _totalPartitionCount = numberOfPartitions;
   if (numberOfPartitions > HCOM_FLASH_FILE_PARTITION_COUNT_MAX)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:%d parts too big %d max\n",
+    f7syslog(LOG_ERR, "%s@%d-%d parts too big %d max\n",
              thisFile, __LINE__, numberOfPartitions, HCOM_FLASH_FILE_PARTITION_COUNT_MAX);
     return -1;
   }
@@ -470,7 +470,7 @@ int hcom_fs_init_partitions(FAR struct mtd_dev_s *mtd, uint32_t numberOfPartitio
   int ret = mtd->ioctl(mtd, MTDIOC_GEOMETRY, (unsigned long)((uintptr_t)&geo));
   if (ret < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:Read MTD geometry:%d\n", thisFile, __LINE__, ret);
+    f7syslog(LOG_ERR, "%s@%d-Read MTD geometry:%d\n", thisFile, __LINE__, ret);
     return ret;
   }
 
@@ -489,7 +489,7 @@ int hcom_fs_init_partitions(FAR struct mtd_dev_s *mtd, uint32_t numberOfPartitio
     offset += nPages;
     if (!_mtdPartArray[partitionId])
     {
-      f7syslog(LOG_ERR, "%s@%d-Error:mtd_partition, offset=%lu nPages=%lu\n",
+      f7syslog(LOG_ERR, "%s@%d-mtd_partition, offset=%lu nPages=%lu\n",
                thisFile, __LINE__, (unsigned long)offset, (unsigned long)nPages);
     }
 
@@ -512,7 +512,7 @@ int hcom_fs_initialize_proxy(uint32_t partitionId)
   ret = hcom_fs_smartfs_init_part_fs(partitionId, _mtdPartArray[partitionId]);
   if (ret < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:SmartFS error:%d while initializing partition %d\n",
+    f7syslog(LOG_ERR, "%s@%d-SmartFS error:%d while initializing partition %d\n",
               thisFile, __LINE__, ret, partitionId);
     return ret;
   }
@@ -523,7 +523,7 @@ int hcom_fs_initialize_proxy(uint32_t partitionId)
   ret = hcom_little_support_init_master_fs(_mtd);
   if (ret < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:LittleFS error:%d\n",
+    f7syslog(LOG_ERR, "%s@%d-LittleFS error:%d\n",
               thisFile, __LINE__, ret);
     return ret;
   }
@@ -531,7 +531,7 @@ int hcom_fs_initialize_proxy(uint32_t partitionId)
   ret = hcom_fs_littlefs_init_part_fs(partitionId, _mtdPartArray[partitionId]);
   if (ret < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:LittleFS error:%d\n",
+    f7syslog(LOG_ERR, "%s@%d-LittleFS error:%d\n",
               thisFile, __LINE__, ret, partitionId);
     return ret;
   }
@@ -543,7 +543,7 @@ int hcom_fs_initialize_proxy(uint32_t partitionId)
   ret = hcom_fs_smartfs_init_part_fs(0, _mtd);
   if (ret < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:SmartFS error:%d\n",
+    f7syslog(LOG_ERR, "%s@%d-SmartFS error:%d\n",
               thisFile, __LINE__, ret);
     return ret;
   }
@@ -554,7 +554,7 @@ int hcom_fs_initialize_proxy(uint32_t partitionId)
   ret = hcom_little_support_init_master_fs(_mtd);
   if (ret < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:LittleFS error:%d\n",
+    f7syslog(LOG_ERR, "%s@%d-LittleFS error:%d\n",
               thisFile, __LINE__, ret);
     return ret;
   }
@@ -563,7 +563,7 @@ int hcom_fs_initialize_proxy(uint32_t partitionId)
   ret = hcom_fs_littlefs_init_part_fs(0, _mtd);
   if (ret < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:LittleFS error:%d\n",
+    f7syslog(LOG_ERR, "%s@%d-LittleFS error:%d\n",
               thisFile, __LINE__, ret);
     return ret;
   }
@@ -585,7 +585,7 @@ int hcom_fs_format_proxy(uint32_t partitionId)
   ret = hcom_fs_smartfs_format(partitionId);
   if (ret < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:Format SmartFS for part %d\n",
+    f7syslog(LOG_ERR, "%s@%d-Format SmartFS for part %d\n",
             thisFile, __LINE__, partitionId);
     return ret;
   }
@@ -597,7 +597,7 @@ int hcom_fs_format_proxy(uint32_t partitionId)
                                             HCOM_FILE_MOUNT_FORCE_FORMAT);
   if (ret < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:Format of LittleFS for part %d\n",
+    f7syslog(LOG_ERR, "%s@%d-Format of LittleFS for part %d\n",
               thisFile, __LINE__, partitionId);
     return ret;
   }

@@ -93,7 +93,8 @@ HCOM_SRCS = hcom/hcom_startup_manager.c \
  hcom/esp32/hcom_esp32_proc_xmit.c \
  hcom/esp32/hcom_esp32_proc_recv.c \
  hcom/esp32/hcom_esp32_execute.c \
- hcom/esp32/hcom_esp32_proc_util.c
+ hcom/esp32/hcom_esp32_proc_util.c \
+ hcom/aux-comms/hcom_host_trace_ramlog.c
 
 ifeq ($(CONFIG_HCOM_MTD_STRESS_TEST),y)
 HCOM_SRCS += hcom/commands/hcom_exec_rqst_testing.c

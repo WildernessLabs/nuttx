@@ -96,14 +96,14 @@ int hcom_esp32_recv_setup_lazy()
   _esp_cir_buf = (struct hcom_esp32_cir_buffer_s *)malloc(sizeof(struct hcom_esp32_cir_buffer_s));
   if (_esp_cir_buf == NULL)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:circular buffer allocation failed\n", thisFile, __LINE__);
+    f7syslog(LOG_ERR, "%s@%d-circular buffer allocation failed\n", thisFile, __LINE__);
     return -1;
   }
 
   int ret = hcom_esp32_buf_init(_esp_cir_buf, HCOM_ESP_COMMS_MAX_ESP_PACKET_SIZE * 4);
   if (ret == HCOM_ESP32_BUF_INIT_FAILED)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:hcom_esp32_buf_init failed:%D\n", thisFile, __LINE__, ret);
+    f7syslog(LOG_ERR, "%s@%d-hcom_esp32_buf_init failed:%D\n", thisFile, __LINE__, ret);
     return -1;
   }
 
@@ -114,7 +114,7 @@ int hcom_esp32_recv_setup_lazy()
   if (recvMsgQueue == (mqd_t)-1)
   {
     int errcode = get_errno();
-    f7syslog(LOG_ERR, "%s@%d-Error:mq_open(%s) failed: %d\n", thisFile, __LINE__, HCOM_ESP_COMMS_MSG_QUEUE_NAME, errcode);
+    f7syslog(LOG_ERR, "%s@%d-mq_open(%s) failed: %d\n", thisFile, __LINE__, HCOM_ESP_COMMS_MSG_QUEUE_NAME, errcode);
     return -errcode;
   }
 
@@ -166,7 +166,7 @@ int hcom_esp32_recv_handle_data(uint8_t *esp32_read_buffer, ssize_t bytesToAdd)
       {
           // The buffer to receive the message is too small? Probably 
           // corrupted data in buffer.
-          hcom_comms_dbg(LOG_DEBUG, "%s@%d-Error:No room for new data. Need %d\n",
+          hcom_comms_dbg(LOG_DEBUG, "%s@%d-No room for new data. Need %d\n",
                   thisFile, __LINE__, bytesToAdd);
           usleep(10 * 1000);
           DEBUGASSERT(false);
@@ -212,7 +212,7 @@ int PullAndProcessAllPackets()
       if (ret == HCOM_ESP32_BUF_GET_DEST_NO_ROOM)
       {
           // The buffer to accept the packets is too small! Need to enlarge
-          hcom_comms_dbg(LOG_DEBUG, "%s@%d-Error:No room for data Need %d\n",
+          hcom_comms_dbg(LOG_DEBUG, "%s@%d-No room for data Need %d\n",
                   thisFile, __LINE__, packetLength);
           usleep(10 * 1000);
           DEBUGASSERT(false);
@@ -389,7 +389,7 @@ int hcom_esp32_recv_handle_bin_packet(uint8_t *binRecvdData, ssize_t binRecvdLen
       // EPERM (1). Message queue not opened for writing.
       // EMSGSIZE (122). 'msglen' was greater than the maxmsgsize attribute of the message queue.
       // EINTR (4). The call was interrupted by a signal handler.
-      f7syslog(LOG_ERR, "%s@%d-Error:mq_send %d\n", thisFile, __LINE__, errn);
+      f7syslog(LOG_ERR, "%s@%d-mq_send %d\n", thisFile, __LINE__, errn);
     }
   }
 

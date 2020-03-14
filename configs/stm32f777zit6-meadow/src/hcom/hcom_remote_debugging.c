@@ -135,7 +135,7 @@ int hcom_remote_dbg_create_infrastructure()
   ret = hcom_remote_dbg_make_thread();
   if (ret < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:%s thread create, errno:%d\n",
+    f7syslog(LOG_ERR, "%s@%d-%s thread create, errno:%d\n",
       thisFile, __LINE__, HCOM_REMOTE_DBG_SOCKET_NAME, errno);
     return -1;
   }
@@ -170,7 +170,7 @@ int hcom_remote_dbg_make_thread()
     ret = pthread_create(&thread, &attr, hcom_remote_dbg_pthread, NULL);
     if (ret < 0)
     {
-      f7syslog(LOG_CRIT, "%s@%d-Error:create thread, err:%d\n", thisFile, __LINE__, ret);
+      f7syslog(LOG_CRIT, "%s@%d-create thread, err:%d\n", thisFile, __LINE__, ret);
       return ret;
     }
   #endif
@@ -191,7 +191,7 @@ FAR void *hcom_remote_dbg_pthread(FAR void *arg)
 
 #if HCOM_TASK_SHOW_CREATED_TASK_INFORMATION > 0
   struct tcb_s *rtcb = this_task();
-  syslog(0, "Created Task:'%s' as #%d\n", rtcb->name, getpid());
+  syslog(0, "Task:'%s' as #%d\n", rtcb->name, getpid());
 #endif
 
   dbgSock = (struct remote_dbg_session *)kmm_zalloc(sizeof(struct remote_dbg_session));
@@ -414,17 +414,12 @@ int hcom_remote_dbg_read_mono_send_to_host_loop(struct remote_dbg_session *dbgSo
 #endif
 
     // Forward data as-is to host
-    ret = hcom_comms_send_simple_buffer_msg(HCOM_MDOW_REQUEST_DEBUGGER_MSG, 
-          0, 0, recvBuffer, nBytesRead);
-    if(ret < 0)
-    {
-      f7syslog(LOG_ERR, "%s@%d-Error:send dbg to host:%d errno:%d\n", thisFile, __LINE__, ret, errno);
-      return ret;
-    }
+    ret = hcom_comms_send_raw_string_msg(HCOM_MDOW_REQUEST_DEBUGGER_MSG, 0, (char *)recvBuffer, nBytesRead,
+            thisFile, __LINE__);
     // syslog(0, "Server: %d bytes forwarded to host\n", nBytesRead); usleep(50 * 1000);
   }
 
-  return OK;
+  return ret;
 }
 
 //==========================================================================
@@ -437,7 +432,7 @@ void hcom_remote_dbg_recv_host_send_to_mono(const uint8_t *recvPayload,
   int nbytessent = psock_send(transmit_sd, recvPayload, recvPayloadSize, 0);
   if(nbytessent < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:message to host, errno:%d\n",
+    f7syslog(LOG_ERR, "%s@%d-message to host, errno:%d\n",
             thisFile, __LINE__, errno);
   }
 

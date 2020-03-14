@@ -114,7 +114,7 @@ void hcom_exec_flash_fs_partition(uint32_t numberOfPartitions)
   ret = hcom_fs_init_partitions(_mtd, numberOfPartitions);
   if (ret < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:Flash part/format:%d\n", , thisFile, __LINE__, ret);
+    f7syslog(LOG_ERR, "%s@%d-Flash part/format:%d\n", , thisFile, __LINE__, ret);
     stringLen = snprintf(hostMsg, HCOM_SHORT_HOST_STRING_BUFF_LENGTH, "Partition and format completed for QSPI Flash with error %d.", ret);
   }
   else
@@ -158,7 +158,7 @@ void hcom_exec_flash_fs_mount(uint32_t partitionId)
   if (ret < 0)
   {
 #ifdef CONFIG_MTD_PARTITION
-    f7syslog(LOG_ERR, "%%s@%d-Error:mounting '%s' to '%s' for type '%s' on PartitionID %d err:%d\n",
+    f7syslog(LOG_ERR, "%%s@%d-mounting '%s' to '%s' for type '%s' on PartitionID %d err:%d\n",
              thisFile, __LINE__, HCOM_FILE_MOUNT_POINT_SOURCE, HCOM_FILE_MOUNT_POINT_TARGET,
              HCOM_FILE_MOUNT_FILE_SYS_TYPE, partitionId, ret);
 
@@ -167,7 +167,7 @@ void hcom_exec_flash_fs_mount(uint32_t partitionId)
                       HCOM_FILE_MOUNT_POINT_SOURCE, HCOM_FILE_MOUNT_POINT_TARGET,
                       HCOM_FILE_MOUNT_FILE_SYS_TYPE, partitionId, ret);
 #else
-    f7syslog(LOG_ERR, "%s@%d-Error:mounting '%s' to '%s' for type '%s' err:%d\n",
+    f7syslog(LOG_ERR, "%s@%d-mounting '%s' to '%s' for type '%s' err:%d\n",
              thisFile, __LINE__, HCOM_FILE_MOUNT_POINT_SOURCE, HCOM_FILE_MOUNT_POINT_TARGET,
              HCOM_FILE_MOUNT_FILE_SYS_TYPE, ret);
 
@@ -208,7 +208,7 @@ void hcom_exec_flash_fs_initialize(uint32_t partitionId)
   ret = hcom_fs_initialize_proxy(partitionId);
   if (ret < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d Error:Init F/S err:%d\n", thisFile, __LINE__, ret);
+    f7syslog(LOG_ERR, "%s@%d Init F/S err:%d\n", thisFile, __LINE__, ret);
 
     stringLen = snprintf(hostMsg, HCOM_SHORT_HOST_STRING_BUFF_LENGTH,
             "Init F/S failed with error:%d", ret);
@@ -245,7 +245,7 @@ void hcom_exec_flash_fs_format(uint32_t partitionId)
   ret = hcom_fs_format_proxy(partitionId);
   if (ret < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d Error:Format F/S:%d\n", thisFile, __LINE__, ret);
+    f7syslog(LOG_ERR, "%s@%d Format F/S:%d\n", thisFile, __LINE__, ret);
     
     stringLen = snprintf(hostMsg, HCOM_SHORT_HOST_STRING_BUFF_LENGTH,
           "F/S Format failed with error %d", ret);
@@ -307,7 +307,7 @@ void hcom_exec_flash_fs_create(uint32_t numbOfPartitions)
   ret = hcom_fs_create_partition_initialize_and_mount_fs(_mtd, numbOfPartitions);
   if (ret < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:Creation of F/S error:%d\n", , thisFile, __LINE__, ret);
+    f7syslog(LOG_ERR, "%s@%d-Creation of F/S error:%d\n", , thisFile, __LINE__, ret);
     stringLen = snprintf(hostMsg, HCOM_SHORT_HOST_STRING_BUFF_LENGTH,
           "Create F/S failed:%d", ret);
   }
@@ -393,7 +393,7 @@ void hcom_exec_flash_fs_get_file_list(uint32_t partitionId, bool getChecksum)
   
   if(ret != OK)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:No results:%d\n", thisFile, __LINE__, ret);
+    f7syslog(LOG_ERR, "%s@%d-No results:%d\n", thisFile, __LINE__, ret);
 
     int stringLen = snprintf(hostMsg, HCOM_SHORT_HOST_STRING_BUFF_LENGTH, "No results available");
     DEBUGASSERT(stringLen < HCOM_SHORT_HOST_STRING_BUFF_LENGTH);
@@ -451,7 +451,7 @@ void hcom_exec_flash_fs_flash_bulk_erase(uint32_t userData)
   ret = _mtd->ioctl(_mtd, MTDIOC_BULKERASE, 0);
   if (ret < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:IOCTL MTDIOC_BULKERASE Err:%d\n",
+    f7syslog(LOG_ERR, "%s@%d-IOCTL MTDIOC_BULKERASE Err:%d\n",
         thisFile, __LINE__, ret);
     int stringLen = snprintf(hostMsg, HCOM_SHORT_HOST_STRING_BUFF_LENGTH,
           "Bulk Erase of QSPI Flash error %d.", ret);
@@ -486,7 +486,7 @@ void hcom_exec_flash_fs_flash_verify_erase(uint32_t userData)
   ret = _mtd->ioctl(_mtd, MTDIOC_GEOMETRY, (unsigned long)((uintptr_t)&geo));
   if (ret < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:Read geo for MTD:%d\n", thisFile, __LINE__, ret);
+    f7syslog(LOG_ERR, "%s@%d-Read geo for MTD:%d\n", thisFile, __LINE__, ret);
     return;
   }
 
@@ -518,7 +518,7 @@ void hcom_exec_flash_fs_flash_verify_erase(uint32_t userData)
     if (pagesRead == 0)
       break; // End of data
 
-    f7syslog(LOG_ERR, "%s@%d-Error:Expected %d pages but read %d\n",
+    f7syslog(LOG_ERR, "%s@%d-Expected %d pages but read %d\n",
             thisFile, __LINE__, writeable_pages_per_sector, pagesRead);
     break;
   }

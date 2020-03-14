@@ -60,6 +60,8 @@ static bool _shutting_down;
 static void hcom_comms_build_msg_header(uint16_t requestType, uint16_t extraData,
         uint32_t userData, uint8_t *xmitBuffer);
 static int hcom_comms_send_message(uint8_t * message, size_t messageLength);
+static int hcom_comms_send_simple_buffer_msg(uint16_t requestType, uint16_t extraData,
+        uint32_t userData, uint8_t *msgBuffer, size_t msgLen);
 
 /****************************************************************************
  * Public Functions
@@ -76,6 +78,7 @@ void hcom_comms_msg_builder_shutdown()
 }
 
 //=====================================================================
+// THIS IS THE FUNCTION THAT SHOULD BE USED WHEN JUST SENDING A HEADER
 // Just sends a header message and report the error here
 void hcom_comms_send_header_msg(uint16_t requestType, uint32_t userData,
       char *sourceFileName, int sourceLineNumber)
@@ -86,12 +89,15 @@ void hcom_comms_send_header_msg(uint16_t requestType, uint32_t userData,
 }
 
 //=====================================================================
-// Prepare a string for transmission and output the error message here
+// THIS IS THE FUNCTION THAT SHOULD BE USED IN MOST CASES
+// Prepare a simple line of text for transmission and output the error message here
 void hcom_comms_send_simple_string_msg(uint16_t requestType, uint32_t userData,
            char *shortText, char *sourceFileName, int sourceLineNumber)
 {
   // Need to remove any trailing cr/lf. If none found strcspn() finds terminating '\0'
-  // returning its offset
+  // returning its offset.
+  // Note: This finds the FIRST 0x0d 0x0a and the preceeding becomes the text to
+  // be sent, the reset is ignored.
   size_t trueStrLen = strcspn(shortText, "\r\n");
 
   int ret = hcom_comms_send_simple_buffer_msg(requestType, 0, userData, (uint8_t*) shortText, trueStrLen);
@@ -100,10 +106,17 @@ void hcom_comms_send_simple_string_msg(uint16_t requestType, uint32_t userData,
 }
 
 //=====================================================================
+// THIS IS THE FUNCTION THAT SHOULD BE USED WHEN SPECIAL CIRCUMSTANCES EXIST
 // Prepare a string for transmission and allow any character
-int hcom_comms_send_raw_string_msg(uint16_t requestType, uint32_t userData, char *shortText, size_t msgLength)
+int hcom_comms_send_raw_string_msg(uint16_t requestType, uint32_t userData, char *shortText, size_t msgLength,
+        char *sourceFileName, int sourceLineNumber)
 {
   int ret = hcom_comms_send_simple_buffer_msg(requestType, 0, userData, (uint8_t*) shortText, msgLength);
+  if (ret < 0)
+  {
+    if(ret != -EAGAIN)  // Transmission blocked. EAGAIN is not an error it means the message was blocked
+      f7syslog(LOG_ERR, "%s@%d-Host xmit err:%d\n", thisFile, __LINE__, ret);
+  }
   return ret;
 }
 

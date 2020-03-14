@@ -101,7 +101,7 @@
 
 //--------------------------------------------------------------------
 // Diagnostic aids
-#define HCOM_TASK_SHOW_CREATED_TASK_INFORMATION  0
+#define HCOM_TASK_SHOW_CREATED_TASK_INFORMATION  1
 
 // The code not compiled by this #define could be removed
 #define HCOM_IGNORE_UNNECESSARY_FILE_SYSTEM_COMMANDS
@@ -127,17 +127,21 @@
 
 // This pipe carries .Net Console.WriteLine output to Host via stdout
 #define HCOM_THREAD_PRIORITY_STDOUT_PIPE 120
-#define HCOM_THREAD_NAME_STDOUT_PIPE "DotNetText"
+#define HCOM_THREAD_NAME_STDOUT_PIPE "MonoText"
 
 // This thread is used for remote debugging mono apps
 #define HCOM_THREAD_PRIORITY_REMOTE_DBG 120
 #define HCOM_THREAD_NAME_REMOTE_DBG "RemoteDbg"
 
+// The ramlog is created by nuttx and contains syslog text
+#define HCOM_THREAD_PRIORITY_TRACE_RAMLOG 120
+#define HCOM_THREAD_NAME_TRACE_RAMLOG "RamlogRead"
+
 //---------------------------------------------------------------------
 
 // These define how long the receive thread waits before "waking up"
-// p-m TESTING #define HCOM_RECV_TIMEOUT_DEFAULT_SECONDS 30
-#define HCOM_RECV_TIMEOUT_DEFAULT_SECONDS (1 * 60 * 60) // once an hour report hcom thread running
+#define HCOM_RECV_TIMEOUT_DEFAULT_SECONDS 30
+// p-m TESTING #define HCOM_RECV_TIMEOUT_DEFAULT_SECONDS (1 * 60 * 60) // once an hour report hcom thread running
 #define HCOM_RECV_TIMEOUT_ACTIVE_SECONDS 5
 
 #define HCOM_CONNECTION_TIMEOUT_STARTUP 50 * 1000   // At startup we connect quickly
@@ -147,6 +151,9 @@
 
 #define HCOM_COMMUNICATIONS_DEVICE_NAME "/dev/ttyACM0"
 
+#define HCOM_TRACE_RAMLOG_DEVICE_NAME "/dev/ramlog"
+
+//---------------------------------------------------------------------
 #define HCOM_FLASH_FILE_PARTITION_COUNT_MAX 8
 
 #ifdef CONFIG_MTD_PARTITION
@@ -380,7 +387,7 @@ enum hcom_current_recv_action
     // Simple types
     HCOM_HOST_REQUEST_HEADER_MESSAGE          = 0x01 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,    // Just the header
     // Simple with mono debug data
-    HCOM_HOST_REQUEST_DEBUGGER_MSG            = 0x01 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_BINARY,
+    HCOM_HOST_REQUEST_MONO_DEBUGGER_MSG       = 0x01 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_BINARY,
     // Simple with some text message
     HCOM_HOST_REQUEST_TEXT_REJECTED           = 0x01 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT,
     HCOM_HOST_REQUEST_TEXT_ACCEPTED           = 0x02 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT,
@@ -392,7 +399,7 @@ enum hcom_current_recv_action
     HCOM_HOST_REQUEST_TEXT_CRC_MEMBER         = 0x08 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT,
     HCOM_HOST_REQUEST_TEXT_MONO_MSG           = 0x09 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT,
     HCOM_HOST_REQUEST_TEXT_DEVICE_INFO        = 0x0A | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT,
-    HCOM_HOST_REQUEST_TEXT_MEADOW_DIAG        = 0x0B | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT,
+    HCOM_HOST_REQUEST_TEXT_TRACE_MSG          = 0x0B | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT,
     HCOM_HOST_REQUEST_TEXT_RECONNECT          = 0x0C | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT,
   };
 
@@ -408,10 +415,11 @@ enum hcom_current_recv_action
 
   struct host_com_cir_buffer_s
   {
-    uint8_t *bottom; // bottom of buffer
-    uint8_t *top;    // top end of buffer
-    uint8_t *head;   // add data here
-    uint8_t *tail;   // remove from here
+    uint8_t *bottom;    // bottom of buffer
+    uint8_t *top;       // top end of buffer
+    uint8_t *head;      // add data here
+    uint8_t *tail;      // remove from here
+    uint8_t delimiter;  // custom message delimiter
   };
 
 #ifndef __ASSEMBLY__
@@ -450,8 +458,8 @@ extern "C"
           char *sourceFileName, int sourceLineNumber);
   void hcom_comms_send_simple_string_msg(uint16_t requestType, uint32_t userData, char *shortText,
           char *sourceFileName, int sourceLineNumber);
-  int hcom_comms_send_raw_string_msg(uint16_t requestType, uint32_t userData, char *shortText, size_t msgLength);
-  int hcom_comms_send_simple_buffer_msg(uint16_t requestType, uint16_t extraData, uint32_t userData, uint8_t *msgBuffer, size_t msgLen);
+  int hcom_comms_send_raw_string_msg(uint16_t requestType, uint32_t userData, char *shortText,
+          size_t msgLength, char *sourceFileName, int sourceLineNumber);
 
   // Save and Parse request
   int hcom_save_parse_request_setup(void);
@@ -486,8 +494,6 @@ extern "C"
   void hcom_exec_rqst_misc_enter_dfu_mode(uint32_t user_data);
   void hcom_exec_rqst_misc_change_trace_level(uint32_t userData);
   void hcom_exec_rqst_misc_enable_disable_nsh(uint32_t userData);
-  void hcom_exec_rqst_misc_no_trace_msg_to_host(uint32_t userData);
-  void hcom_exec_rqst_misc_send_trace_to_host(uint32_t userData);
 
   void hcom_exec_rqst_misc_mono_disable(uint32_t userData);
   void hcom_exec_rqst_misc_mono_enable(uint32_t userData);
@@ -542,7 +548,7 @@ extern "C"
   // Comms support, COBS encode and receive circular buffer
   size_t hcom_comms_cobs_encoder(uint8_t source[], size_t startingOffset, size_t length, uint8_t encoded[]);
   size_t hcom_comms_cobs_decoder(uint8_t encoded[], size_t length, uint8_t decoded[]);
-  int hcom_cirbuf_init(struct host_com_cir_buffer_s *hcom_cbuf, size_t totalCapacity);
+  int hcom_cirbuf_init(struct host_com_cir_buffer_s *hcom_cbuf, size_t totalCapacity, uint8_t delimiter);
   size_t hcom_cirbuf_avail_space(struct host_com_cir_buffer_s *hcom_cbuf);
   int hcom_cirbuf_add_bytes(struct host_com_cir_buffer_s *hcom_cbuf, uint8_t *newBytes, uint32_t bytesToAdd);
   int hcom_cirbuf_get_next_packet(struct host_com_cir_buffer_s *hcom_cbuf, uint8_t *packetBuffer,
@@ -567,15 +573,26 @@ extern "C"
   void hcom_utils_bbreg_bit_set(uint32_t regNumber, uint32_t value);
   bool hcom_utils_bbreg_bit_test(uint32_t regNumber, uint32_t value);
   void hcom_utils_bbreg_bit_clear(uint32_t regNumber, uint32_t value);
-  void hcom_utils_print_header(const uint8_t buffer[], const int bufLen, uint8_t logPriority);
   void hcom_utils_diag_print_buffer(const uint8_t packetBuffer[], const int bufLen, uint8_t logPriority);
   bool hcom_utils_boot_time_qemu_check(void);
   void hcom_utils_boot_time_mono_check(void);
   bool hcom_utils_is_mono_disabled(void);
   void f7syslog(int priority, FAR const IPTR char *fmt, ...);
   void f7syslog_x(int priority, FAR const IPTR char *fmt, ...);
-  void f7syslog_host(int priority, FAR const IPTR char *fmt, ...);
+  //p-m ramlog NOT NEEDED
+// void f7syslog_host(int priority, FAR const IPTR char *fmt, ...);
+  void hcom_utils_dbg_gpio_update_err_led(bool errLedOn);
+  void hcom_utils_dbg_gpio_update(uint8_t newValue, bool errFound);
+
   
+  // Ramlog to host
+  int hcom_trace_ramlog_setup(void);
+  void hcom_trace_ramlog_shutdown(void);
+  int hcom_trace_ramlog_make_thread(void);
+  void hcom_trace_ramlog_no_trace_msg_to_host(uint32_t userData);
+  void hcom_trace_ramlog_send_trace_to_host(uint32_t userData);
+
+
   // Testing utilities
   int hcom_exec_rqst_testing_setup(FAR struct mtd_dev_s *mtd);
   void hcom_exec_rqst_testing_flash_qspi_init(uint32_t userData);

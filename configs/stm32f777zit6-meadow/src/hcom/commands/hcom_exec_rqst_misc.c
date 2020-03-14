@@ -166,15 +166,15 @@ void hcom_exec_rqst_misc_enable_disable_nsh(uint32_t userData)
   {
     if(nsh_pid > 0)
     {
-      // This returns 0 (i.e. OK) but if NSH is relaunch, it's not useable.
+      // This call returns 0 (i.e. OK) but if NSH is relaunch, it's not useable.
       // Not supported by CLI at this time
-      ret = task_delete(nsh_pid);
+      task_delete(nsh_pid);
       nsh_pid = 0;
     }
   }
   else
   {
-    f7syslog(LOG_WARNING, "%s@%d-Value %d meaningless\n", thisFile, __LINE__, userData);
+    f7syslog(LOG_WARNING, "%s@%d-userData %d meaningless\n", thisFile, __LINE__, userData);
   }
 
   sendMsgToHost = "NSH enabled";
@@ -251,25 +251,6 @@ void hcom_exec_rqst_misc_mono_enable(uint32_t userData)
   up_systemreset();
 }
 
-//======================================================================================
-void hcom_exec_rqst_misc_send_trace_to_host(uint32_t userData)
-{
-  hcom_utils_bbreg_bit_set(HCOM_BATTERY_BACKED_REG_BIT_FLAGS, HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG);
-
-  char *sendMsgToHost = "Trace logs will be sent to host PC";
-  hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0,
-          sendMsgToHost, thisFile, __LINE__);
-}
-
-//======================================================================================
-void hcom_exec_rqst_misc_no_trace_msg_to_host(uint32_t userData)
-{  
-  char *sendMsgToHost = "Trece logs will not be sent to host PC";
-  hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0,
-          sendMsgToHost, thisFile, __LINE__);
-
-  hcom_utils_bbreg_bit_clear(HCOM_BATTERY_BACKED_REG_BIT_FLAGS, HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG);
-}
 
 //======================================================================================
 // The host has ask for the mono startup state
@@ -295,7 +276,7 @@ void hcom_exec_rqst_misc_get_device_info(uint32_t userData)
   csvDevInfo = malloc(HCOM_MAX_HOST_STRING_BUFF_LENGTH);
   if(csvDevInfo == NULL)
   {
-    f7syslog(LOG_ERR, "%s@%d-Error:Alloc failed\n", thisFile, __LINE__);
+    f7syslog(LOG_ERR, "%s@%d-Alloc failed\n", thisFile, __LINE__);
     stringLen = snprintf(csvDevInfo, HCOM_SHORT_HOST_STRING_BUFF_LENGTH,
             "Memory allocation error. No results will be sent");
     

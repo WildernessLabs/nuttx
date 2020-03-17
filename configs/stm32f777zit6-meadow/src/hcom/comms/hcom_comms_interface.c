@@ -244,8 +244,7 @@ int hcom_comms_open_connection()
 // is the only thread receiving via usb serial.
 bool hcom_comms_receive_data()
 {
-  hcom_comms_dbg(LOG_DEBUG, "Waiting for '%s' message\n",
-      HCOM_COMMUNICATIONS_DEVICE_NAME);
+  hcom_comms_dbg(LOG_DEBUG, "Waiting for '%s' message\n", HCOM_COMMUNICATIONS_DEVICE_NAME);
 
   // Stay in this loop forever
   while (!_shutting_down)
@@ -457,25 +456,6 @@ int hcom_comms_recv_timer_init()
   return OK;
 }
 
-//===================================================================================
-// Wait for the thread writing to exit
-static void hcom_comms_transmit_takesem(void)
-{
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-      ret = sem_wait(&_hostXmitSem);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
-}
-
 //=====================================================================
 static int hcom_comms_open_connection_write(void)
 {
@@ -490,17 +470,36 @@ static int hcom_comms_open_connection_write(void)
   // Based on observation - If O_NONBLOCK is not specified in the file_open call, the file_read
   // call blocks after writing some number of bytes. It's as if some internal buffer fills causing
   // the file_write call to begin blocking. This is not acceptable as the calling thread has other
-  // work to do.
-  ret = file_open(&_connection_write_file_fd, deviceName,
-    O_WRONLY|O_NONBLOCK);
+  // work to do. So, other measures have been added as can be seen.
+  ret = file_open(&_connection_write_file_fd, deviceName, O_WRONLY|O_NONBLOCK);
   if(ret < 0)
   {
-    f7syslog_x(LOG_ERR, "%s@%d-Open USB write errno:%d\n", thisFile, __LINE__, errno);
+    f7syslog(LOG_ERR, "%s@%d-Open USB write errno:%d\n", thisFile, __LINE__, errno);
     return ret;
   }
 
   _is_connection_write_open = true;
   return OK;
+}
+
+//==========================================================================
+// Below this point    p-m WHAT?
+//==========================================================================
+// Wait for the thread writing to exit
+static void hcom_comms_transmit_takesem(void)
+{
+  int ret;
+  do
+    {
+      /* Take the semaphore (perhaps waiting) */
+      ret = sem_wait(&_hostXmitSem);
+
+      /* The only case that an error should occur here is if the wait was
+       * awakened by a signal.
+       */
+      DEBUGASSERT(ret == OK || ret == -EINTR);
+    }
+  while (ret == -EINTR);
 }
 
 //=====================================================================
@@ -523,16 +522,6 @@ bool hcom_comms_is_host_xmit_blocked()
   // Last attempt was not blocked. Caller should attempt to send.
   if(!_lastXmitBlocked)
     return false;
-
-  // p-m THERE'S A BUG HERE.
-  // THIS CAN BE CALLED BEFORE THE SEMAPHORE HAS BEEN INITIALIZED.
-  // THE FIRST THREAD THAT MAKES THIS CALL IS THE NUTTX STARTUP THREAD
-  // WHICH IS ALWAYS TASK #1. OTHERS MAY FOLLOW. THE PROBLEM IS THAT
-  // THE INITIALIZATION CODE NEEDS TO BE CHANGES SUCH THAT THIS THIS
-  // IS NEVER CALLED BEFORE IT IS READY. THIS MAY NOT BE A SIMPLE
-  // FIX. SEE hcom_common_utils.C @320 FOR MORE INFO.
-  // THIS IS TO BE FIXED IN WORK ITEM #475 - Turn off UART Debug output on Pins 12/13
-  // WHEN ALL OF DIAGNOSTIC MESSAGING IS IN FOCUS
 
   // Only one thread at a time can send to host
   hcom_comms_transmit_takesem();
@@ -644,8 +633,6 @@ int hcom_comms_transmit_to_host(FAR uint8_t xmitBuffer[], size_t xmitLength)
       sem_post(&_hostXmitSem);
       return writeRet;
     }
-
-    f7syslog_x(LOG_ERR, "%s@%d-USB  host write, error:%d\n", thisFile, __LINE__, writeRet);
 
     file_close(&_connection_write_file_fd);
     _is_connection_write_open = false;

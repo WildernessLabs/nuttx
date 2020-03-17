@@ -88,8 +88,6 @@ static int hcom_trace_ramlog_save_recvd_data(uint8_t recvBuff[], const ssize_t r
 static int hcom_trace_ramlog_pull_all_packets_from_buffer(void);
 static int hcom_trace_ramlog_route_trace_text(uint8_t *buffer, int readReturn);
 
-//static void hacklog(int priority, FAR const IPTR char *fmt, ...);
-
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
@@ -113,12 +111,7 @@ void hcom_trace_ramlog_shutdown()
 {
   _shutting_down = true;
 
-  int ret = close(_ramlog_fd);
-  if(ret < 0)
-  {
-    f7syslog_x(LOG_ERR, "%s@%d-%s close, errno:%d\n",
-      thisFile, __LINE__, HCOM_TRACE_RAMLOG_DEVICE_NAME, errno);
-  }
+  close(_ramlog_fd);
   _ramlog_fd = -1;
 
   free(_singleMsgBuf);
@@ -137,7 +130,7 @@ int hcom_trace_ramlog_lazy_initialization()
   ret = hcom_trace_ramlog_make_thread();
   if (ret < 0)
   {
-    f7syslog_x(LOG_ERR, "%s@%d-thread create, errno:%d\n",
+    hacklog(LOG_ERR, "%s@%d-thread create, errno:%d\n",
       thisFile, __LINE__, errno);
     return -1;
   }
@@ -146,7 +139,7 @@ int hcom_trace_ramlog_lazy_initialization()
   _ramlog_cbuf = (struct host_com_cir_buffer_s *)malloc(sizeof(struct host_com_cir_buffer_s));
   if (_ramlog_cbuf == NULL)
   {
-    f7syslog_x(LOG_ERR, "%s@%d-cir buf alloc\n", thisFile, __LINE__);
+    hacklog(LOG_ERR, "%s@%d-cir buf alloc\n", thisFile, __LINE__);
     return -1;
   }
     
@@ -156,7 +149,7 @@ int hcom_trace_ramlog_lazy_initialization()
           HCOM_TRACE_RAMLOG_READ_BUFF_SIZE * 4, 0x0a);
   if (result == HCOM_CIR_BUF_INIT_FAILED)
   {
-    f7syslog_x(LOG_ERR, "%s@%d-hcom_cirbuf_init\n", thisFile, __LINE__);
+    hacklog(LOG_ERR, "%s@%d-hcom_cirbuf_init\n", thisFile, __LINE__);
     return -1;
   }
   
@@ -164,7 +157,7 @@ int hcom_trace_ramlog_lazy_initialization()
   _singleMsgBuf = malloc(HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN);
   if (_singleMsgBuf == NULL)
   {
-    f7syslog_x(LOG_ERR, "%s@%d-cir buf alloc\n", thisFile, __LINE__);
+    hacklog(LOG_ERR, "%s@%d-cir buf alloc\n", thisFile, __LINE__);
     return -1;
   }
 
@@ -201,7 +194,7 @@ int hcom_trace_ramlog_make_thread()
     ret = pthread_create(&thread, &attr, hcom_trace_ramlog_pthread, NULL);
     if (ret < 0)
     {
-      f7syslog_x(LOG_CRIT, "%s@%d-Thread create error:%d\n", thisFile, __LINE__, ret);
+      hacklog(LOG_CRIT, "%s@%d-Thread create error:%d\n", thisFile, __LINE__, ret);
       return ret;
     }
   #endif
@@ -221,7 +214,7 @@ FAR void *hcom_trace_ramlog_pthread(FAR void *arg)
   
 #if HCOM_TASK_SHOW_CREATED_TASK_INFORMATION > 0
   struct tcb_s *rtcb = this_task();
-  syslog(0, "Task:'%s' as #%d\n", rtcb->name, getpid());
+  hacklog(0, "Task:'%s' as #%d\n", rtcb->name, getpid());
 #endif
 
   while(!_shutting_down)
@@ -229,14 +222,14 @@ FAR void *hcom_trace_ramlog_pthread(FAR void *arg)
     ret = hcom_trace_ramlog_open_ramlog();
     if(ret < 0)
     {
-      hcom_trace_ramlog_close_and_delay(false);      
+      hcom_trace_ramlog_close_and_delay(false);
       continue;
     }
 
     ret = hcom_trace_ramlog_read_ramlog_loop();
     if(ret < 0)
     {
-      hcom_trace_ramlog_close_and_delay(true);      
+      hcom_trace_ramlog_close_and_delay(true);
     }
   }
 
@@ -270,19 +263,19 @@ int hcom_trace_ramlog_open_ramlog()
     _ramlog_fd = -1;
   }
 
-// syslog(0, "%s@%d OPENING %s\n", thisFile, __LINE__, "/meadow/RamlogTest.txt");
-// syslog(0, "%s@%d OPENING %s\n", thisFile, __LINE__, HCOM_TRACE_RAMLOG_DEVICE_NAME);
+hacklog(0, "%s@%d OPENING %s\n", thisFile, __LINE__, HCOM_TRACE_RAMLOG_DEVICE_NAME);
 
   _ramlog_fd = open(HCOM_TRACE_RAMLOG_DEVICE_NAME, O_RDONLY);
+  // p-m for testing with a text file
  //  _ramlog_fd = open("/meadow/RamlogTest.txt", O_RDONLY);
   if (_ramlog_fd < 0)
   {
-    f7syslog_x(LOG_ERR, "%s@%d-open %s, errno:%d\n",
+    hacklog(LOG_ERR, "%s@%d-open %s, errno:%d\n",
       thisFile, __LINE__, HCOM_TRACE_RAMLOG_DEVICE_NAME, errno);
     return -1;
   }
 
-// syslog(0, "%s@%d SUCCESS %s\n", thisFile, __LINE__, "/meadow/RamlogTest.txt");
+hacklog(0, "%s@%d SUCCESS %s\n", thisFile, __LINE__, "/meadow/RamlogTest.txt");
   return OK;
 }
 
@@ -290,46 +283,72 @@ int hcom_trace_ramlog_open_ramlog()
 // This function reads the data put into the ramlog.
 int hcom_trace_ramlog_read_ramlog_loop()
 {
+  #define HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING 1
+  #define HCOM_TRACE_RAMLOG_POLL_WAIT_DELAY (10 * 1000)   // 10 seconds
+  struct pollfd fds[HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING];
   uint8_t buffer[HCOM_TRACE_RAMLOG_READ_BUFF_SIZE];
   ssize_t readReturn;
+  int ret;
+  int EOFCounter = 0;
 
-int loopCnt = 0;
-  // Read ramlog
+  memset(fds, 0, sizeof(struct pollfd) * HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING);
+
+  fds[0].fd      = _ramlog_fd;
+  fds[0].events  = POLLIN;
+  fds[0].revents = 0;
+
   while (!_shutting_down)
   {
-loopCnt++;
-//hcom_utils_dbg_gpio_update(loopCnt, false);
-
-// syslog(0, "%s@%d READing %s\n", thisFile, __LINE__, HCOM_TRACE_RAMLOG_DEVICE_NAME);
-
     // Blocks till data is available
-    readReturn = read(_ramlog_fd, buffer, HCOM_TRACE_RAMLOG_READ_BUFF_SIZE);
-    if (readReturn < 0 )
+    ret = poll(fds, HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING, HCOM_TRACE_RAMLOG_POLL_WAIT_DELAY);
+    if (ret < 0 || ret > HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING)
     {
-      f7syslog_x(LOG_ERR, "%s@%d-ramlog read, readReturn:%d, errno:%d\n",
-        thisFile, __LINE__, readReturn, errno);
-      return -errno;
-    }
-    else if (readReturn == 0)    // EOF
-    {
-      f7syslog_x(LOG_WARNING, "%s@%d-ramlog read EOF\n", thisFile, __LINE__);
-      sleep(1);
+      // Check errno for one of these values
+      // EBADF. An invalid file descriptor was given in one of the sets.
+      // EFAULT. The fds address is invalid
+      // EINTR. A signal occurred before any requested event.
+      // EINVAL. The nfds value exceeds a system limit.
+      // ENOMEM. There was no space to allocate internal data structures.
+      // ENOSYS. One or more of the drivers supporting the file descriptor does not support the poll method.
+      hacklog(LOG_ERR, "%s@%d ramlog poll ret:%d errno:%d\n", thisFile, __LINE__, ret, errno);
       continue;
     }
-    else
+    else if (ret == 0)
     {
-      // Successful ramlog read message
-      hcom_comms_dbg(LOG_DEBUG, "%s@%d-Read %d from ramlog\n", thisFile, __LINE__, readReturn);
-// syslog(0, "%s@%d-Read %d from ramlog\n", thisFile, __LINE__, readReturn);
-// hcom_utils_diag_print_buffer(buffer, readReturn, 0);
-
-      int ret = hcom_trace_ramlog_save_recvd_data(buffer, readReturn);
-      if (ret < 0 )
-      {
-        f7syslog_x(LOG_ERR, "%s@%d-to host, ret:%d\n", thisFile, __LINE__, ret);
-        return ret;
-      }
+      // Timeout - which is being ignored
+      DEBUGASSERT(fds[0].revents == 0);
+      continue;
     }
+
+    // Data must be available
+    DEBUGASSERT(ret == 1);
+    DEBUGASSERT(fds[0].revents == POLLIN);    // POLLIN = 0x01
+
+    while(!_shutting_down)
+    {
+      // Read ramlog
+      readReturn = read(_ramlog_fd, buffer, HCOM_TRACE_RAMLOG_READ_BUFF_SIZE);
+      if (readReturn < 0 )
+      {
+        // Error
+        hacklog(LOG_ERR, "%s@%d ramlog read readReturn:%d errno:%d\n", thisFile, __LINE__, readReturn, errno);
+        return -errno;    // Close connection and try again
+      }
+      else if (readReturn == 0)
+      {
+        // All data read, need to wait for poll to indicate more data
+        break;
+      }
+      else
+      {
+        // Successful ramlog read message, so throw data into circular buffer
+        ret = hcom_trace_ramlog_save_recvd_data(buffer, readReturn);
+        if (ret < 0 )
+        {
+          return ret;
+        }
+      }
+    }   // while (!_shutting_down)
   }   // while (!_shutting_down)
 
   return OK;
@@ -345,20 +364,20 @@ int hcom_trace_ramlog_save_recvd_data(uint8_t recvBuff[], const ssize_t recvByte
   if (recvByteCnt == 0)
     return OK;
 
-  // This loop is used to add raw data to the buffer until no more will fit
+  // This loop is used to add received data to the buffer until no more will fit
   for (;;)
   {
     result = hcom_cirbuf_add_bytes(_ramlog_cbuf, recvBuff, recvByteCnt);
     if(result == HCOM_CIR_BUF_ADD_SUCCESS)
     {
-      hcom_comms_dbg(LOG_DEBUG, "%s@%d-%d bytes added to cir buf\n", thisFile, __LINE__, recvByteCnt);
+      // hcom_comms_dbg(LOG_DEBUG, "%s@%d-%d bytes added to cir buf\n", thisFile, __LINE__, recvByteCnt);
       break;
     }
     else if (result == HCOM_CIR_BUF_ADD_WONT_FIT)
     {
       // Wasn't possible to put these bytes in the buffer. We need to
       // pull packets and retry to add this data
-      f7syslog_x(LOG_WARNING, "%s@%d-Warning:No room in cir buf, pull and retry\n",
+      hacklog(LOG_WARNING, "%s@%d-Warning:No room in cir buf, pull and retry\n",
               thisFile, __LINE__);
       result = hcom_trace_ramlog_pull_all_packets_from_buffer();
       if (result == HCOM_CIR_BUF_GET_FOUND_MSG)
@@ -366,24 +385,24 @@ int hcom_trace_ramlog_save_recvd_data(uint8_t recvBuff[], const ssize_t recvByte
 
       if (result == HCOM_CIR_BUF_GET_NONE_FOUND || result == HCOM_CIR_BUF_GET_DEST_NO_ROOM)
       {
-        f7syslog_x(LOG_ERR, "%s@%d-pull packets from cir buf %d\n",
+        hacklog(LOG_ERR, "%s@%d-pull packets from cir buf %d\n",
                  thisFile, __LINE__, result);
         return OK;    // Report and throw data away.
       }
     }
     else if (result == HCOM_CIR_BUF_ADD_BAD_ARG)
     {
-      f7syslog_x(LOG_ERR, "%s@%d-Bad argument to cir buf\n", thisFile, __LINE__);
+      hacklog(LOG_ERR, "%s@%d-Bad argument to cir buf\n", thisFile, __LINE__);
       return OK; // Report and throw data away and keep going
     }
     else
     {
-      f7syslog_x(LOG_ERR, "%s@%d-Unknown cir buf add err:%d\n", thisFile, __LINE__, result);
+      hacklog(LOG_ERR, "%s@%d-Unknown cir buf add err:%d\n", thisFile, __LINE__, result);
       return OK; // Report and throw data away and keep going
     }
   }
 
-  // See if there's a complete message
+  // See if there's 1 or more complete message(s)
   result = hcom_trace_ramlog_pull_all_packets_from_buffer();
   return result;
 }
@@ -419,7 +438,7 @@ int hcom_trace_ramlog_pull_all_packets_from_buffer()
     }
     else
     {
-      f7syslog_x(LOG_ERR, "%s@%d-processing data:%d\n", thisFile, __LINE__, result);
+      hacklog(LOG_ERR, "%s@%d-processing data:%d\n", thisFile, __LINE__, result);
       return result;
     }
   }
@@ -427,22 +446,20 @@ int hcom_trace_ramlog_pull_all_packets_from_buffer()
 }
 
 //=================================================================
-// Ship the text from here to USB and to host PC
+// Ship the text to USB and to host PC
+// This is the LAST POSSIBLE place that hacklog can be called  
 int hcom_trace_ramlog_route_trace_text(uint8_t *recvBuff, int numbBytes)
 {
   if(numbBytes == 0)
     return OK;
 
   // Look for 0x0d & 0x0a at the end and shorten message length accordingly
-  if(recvBuff[numbBytes - 1] == 0x0a)
+  if(recvBuff[numbBytes - 1] == 0x0a || recvBuff[numbBytes - 1] == 0x0d)
     numbBytes--;
-  if(recvBuff[numbBytes - 1] == 0x0d)
+  if(recvBuff[numbBytes - 1] == 0x0a || recvBuff[numbBytes - 1] == 0x0d)
     numbBytes--;
-  
+
   DEBUGASSERT(numbBytes < HCOM_MAX_HOST_STRING_BUFF_LENGTH);
-  
-// syslog(0, "%s@%d Sending to host\n", thisFile, __LINE__);
-// hcom_utils_diag_print_buffer(recvBuff, numbBytes, 0);
 
   // Entire message sent, includes ctrl chararacters
   int ret = hcom_comms_send_raw_string_msg(HCOM_HOST_REQUEST_TEXT_TRACE_MSG, 0, (char *) recvBuff,
@@ -450,17 +467,6 @@ int hcom_trace_ramlog_route_trace_text(uint8_t *recvBuff, int numbBytes)
   if(ret == -EAGAIN)
     return ret;
     
-  // int availBufSpace;
-  // // Make sure message fits in allocated buffer, if not, truncate
-  // if(numbBytes >= HCOM_MAX_HOST_STRING_BUFF_LENGTH)
-  //   availBufSpace = HCOM_MAX_HOST_STRING_BUFF_LENGTH - 1;
-  // else
-  //   availBufSpace = numbBytes;
-  
-  // recvBuff[availBufSpace] = '\0';   // Make into a C string
-  // hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_TRACE_MSG, 0,
-  //         (char *) recvBuff, thisFile, __LINE__);
-
   return OK;
 }
 
@@ -468,7 +474,7 @@ int hcom_trace_ramlog_route_trace_text(uint8_t *recvBuff, int numbBytes)
 // Called from Meadow.CLI
 void hcom_trace_ramlog_send_trace_to_host(uint32_t userData)
 {
-// syslog(0, "%s@%d START Trace\n", thisFile, __LINE__);
+hacklog(0, "%s@%d START Trace\n", thisFile, __LINE__);
 
 // p-m not while testing!!!!
 //  hcom_utils_bbreg_bit_set(HCOM_BATTERY_BACKED_REG_BIT_FLAGS, HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG);
@@ -487,37 +493,10 @@ void hcom_trace_ramlog_no_trace_msg_to_host(uint32_t userData)
 {
   // p-m Nice feature if this could kill thread and shut down this processing
 
-// syslog(0, "%s@%d STOP trace\n", thisFile, __LINE__);
+hacklog(0, "%s@%d STOP trace\n", thisFile, __LINE__);
   hcom_utils_bbreg_bit_clear(HCOM_BATTERY_BACKED_REG_BIT_FLAGS, HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG);
 
   char *sendMsgToHost = "Trace logs not sent to PC";
   hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0,
           sendMsgToHost, thisFile, __LINE__);
 }
-
-// p-m
-//===================================================================
-// Can't use syslog because that's what this code is all about
-//===================================================================
-// void hacklog(int priority, FAR const IPTR char *fmt, ...)
-// {
-//   va_list args;
-//   va_start(args, fmt);
-
-//   char *hostMsg;
-//   hostMsg = malloc(HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN);
-//   if(hostMsg == NULL)
-//   {
-//     //f7syslog_x(LOG_ERR, "%s@%d-memory allocation error\n", thisFile, __LINE__);
-//     va_end(args);
-//     return;
-//   }
-
-//   int stringLen = vsnprintf(hostMsg, HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN - 1, fmt, args);
-//   va_end(args);
-//   // The snprintf return is considered to be written completely if and only if the returned value
-//   // is non-negative and less than buf_size.
-//   DEBUGASSERT(stringLen < HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN);
-//   hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_TRACE_MSG, 0, hostMsg, thisFile, __LINE__);
-//   free(hostMsg);
-// }

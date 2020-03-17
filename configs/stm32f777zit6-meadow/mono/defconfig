@@ -6,7 +6,6 @@
 # modifications.
 #
 # CONFIG_NET_LOCAL_DGRAM is not set
-# CONFIG_RAMLOG_NONBLOCKING is not set
 # CONFIG_READLINE_ECHO is not set
 CONFIG_ARCH="arm"
 CONFIG_ARCH_BOARD="stm32f777zit6-meadow"

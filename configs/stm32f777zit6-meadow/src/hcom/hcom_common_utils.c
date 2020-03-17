@@ -55,10 +55,10 @@
 /****************************************************************************
  * Private Data
  ****************************************************************************/
+
 // The g_syslog_mask is external and set by NuttX. Don't make static
 uint8_t g_syslog_mask;
 static pid_t _hcom_pid = 0;
-static uint8_t _callTestCnt = 0;    // p-m DEBUGGING
 
 /****************************************************************************
  * Private Function Prototypes
@@ -74,7 +74,6 @@ static void hcom_utils_dbg_gpio_init(void);
 int hcom_utils_setup()
 {
   _hcom_pid  = getpid();
-  //_callTestCnt = 0;
   return OK;
 }
 
@@ -207,7 +206,7 @@ void hcom_utils_diag_print_buffer(const uint8_t buffer[], const int bufLen, uint
   int hexOffset;
   int asciiOffset;
 
-  // There are offsets used in lineBuffer
+  // One line at a time
   for (rowStartOffset = 0; rowStartOffset < bufLen; rowStartOffset += HCOM_UTIL_BYTES_PER_LINE)
   {
     memset(lineBuff, 0x20, HCOM_UTIL_DISPLAY_LENGTH);
@@ -259,6 +258,43 @@ void hcom_utils_diag_print_buffer(const uint8_t buffer[], const int bufLen, uint
 }
 
 //===================================================================
+// With ramlog enabled, can't use syslog because it will cause "feedback",
+// every syslog message will generated another ramlog message.
+// So we go directly to the host without going via syslog.
+//===================================================================
+void hacklog(int priority, FAR const IPTR char *fmt, ...)
+{
+  //return;
+  va_list args;
+  va_start(args, fmt);
+
+  char *hostMsg;
+  hostMsg = malloc(HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN);
+  if(hostMsg == NULL)
+  {
+    hacklog(LOG_ERR, "%s@%d-memory allocation error\n", __FILE__, __LINE__);
+    va_end(args);
+    return;
+  }
+
+  int stringLen = vsnprintf(hostMsg, HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN - 1, fmt, args);
+  va_end(args);
+  // The snprintf return is considered to be written completely if and only if the returned value
+  // is non-negative and less than buf_size.
+  DEBUGASSERT(stringLen < HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN);
+
+  // Look for 0x0d & 0x0a at the end and shorten message length accordingly
+  if(hostMsg[stringLen - 1] == 0x0a || hostMsg[stringLen - 1] == 0x0d)
+    stringLen--;
+  if(hostMsg[stringLen - 1] == 0x0a || hostMsg[stringLen - 1] == 0x0d)
+    stringLen--;
+
+  hcom_comms_send_raw_string_msg(HCOM_HOST_REQUEST_TEXT_TRACE_MSG, 0, (char *) hostMsg,
+          stringLen, __FILE__, __LINE__);
+  free(hostMsg);
+}
+
+//===================================================================
 // Use this for syslog calls that cannot call f7syslog without introducing
 // a recursive call loop that never ends or to report errors related to
 // sending to hcom
@@ -282,9 +318,7 @@ void f7syslog(int priority, FAR const IPTR char *fmt, ...)
   if ((g_syslog_mask & LOG_MASK(priority)) == 0)
     return;   // Nothing to do
 
-_callTestCnt++;
-hcom_utils_dbg_gpio_update(_callTestCnt, false);
-
+  // Forward to nuttx syslog
   va_list args;
   va_start(args, fmt);
   vsyslog(priority, fmt, args);
@@ -376,18 +410,19 @@ void hcom_utils_dbg_gpio_init()
 }
 
 //=================================================================
-void hcom_utils_dbg_gpio_update_err_led(bool errLedOn)
+void hcom_utils_dbg_gpio_update_led(bool ledOn)
 {
-  // Note: Low (false) turns led on for open drain
-  stm32_gpiowrite(HCOM_ONBOARD_D08_PIN_OUTPUT, !errLedOn);
+  // Note: Low (false) turns led on for an open drain
+  stm32_gpiowrite(HCOM_ONBOARD_D08_PIN_OUTPUT, !ledOn);
 }
 
 //=================================================================
 // Assumes gpio (D2-D5 on meadow) that can output 0-15 as binary
-void hcom_utils_dbg_gpio_update(uint8_t newValue, bool errFound)
+void hcom_utils_dbg_gpio_update(uint8_t newValue, bool ledOn)
 {
   hcom_utils_dbg_gpio_init();
   
+  // Note: Low (false) turns led on for an open drain
   stm32_gpiowrite(HCOM_ONBOARD_D00_PIN_OUTPUT, (newValue & 0x01) > 0 ?  false : true);
   stm32_gpiowrite(HCOM_ONBOARD_D01_PIN_OUTPUT, (newValue & 0x02) > 0 ?  false : true);
   stm32_gpiowrite(HCOM_ONBOARD_D02_PIN_OUTPUT, (newValue & 0x04) > 0 ?  false : true);
@@ -398,19 +433,18 @@ void hcom_utils_dbg_gpio_update(uint8_t newValue, bool errFound)
   stm32_gpiowrite(HCOM_ONBOARD_D07_PIN_OUTPUT, (newValue & 0x80) > 0 ?  false : true);
 
   // Give time to see the results
-  if(errFound)
+  if(ledOn)
   {
-    for(int i = 0; i < 10; i++)
+    for(int i = 0; i < 5; i++)
     {
-      stm32_gpiowrite(HCOM_ONBOARD_D08_PIN_OUTPUT, !errFound);
-      usleep(250 * 1000);
-      stm32_gpiowrite(HCOM_ONBOARD_D08_PIN_OUTPUT, errFound);
-      usleep(250 * 1000);
+      hcom_utils_dbg_gpio_update_led(i % 2 == 0 ? true : false);
+      usleep(100 * 1000);
     }
+    hcom_utils_dbg_gpio_update_led(false);
   }
   else
   {
-    hcom_utils_dbg_gpio_update_err_led(false);
-    //usleep(300 * 1000);
+    hcom_utils_dbg_gpio_update_led(false);
+    usleep(250 * 1000);
   }
 }

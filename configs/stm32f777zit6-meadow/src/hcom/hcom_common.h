@@ -140,7 +140,9 @@
 //---------------------------------------------------------------------
 
 // These define how long the receive thread waits before "waking up"
+// p-m DON'T FORGET
 #define HCOM_RECV_TIMEOUT_DEFAULT_SECONDS 30
+// #define HCOM_RECV_TIMEOUT_DEFAULT_SECONDS (5 * 60)    // 5 minutes
 // p-m TESTING #define HCOM_RECV_TIMEOUT_DEFAULT_SECONDS (1 * 60 * 60) // once an hour report hcom thread running
 #define HCOM_RECV_TIMEOUT_ACTIVE_SECONDS 5
 
@@ -581,8 +583,8 @@ extern "C"
   void f7syslog_x(int priority, FAR const IPTR char *fmt, ...);
   //p-m ramlog NOT NEEDED
 // void f7syslog_host(int priority, FAR const IPTR char *fmt, ...);
-  void hcom_utils_dbg_gpio_update_err_led(bool errLedOn);
-  void hcom_utils_dbg_gpio_update(uint8_t newValue, bool errFound);
+  void hcom_utils_dbg_gpio_update_led(bool ledOn);
+  void hcom_utils_dbg_gpio_update(uint8_t newValue, bool ledOn);
 
   
   // Ramlog to host
@@ -591,6 +593,7 @@ extern "C"
   int hcom_trace_ramlog_make_thread(void);
   void hcom_trace_ramlog_no_trace_msg_to_host(uint32_t userData);
   void hcom_trace_ramlog_send_trace_to_host(uint32_t userData);
+  void hacklog(int priority, FAR const IPTR char *fmt, ...);
 
 
   // Testing utilities

@@ -109,8 +109,8 @@
 // To reduce Meadow.OS size "syslog(LOG_DEBUG, ...);  messages are optional
 #define HCOM_COMMS_DEBUG 0
 #if HCOM_COMMS_DEBUG > 0
-#define hcom_comms_dbg(...) f7syslog(__VA_ARGS__)
-#define hcom_comms_dbg_x(...) f7syslog_x(__VA_ARGS__)
+#define hcom_comms_dbg(...) hcom_utils_f7syslog(__VA_ARGS__)
+#define hcom_comms_dbg_x(...) hcom_utils_f7syslog_x(__VA_ARGS__)
 #else
 #define hcom_comms_dbg(...)
 #define hcom_comms_dbg_x(...)
@@ -579,22 +579,22 @@ extern "C"
   bool hcom_utils_boot_time_qemu_check(void);
   void hcom_utils_boot_time_mono_check(void);
   bool hcom_utils_is_mono_disabled(void);
-  void f7syslog(int priority, FAR const IPTR char *fmt, ...);
-  void f7syslog_x(int priority, FAR const IPTR char *fmt, ...);
+  void hcom_utils_directlog(int priority, FAR const IPTR char *fmt, ...);
+  void hcom_utils_f7syslog(int priority, FAR const IPTR char *fmt, ...);
+  void hcom_utils_f7syslog_x(int priority, FAR const IPTR char *fmt, ...);
   //p-m ramlog NOT NEEDED
 // void f7syslog_host(int priority, FAR const IPTR char *fmt, ...);
-  void hcom_utils_dbg_gpio_update_led(bool ledOn);
+  void hcom_utils_dbg_gpio_led_update(bool ledOn);
   void hcom_utils_dbg_gpio_update(uint8_t newValue, bool ledOn);
 
   
   // Ramlog to host
+#if defined (CONFIG_RAMLOG_SYSLOG)
   int hcom_trace_ramlog_setup(void);
   void hcom_trace_ramlog_shutdown(void);
-  int hcom_trace_ramlog_make_thread(void);
+#endif
   void hcom_trace_ramlog_no_trace_msg_to_host(uint32_t userData);
   void hcom_trace_ramlog_send_trace_to_host(uint32_t userData);
-  void hacklog(int priority, FAR const IPTR char *fmt, ...);
-
 
   // Testing utilities
   int hcom_exec_rqst_testing_setup(FAR struct mtd_dev_s *mtd);

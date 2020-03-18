@@ -529,7 +529,7 @@ void hcom_exec_rqst_testing_flash_qspi_read(uint32_t userData)
 
 void hcom_exec_rqst_testing_developer_1(uint32_t userData)
 {
-  f7syslog(LOG_WARNING, "%s not implemented\n", __func__);
+  hcom_utils_f7syslog(LOG_WARNING, "%s not implemented\n", __func__);
 
   // // This code call using 'hcom thread'
   // int ret;
@@ -573,7 +573,7 @@ void hcom_exec_rqst_testing_developer_1(uint32_t userData)
   // dirp = opendir(HCOM_FILE_MOUNT_POINT_TARGET);
   // if ( !dirp )
   // {
-  //   f7syslog(LOG_ERR, "ERROR: opendir(\"%s\") failed with errno=%d\n", HCOM_FILE_MOUNT_POINT_TARGET, errno);
+  //   hcom_utils_f7syslog(LOG_ERR, "opendir(\"%s\") failed with errno=%d\n", HCOM_FILE_MOUNT_POINT_TARGET, errno);
   // }
 
   // closedir(dirp);
@@ -616,7 +616,7 @@ void hcom_exec_rqst_testing_developer_1(uint32_t userData)
 // //---------------
 void hcom_exec_rqst_testing_developer_2(uint32_t userData)
 {
-  f7syslog(LOG_WARNING, "%s not implemented\n", __func__);
+  hcom_utils_f7syslog(LOG_WARNING, "%s not implemented\n", __func__);
 
   //free(memTest);
   
@@ -667,7 +667,7 @@ void hcom_exec_rqst_testing_developer_3(uint32_t userData)
 //=============================================================
 void hcom_exec_rqst_testing_developer_4(uint32_t userData)
 {
-  f7syslog(LOG_WARNING, "%s not implemented\n", __func__);
+  hcom_utils_f7syslog(LOG_WARNING, "%s not implemented\n", __func__);
 
 // int ret;
   

@@ -50,6 +50,8 @@
 #include <../sched/sched/sched.h>
 #endif
 
+#if defined (CONFIG_RAMLOG_SYSLOG)
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
@@ -67,6 +69,7 @@ static char *thisFile = __FILE__;
 
 static bool _shutting_down;
 static int _ramlog_fd;
+static bool _trace_logging_requested;
 static struct host_com_cir_buffer_s *_ramlog_cbuf;
 static bool _trace_ramlog_initialized;
 static uint8_t *_singleMsgBuf;
@@ -81,6 +84,7 @@ static FAR void *hcom_trace_ramlog_pthread(FAR void *arg);
 #endif
 
 static int hcom_trace_ramlog_lazy_initialization(void);
+static int hcom_trace_ramlog_make_thread(void);
 static int hcom_trace_ramlog_open_ramlog(void);
 static void hcom_trace_ramlog_close_and_delay(bool closeNeeded);
 static int hcom_trace_ramlog_read_ramlog_loop(void);
@@ -95,12 +99,15 @@ int hcom_trace_ramlog_setup()
 {
   _shutting_down = false;
   _trace_ramlog_initialized = false;
+  _ramlog_fd = -1;
+  _trace_logging_requested = false;
 
-  // If tracing needed on restart, initialize
-  bool traceToHost = hcom_utils_bbreg_bit_test(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
-          HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG);
-  if (traceToHost)
+  // If tracing needed on restart, initialize now
+  if (hcom_utils_bbreg_bit_test(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
+          HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG))
+  {
     return hcom_trace_ramlog_lazy_initialization();
+  }
   
   return OK;
 }
@@ -119,6 +126,7 @@ void hcom_trace_ramlog_shutdown()
 }
 
 //==========================================================================
+// Because this feature is rarely used we initialize only on request
 int hcom_trace_ramlog_lazy_initialization()
 {
   int ret;
@@ -130,7 +138,7 @@ int hcom_trace_ramlog_lazy_initialization()
   ret = hcom_trace_ramlog_make_thread();
   if (ret < 0)
   {
-    hacklog(LOG_ERR, "%s@%d-thread create, errno:%d\n",
+    hcom_utils_directlog(LOG_ERR, "%s@%d-thread create, errno:%d\n",
       thisFile, __LINE__, errno);
     return -1;
   }
@@ -139,7 +147,7 @@ int hcom_trace_ramlog_lazy_initialization()
   _ramlog_cbuf = (struct host_com_cir_buffer_s *)malloc(sizeof(struct host_com_cir_buffer_s));
   if (_ramlog_cbuf == NULL)
   {
-    hacklog(LOG_ERR, "%s@%d-cir buf alloc\n", thisFile, __LINE__);
+    hcom_utils_directlog(LOG_ERR, "%s@%d-cir buf alloc\n", thisFile, __LINE__);
     return -1;
   }
     
@@ -149,7 +157,7 @@ int hcom_trace_ramlog_lazy_initialization()
           HCOM_TRACE_RAMLOG_READ_BUFF_SIZE * 4, 0x0a);
   if (result == HCOM_CIR_BUF_INIT_FAILED)
   {
-    hacklog(LOG_ERR, "%s@%d-hcom_cirbuf_init\n", thisFile, __LINE__);
+    hcom_utils_directlog(LOG_ERR, "%s@%d-hcom_cirbuf_init\n", thisFile, __LINE__);
     return -1;
   }
   
@@ -157,7 +165,7 @@ int hcom_trace_ramlog_lazy_initialization()
   _singleMsgBuf = malloc(HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN);
   if (_singleMsgBuf == NULL)
   {
-    hacklog(LOG_ERR, "%s@%d-cir buf alloc\n", thisFile, __LINE__);
+    hcom_utils_directlog(LOG_ERR, "%s@%d-cir buf alloc\n", thisFile, __LINE__);
     return -1;
   }
 
@@ -194,7 +202,7 @@ int hcom_trace_ramlog_make_thread()
     ret = pthread_create(&thread, &attr, hcom_trace_ramlog_pthread, NULL);
     if (ret < 0)
     {
-      hacklog(LOG_CRIT, "%s@%d-Thread create error:%d\n", thisFile, __LINE__, ret);
+      hcom_utils_directlog(LOG_CRIT, "%s@%d-Thread create error:%d\n", thisFile, __LINE__, ret);
       return ret;
     }
   #endif
@@ -214,7 +222,7 @@ FAR void *hcom_trace_ramlog_pthread(FAR void *arg)
   
 #if HCOM_TASK_SHOW_CREATED_TASK_INFORMATION > 0
   struct tcb_s *rtcb = this_task();
-  hacklog(0, "Task:'%s' as #%d\n", rtcb->name, getpid());
+  hcom_utils_f7syslog(LOG_NOTICE, "PID:%d is '%s'\n", getpid(), rtcb->name);
 #endif
 
   while(!_shutting_down)
@@ -263,19 +271,16 @@ int hcom_trace_ramlog_open_ramlog()
     _ramlog_fd = -1;
   }
 
-hacklog(0, "%s@%d OPENING %s\n", thisFile, __LINE__, HCOM_TRACE_RAMLOG_DEVICE_NAME);
-
   _ramlog_fd = open(HCOM_TRACE_RAMLOG_DEVICE_NAME, O_RDONLY);
   // p-m for testing with a text file
  //  _ramlog_fd = open("/meadow/RamlogTest.txt", O_RDONLY);
   if (_ramlog_fd < 0)
   {
-    hacklog(LOG_ERR, "%s@%d-open %s, errno:%d\n",
-      thisFile, __LINE__, HCOM_TRACE_RAMLOG_DEVICE_NAME, errno);
+    hcom_utils_directlog(LOG_ERR, "%s@%d-open %s, errno:%d\n",
+          thisFile, __LINE__, HCOM_TRACE_RAMLOG_DEVICE_NAME, errno);
     return -1;
   }
 
-hacklog(0, "%s@%d SUCCESS %s\n", thisFile, __LINE__, "/meadow/RamlogTest.txt");
   return OK;
 }
 
@@ -289,7 +294,6 @@ int hcom_trace_ramlog_read_ramlog_loop()
   uint8_t buffer[HCOM_TRACE_RAMLOG_READ_BUFF_SIZE];
   ssize_t readReturn;
   int ret;
-  int EOFCounter = 0;
 
   memset(fds, 0, sizeof(struct pollfd) * HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING);
 
@@ -301,6 +305,11 @@ int hcom_trace_ramlog_read_ramlog_loop()
   {
     // Blocks till data is available
     ret = poll(fds, HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING, HCOM_TRACE_RAMLOG_POLL_WAIT_DELAY);
+    
+    // If tracing was disabled just ignore everthing
+    if(!_trace_logging_requested)
+      continue;
+
     if (ret < 0 || ret > HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING)
     {
       // Check errno for one of these values
@@ -310,7 +319,7 @@ int hcom_trace_ramlog_read_ramlog_loop()
       // EINVAL. The nfds value exceeds a system limit.
       // ENOMEM. There was no space to allocate internal data structures.
       // ENOSYS. One or more of the drivers supporting the file descriptor does not support the poll method.
-      hacklog(LOG_ERR, "%s@%d ramlog poll ret:%d errno:%d\n", thisFile, __LINE__, ret, errno);
+      hcom_utils_directlog(LOG_ERR, "%s@%d ramlog poll ret:%d errno:%d\n", thisFile, __LINE__, ret, errno);
       continue;
     }
     else if (ret == 0)
@@ -331,7 +340,7 @@ int hcom_trace_ramlog_read_ramlog_loop()
       if (readReturn < 0 )
       {
         // Error
-        hacklog(LOG_ERR, "%s@%d ramlog read readReturn:%d errno:%d\n", thisFile, __LINE__, readReturn, errno);
+        hcom_utils_directlog(LOG_ERR, "%s@%d ramlog read readReturn:%d errno:%d\n", thisFile, __LINE__, readReturn, errno);
         return -errno;    // Close connection and try again
       }
       else if (readReturn == 0)
@@ -377,7 +386,7 @@ int hcom_trace_ramlog_save_recvd_data(uint8_t recvBuff[], const ssize_t recvByte
     {
       // Wasn't possible to put these bytes in the buffer. We need to
       // pull packets and retry to add this data
-      hacklog(LOG_WARNING, "%s@%d-Warning:No room in cir buf, pull and retry\n",
+      hcom_utils_directlog(LOG_WARNING, "%s@%d-No room in cir buf, pull and retry\n",
               thisFile, __LINE__);
       result = hcom_trace_ramlog_pull_all_packets_from_buffer();
       if (result == HCOM_CIR_BUF_GET_FOUND_MSG)
@@ -385,19 +394,19 @@ int hcom_trace_ramlog_save_recvd_data(uint8_t recvBuff[], const ssize_t recvByte
 
       if (result == HCOM_CIR_BUF_GET_NONE_FOUND || result == HCOM_CIR_BUF_GET_DEST_NO_ROOM)
       {
-        hacklog(LOG_ERR, "%s@%d-pull packets from cir buf %d\n",
+        hcom_utils_directlog(LOG_ERR, "%s@%d-pull packets from cir buf %d\n",
                  thisFile, __LINE__, result);
         return OK;    // Report and throw data away.
       }
     }
     else if (result == HCOM_CIR_BUF_ADD_BAD_ARG)
     {
-      hacklog(LOG_ERR, "%s@%d-Bad argument to cir buf\n", thisFile, __LINE__);
+      hcom_utils_directlog(LOG_ERR, "%s@%d-Bad argument to cir buf\n", thisFile, __LINE__);
       return OK; // Report and throw data away and keep going
     }
     else
     {
-      hacklog(LOG_ERR, "%s@%d-Unknown cir buf add err:%d\n", thisFile, __LINE__, result);
+      hcom_utils_directlog(LOG_ERR, "%s@%d-Unknown cir buf add err:%d\n", thisFile, __LINE__, result);
       return OK; // Report and throw data away and keep going
     }
   }
@@ -426,7 +435,7 @@ int hcom_trace_ramlog_pull_all_packets_from_buffer()
     DEBUGASSERT(result != HCOM_CIR_BUF_GET_DEST_NO_ROOM);
     DEBUGASSERT(result == HCOM_CIR_BUF_GET_FOUND_MSG);
       
-    // Process the received data
+    // Process the isolated message
     result = hcom_trace_ramlog_route_trace_text(_singleMsgBuf, packetLength);
     if (result == OK)
     {
@@ -438,7 +447,7 @@ int hcom_trace_ramlog_pull_all_packets_from_buffer()
     }
     else
     {
-      hacklog(LOG_ERR, "%s@%d-processing data:%d\n", thisFile, __LINE__, result);
+      hcom_utils_directlog(LOG_ERR, "%s@%d-processing data:%d\n", thisFile, __LINE__, result);
       return result;
     }
   }
@@ -446,8 +455,8 @@ int hcom_trace_ramlog_pull_all_packets_from_buffer()
 }
 
 //=================================================================
-// Ship the text to USB and to host PC
-// This is the LAST POSSIBLE place that hacklog can be called  
+// Ship the ramlog text to host PC
+// This is the LAST POSSIBLE place that hcom_utils_directlog can be called  
 int hcom_trace_ramlog_route_trace_text(uint8_t *recvBuff, int numbBytes)
 {
   if(numbBytes == 0)
@@ -469,20 +478,22 @@ int hcom_trace_ramlog_route_trace_text(uint8_t *recvBuff, int numbBytes)
     
   return OK;
 }
+#endif
 
 //======================================================================================
 // Called from Meadow.CLI
 void hcom_trace_ramlog_send_trace_to_host(uint32_t userData)
 {
-hacklog(0, "%s@%d START Trace\n", thisFile, __LINE__);
+  hcom_utils_bbreg_bit_set(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
+          HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG);
 
-// p-m not while testing!!!!
-//  hcom_utils_bbreg_bit_set(HCOM_BATTERY_BACKED_REG_BIT_FLAGS, HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG);
-
-  // Get things going, as needed
+#if defined (CONFIG_RAMLOG_SYSLOG)
+  // Do ramlog initialization, if needed
+  _trace_logging_requested = true;
   hcom_trace_ramlog_lazy_initialization();
+#endif
 
-  char *sendMsgToHost = "Trace logs send to PC";
+  char *sendMsgToHost = "Trace logs sent to PC";
   hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0,
           sendMsgToHost, thisFile, __LINE__);
 }
@@ -491,10 +502,12 @@ hacklog(0, "%s@%d START Trace\n", thisFile, __LINE__);
 // Called from Meadow.CLI
 void hcom_trace_ramlog_no_trace_msg_to_host(uint32_t userData)
 {
-  // p-m Nice feature if this could kill thread and shut down this processing
+  hcom_utils_bbreg_bit_clear(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
+          HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG);
 
-hacklog(0, "%s@%d STOP trace\n", thisFile, __LINE__);
-  hcom_utils_bbreg_bit_clear(HCOM_BATTERY_BACKED_REG_BIT_FLAGS, HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG);
+#if defined (CONFIG_RAMLOG_SYSLOG)
+  _trace_logging_requested = false;
+#endif
 
   char *sendMsgToHost = "Trace logs not sent to PC";
   hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0,

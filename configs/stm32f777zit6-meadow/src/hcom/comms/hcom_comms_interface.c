@@ -153,7 +153,7 @@ int hcom_comms_recv_thread_loop()
     if (ret < 0)
     {
       // TODO - should not output messages every second (timer or count).
-      f7syslog(LOG_ERR, "%s@%d-connection not made, %d\n", thisFile, __LINE__, ret);
+      hcom_utils_f7syslog(LOG_ERR, "%s@%d-connection not made, %d\n", thisFile, __LINE__, ret);
       sleep(1);   // Can't leave this loop or all hcom will stop
       continue;
     }
@@ -260,7 +260,7 @@ bool hcom_comms_receive_data()
       int result = hcom_comms_recv_process_raw_data(_tempRecvBuff, readResult);
       if (result < 0)
       {
-        f7syslog(LOG_WARNING, "%s@%d-Warning:%d received\n", thisFile, __LINE__, result);
+        hcom_utils_f7syslog(LOG_WARNING, "%s@%d-%d received\n", thisFile, __LINE__, result);
       }
       continue;
     }
@@ -268,7 +268,7 @@ bool hcom_comms_receive_data()
     if (readResult == 0)
     {
       // readResult must == 0 (end-of-file). Host PC probably dropped connection
-      f7syslog(LOG_INFO, "%s@%d-HCOM received EOF\n", thisFile, __LINE__);
+      hcom_utils_f7syslog(LOG_INFO, "%s@%d-HCOM received EOF\n", thisFile, __LINE__);
       continue;
     }
 
@@ -277,13 +277,13 @@ bool hcom_comms_receive_data()
     {
       if (hcom_exec_rqst_download_is_download_active())
       {
-        f7syslog(LOG_WARNING, "%s@%d-Warning:Comms stopped. Recvd:%d of msg\n", thisFile, __LINE__, readResult);
+        hcom_utils_f7syslog(LOG_WARNING, "%s@%d-Comms stopped. Recvd:%d of msg\n", thisFile, __LINE__, readResult);
       }
       else
       {
         // Timeout received while waiting for a host communication. This is normal as we will
         // almost always be waiting and not receiving.
-        f7syslog(LOG_INFO, "%s thread running\n", HCOM_THREAD_NAME_HCOM_RECEIVE);
+        hcom_utils_f7syslog(LOG_INFO, "%s thread running\n", HCOM_THREAD_NAME_HCOM_RECEIVE);
       }
     }
     else
@@ -294,12 +294,12 @@ bool hcom_comms_receive_data()
       if (readResult == -ENOTCONN || readResult == -ENOTSOCK || readResult == -ENETDOWN)
       {
         // Host dropped connection - calling read will only repeat the error
-        f7syslog(LOG_NOTICE, "%s@%d-USB connection dropped.\n", thisFile, __LINE__);
+        hcom_utils_f7syslog(LOG_NOTICE, "%s@%d-USB connection dropped.\n", thisFile, __LINE__);
         delayBeforeRetry = true;    // Delay retry
       }
       else
       {
-        f7syslog(LOG_ERR, "%s@%d-HCOM recv error:%d\n", thisFile, __LINE__, readResult);        
+        hcom_utils_f7syslog(LOG_ERR, "%s@%d-HCOM recv error:%d\n", thisFile, __LINE__, readResult);        
         delayBeforeRetry = false;    // No retry delay
       }
 
@@ -344,7 +344,7 @@ ssize_t hcom_comms_recv_wait_until_change(uint8_t *recvBuffer, time_t readTimeou
 
   if (readReturn == 0)
   {
-    f7syslog(LOG_INFO, "%s@%d-EOF recv\n", thisFile, __LINE__);
+    hcom_utils_f7syslog(LOG_INFO, "%s@%d-EOF recv\n", thisFile, __LINE__);
     return -ENOTCONN; // "Transport endpoint is not connected" [128] - Probably time to shutdown
   }
 
@@ -408,7 +408,7 @@ int hcom_comms_recv_timer_start(timer_t timerid, time_t sec)
   if (ret < 0)
   {
     int errorcode = errno;
-    f7syslog(LOG_ERR, "%s@%d-setting timer errno:%d\n", thisFile, __LINE__, errorcode);
+    hcom_utils_f7syslog(LOG_ERR, "%s@%d-setting timer errno:%d\n", thisFile, __LINE__, errorcode);
     return -errorcode;
   }
   return OK;
@@ -437,7 +437,7 @@ int hcom_comms_recv_timer_init()
   if (ret < 0)
   {
     int errorcode = errno;
-    f7syslog(LOG_ERR, "%s@%d-create timer errno:%d\n", thisFile, __LINE__, errorcode);
+    hcom_utils_f7syslog(LOG_ERR, "%s@%d-create timer errno:%d\n", thisFile, __LINE__, errorcode);
     return -errorcode;
   }
 
@@ -450,7 +450,7 @@ int hcom_comms_recv_timer_init()
   if (ret < 0)
   {
     int errorcode = errno;
-    f7syslog(LOG_ERR, "%s@%d-attach signal errno:%d\n", thisFile, __LINE__, errorcode);
+    hcom_utils_f7syslog(LOG_ERR, "%s@%d-attach signal errno:%d\n", thisFile, __LINE__, errorcode);
     return -errorcode;
   }
   return OK;
@@ -474,7 +474,7 @@ static int hcom_comms_open_connection_write(void)
   ret = file_open(&_connection_write_file_fd, deviceName, O_WRONLY|O_NONBLOCK);
   if(ret < 0)
   {
-    f7syslog(LOG_ERR, "%s@%d-Open USB write errno:%d\n", thisFile, __LINE__, errno);
+    hcom_utils_f7syslog(LOG_ERR, "%s@%d-Open USB write errno:%d\n", thisFile, __LINE__, errno);
     return ret;
   }
 
@@ -505,15 +505,15 @@ static void hcom_comms_transmit_takesem(void)
 //=====================================================================
 //
 // This MUST be called before hcom_comms_transmit_to_host() is called.
-// p-m Verfiy this statement
-// Usually, no host PC is running and connected, this means messages eventually
-// will be blocked (after filling some nuttx internal buffer). To workaround this,
-// once we get a -EAGAIN error (i.e. blocked) we'll attempt to send 0x00 before every
-// message. This way, when the host PC begins to consume messages our 0x00 will be
-// the first thing to arrive after whatever nuttx has buffered (probably a bunch of
-// 0x00 bytes). The CLI is designed to ignore a single 0x00 byte message. Therefore,
-// the message after the blockage is removed can be sent successfully and be properly
-// parsed.
+//
+// Usually, no host PC is running and connected. When this is the case these
+// messages eventually will be blocked (after filling some nuttx internal buffer).
+// To workaround this, once we get a -EAGAIN error (i.e. blocked) we'll attempt
+// to send 0x00 before every message. This way, when the host PC begins to consume
+// messages our 0x00 will be the first thing to arrive after whatever nuttx has
+// buffered (probably a bunch of 0x00 bytes). The CLI is designed to ignore a
+// single 0x00 byte message. Therefore, the message after the blockage is removed
+// can be sent successfully and be properly parsed.
 //
 bool hcom_comms_is_host_xmit_blocked()
 {

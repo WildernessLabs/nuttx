@@ -58,7 +58,6 @@
 
 // The g_syslog_mask is external and set by NuttX. Don't make static
 uint8_t g_syslog_mask;
-static pid_t _hcom_pid = 0;
 
 /****************************************************************************
  * Private Function Prototypes
@@ -73,7 +72,6 @@ static void hcom_utils_dbg_gpio_init(void);
 //============================================================================
 int hcom_utils_setup()
 {
-  _hcom_pid  = getpid();
   return OK;
 }
 
@@ -169,7 +167,7 @@ void hcom_utils_boot_time_mono_check()
     // Call mono_main
     (*USERSPACE->us_entrypoint)((int)argc, argv);
 
-    f7syslog(LOG_WARNING, "Mono disabled\n");
+    hcom_utils_f7syslog(LOG_WARNING, "Mono disabled\n");
   }
 #endif
 }
@@ -189,7 +187,7 @@ bool hcom_utils_is_mono_disabled()
 }
 
 //============================================================================
-void hcom_utils_diag_print_buffer(const uint8_t buffer[], const int bufLen, uint8_t logPriority)
+void hcom_utils_diag_print_buffer(const uint8_t buffer[], const int bufLen, uint8_t msgPriority)
 {
 #if 1
 #define HCOM_UTIL_BYTES_PER_LINE 16
@@ -198,7 +196,7 @@ void hcom_utils_diag_print_buffer(const uint8_t buffer[], const int bufLen, uint
 #define HCOM_UTIL_ASCII_OFFSET (57 + HCOM_UTIL_LEADING_SPACES)
 #define HCOM_UTIL_DISPLAY_LENGTH (HCOM_UTIL_ASCII_OFFSET + HCOM_UTIL_BYTES_PER_LINE + 2)
 
-  if ((g_syslog_mask & LOG_MASK(logPriority)) == 0)
+  if ((g_syslog_mask & LOG_MASK(msgPriority)) == 0)
     return;
 
   int rowStartOffset, rowByteOffset;
@@ -251,39 +249,123 @@ void hcom_utils_diag_print_buffer(const uint8_t buffer[], const int bufLen, uint
     lineBuff[hexOffset] = 0x20;   // Replace last hex null with a space
     lineBuff[asciiOffset] = 0x00; // Follow last character with null
 
-    syslog(logPriority, "%s\n", lineBuff);
+#if defined(CONFIG_RAMLOG_SYSLOG)
+    hcom_utils_directlog(msgPriority, "%s\n", lineBuff);
+#else          
+    f7syslog(msgPriority, "%s\n", lineBuff);
+#endif
   }
 
 #endif
 }
 
 //===================================================================
-// With ramlog enabled, can't use syslog because it will cause "feedback",
-// every syslog message will generated another ramlog message.
-// So we go directly to the host without going via syslog.
-//===================================================================
-void hacklog(int priority, FAR const IPTR char *fmt, ...)
+static int hcom_utils_syslog_priority_to_text(int priority, char *textPri)
 {
-  //return;
+  switch (priority)
+  {
+  case LOG_EMERG:
+    strcpy(textPri, "(Emerg) ");
+    break;
+  case LOG_ALERT:
+    strcpy(textPri, "(Alert) ");
+    break;
+  case LOG_CRIT:
+    strcpy(textPri, "(Crit) ");
+    break;
+ case LOG_ERR:
+    strcpy(textPri, "(Error) ");
+    break;
+  case LOG_WARNING:
+    strcpy(textPri, "(Warn) ");
+    break;
+  case LOG_NOTICE:
+    strcpy(textPri, "(Note) ");
+    break;
+  case LOG_INFO:
+    strcpy(textPri, "(Info) ");
+    break;
+   case LOG_DEBUG:
+    strcpy(textPri, "(Debug) ");
+    break;  
+  default:
+    strcpy(textPri, "(Pri ?) ");
+    break;
+  }
+
+  return strlen(textPri);
+}
+
+//===================================================================
+// This function is for those places where processing is being done
+// to send information to the host PC. Without this function those
+// calls will introducing a recursive call loop with no exit.
+void hcom_utils_f7syslog_x(int priority, FAR const IPTR char *fmt, ...)
+{
+#if defined CONFIG_RAMLOG_SYSLOG
+  // Can't send to syslog because this will be a recursive too. Can't
+  // send directly to the host because this also would be recursive too.
+  return;
+#else
+
+  // Can send to syslog as that is not going to return here
+  if ((g_syslog_mask & LOG_MASK(priority)) == 0)
+    return;   // Nothing to do
+
+  // If nuttx is configured for outputting syslogs to the console
+  // then this works. But they cannot be routed to the host PC
+  // (i.e. Meadow.CLI).
   va_list args;
   va_start(args, fmt);
+  vsyslog(priority, fmt, args);
+  va_end(args);
+#endif
+}
+
+//===================================================================
+// hcom_utils_directlog solves the problem that with ramlog enabled, we can't use syslog
+// while processing the syslog message, because it will cause "feedback",
+// every syslog message would generated another ramlog message. So, we go
+// directly to the host without going to syslog -> ramlog.
+//===================================================================
+void hcom_utils_directlog(int priority, FAR const IPTR char *fmt, ...)
+{
+  if ((g_syslog_mask & LOG_MASK(priority)) == 0)
+    return;   // Nothing to do
 
   char *hostMsg;
   hostMsg = malloc(HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN);
   if(hostMsg == NULL)
   {
-    hacklog(LOG_ERR, "%s@%d-memory allocation error\n", __FILE__, __LINE__);
-    va_end(args);
+    hcom_utils_directlog(LOG_ERR, "%s@%d-memory allocation error\n", __FILE__, __LINE__);
     return;
   }
 
-  int stringLen = vsnprintf(hostMsg, HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN - 1, fmt, args);
+  // Adding the prefix here saves memory by removing
+  // the text at the start of each message
+  char labelPrefix[16];
+  int prefixLen = hcom_utils_syslog_priority_to_text(priority, labelPrefix);
+  int fmtLength = strlen(fmt);
+
+  char *finalFmt = malloc(prefixLen + fmtLength + 1); // room for '\0'
+  DEBUGASSERT(finalFmt != NULL);
+
+  memcpy(finalFmt, labelPrefix, prefixLen);
+  memcpy(finalFmt + prefixLen, fmt, fmtLength + 1); // include fmt's '\0'
+
+  // Create the complete message with prefix
+  va_list args;
+  va_start(args, fmt);
+  int stringLen = vsnprintf(hostMsg, HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN - 1, finalFmt, args);
   va_end(args);
+
   // The snprintf return is considered to be written completely if and only if the returned value
   // is non-negative and less than buf_size.
   DEBUGASSERT(stringLen < HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN);
 
-  // Look for 0x0d & 0x0a at the end and shorten message length accordingly
+  free(finalFmt);
+
+  // Look for 0x0d & 0x0a at the end and shorten length accordingly
   if(hostMsg[stringLen - 1] == 0x0a || hostMsg[stringLen - 1] == 0x0d)
     stringLen--;
   if(hostMsg[stringLen - 1] == 0x0a || hostMsg[stringLen - 1] == 0x0d)
@@ -295,88 +377,63 @@ void hacklog(int priority, FAR const IPTR char *fmt, ...)
 }
 
 //===================================================================
-// Use this for syslog calls that cannot call f7syslog without introducing
-// a recursive call loop that never ends or to report errors related to
-// sending to hcom
-
-//p-m ramlog NOT NEEDED BUT LEFT UNTIL IMPLEMENTATION COMPLETE
-void f7syslog_x(int priority, FAR const IPTR char *fmt, ...)
-{
-  // if ((g_syslog_mask & LOG_MASK(priority)) == 0)
-  //   return;   // Nothing to do
-
-  // va_list args;
-  // va_start(args, fmt);
-  // vsyslog(priority, fmt, args);
-  // va_end(args);
-}
-
-//===================================================================
-// Use this for syslogs that can be routed to host 
-void f7syslog(int priority, FAR const IPTR char *fmt, ...)
+// Use this for syslogs that can be routed to host
+// Depending on the nuttx configuration these may go to the ramlog
+// or to the serial console output or bit-bucket. If ramlog it
+// can be routed to the host.
+void hcom_utils_f7syslog(int priority, FAR const IPTR char *fmt, ...)
 {
   if ((g_syslog_mask & LOG_MASK(priority)) == 0)
     return;   // Nothing to do
 
-  // Forward to nuttx syslog
+  // Adding the prefix here saves memory by removing
+  // the text at the start of each message
+  char labelPrefix[16];
+  int prefixLen = hcom_utils_syslog_priority_to_text(priority, labelPrefix);
+  int fmtLength = strlen(fmt);
+
+  char *finalFmt = malloc(prefixLen + fmtLength + 1); // room for '\0'
+  DEBUGASSERT(finalFmt != NULL);
+
+  memcpy(finalFmt, labelPrefix, prefixLen);
+  memcpy(finalFmt + prefixLen, fmt, fmtLength + 1); // include fmt's '\0'
+
+  // Pass the message to vsyslog which is another syslog's entry point.
   va_list args;
   va_start(args, fmt);
-  vsyslog(priority, fmt, args);
+  vsyslog(priority, finalFmt, args);
   va_end(args);
 
-//p-m ramlog NOT NEEDED
-  // // If forwarding to host is requested the callers pid must be the hcom pid.
-  // // Why? Because there's a semaphore designed to prevent multiple thread
-  // // from entering the output
-  // // p-m NOTE:REMOVING THE getpid() CALL WILL CAUSE NUTTX TO LOCKUP ON REBOOT IF 
-  // // TRACE TO HOST IS ENABLED. IT'S BECAUSE THE FIRST MESSAGES ARE VIA THE
-  // // NUTTX STARTUP TASK AND IT'S BEFORE HOST COMMUNICATION IS INITIALIZED.
-  // // THIS MEANS WHEN THE NUTTX STARTUP THREAD ATTEMPTS TO GRAB THE UNINITIALIZED
-  // // SEMAPHORE IT NEVER RUTURNS.
-  // if(hcom_utils_bbreg_bit_test(HCOM_BATTERY_BACKED_REG_BIT_FLAGS, HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG) &&
-  //     _hcom_pid == getpid())
-  // {
-  //   va_start(args, fmt);
-  //   vf7syslog_internal(priority, fmt, args);
-  //   va_end(args);
-  // }
+#if defined (CONFIG_RAMLOG_SYSLOG)
+  if(hcom_utils_bbreg_bit_test(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
+          HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG))
+  {
+    char *hostMsg;
+    hostMsg = malloc(HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN);
+    if(hostMsg == NULL)
+    {
+      return;
+    }
+    
+    va_start(args, fmt);
+    int stringLen = vsnprintf(hostMsg, HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN - 1, finalFmt, args);
+    // The snprintf return is considered to be written completely if and only if the returned value
+    // is non-negative and less than buf_size.
+    DEBUGASSERT(stringLen < HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN);
+    
+    hcom_comms_send_simple_string_msg(HCOM_MDOW_REQUEST_SEND_TRACE_TO_HOST, 0, hostMsg, 
+            __FILE__, __LINE__);
+    va_end(args);
+    free(hostMsg);
+  }
+
+#endif
+
+  free(finalFmt);
 }
 
-//p-m ramlog NOT NEEDED
-// //===================================================================
-// // Use this for messages that should only be routed to the host
-// // Never use this method from within the message transmission code
-// // (i.e. message builder and below). You'll create an endless loop.
-// void f7syslog_host(int priority, FAR const IPTR char *fmt, ...)
-// {
-//   va_list args;
-//   va_start(args, fmt);
-//   vf7syslog_internal(priority, fmt, args);
-//   va_end(args);
-// }
-
-//p-m with ramlog NOT NEEDED
-// //===================================================================
-// // Internal routing to host
-// void vf7syslog_internal(int priority, FAR const IPTR char *fmt, va_list args)
-// {
-//   char *hostMsg;
-//   hostMsg = malloc(HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN);
-//   if(hostMsg == NULL)
-//   {
-//     f7syslog_x(LOG_ERR, "%s@%d-memory allocation error\n", thisFile, __LINE__);
-//     return;
-//   }
-  
-//   int stringLen = vsnprintf(hostMsg, HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN - 1, fmt, args);
-//   // The snprintf return is considered to be written completely if and only if the returned value
-//   // is non-negative and less than buf_size.
-//   DEBUGASSERT(stringLen < HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN);
-  
-//   hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_TRACE_MSG, 0, hostMsg, thisFile, __LINE__);
-//   free(hostMsg);
-// }
-
+//=================================================================
+// This for testing by using 
 #define HCOM_ONBOARD_D00_PIN_OUTPUT  (GPIO_OUTPUT | GPIO_PORTI | GPIO_PIN9 | GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
 #define HCOM_ONBOARD_D01_PIN_OUTPUT  (GPIO_OUTPUT | GPIO_PORTH | GPIO_PIN13| GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
 #define HCOM_ONBOARD_D02_PIN_OUTPUT  (GPIO_OUTPUT | GPIO_PORTC | GPIO_PIN6 | GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
@@ -410,7 +467,7 @@ void hcom_utils_dbg_gpio_init()
 }
 
 //=================================================================
-void hcom_utils_dbg_gpio_update_led(bool ledOn)
+void hcom_utils_dbg_gpio_led_update(bool ledOn)
 {
   // Note: Low (false) turns led on for an open drain
   stm32_gpiowrite(HCOM_ONBOARD_D08_PIN_OUTPUT, !ledOn);
@@ -437,14 +494,14 @@ void hcom_utils_dbg_gpio_update(uint8_t newValue, bool ledOn)
   {
     for(int i = 0; i < 5; i++)
     {
-      hcom_utils_dbg_gpio_update_led(i % 2 == 0 ? true : false);
+      hcom_utils_dbg_gpio_led_update(i % 2 == 0 ? true : false);
       usleep(100 * 1000);
     }
-    hcom_utils_dbg_gpio_update_led(false);
+    hcom_utils_dbg_gpio_led_update(false);
   }
   else
   {
-    hcom_utils_dbg_gpio_update_led(false);
+    hcom_utils_dbg_gpio_led_update(false);
     usleep(250 * 1000);
   }
 }

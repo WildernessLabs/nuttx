@@ -85,7 +85,7 @@ void hcom_comms_send_header_msg(uint16_t requestType, uint32_t userData,
 {
   int ret = hcom_comms_send_simple_buffer_msg(requestType, 0, userData, NULL, 0);
   if (ret < 0)
-    f7syslog_x(LOG_ERR, "%s@%d-Host xmit err:%d\n", sourceFileName, sourceLineNumber, ret);
+    hcom_utils_f7syslog_x(LOG_ERR, "%s@%d-Host xmit err:%d\n", sourceFileName, sourceLineNumber, ret);
 }
 
 //=====================================================================
@@ -102,7 +102,7 @@ void hcom_comms_send_simple_string_msg(uint16_t requestType, uint32_t userData,
 
   int ret = hcom_comms_send_simple_buffer_msg(requestType, 0, userData, (uint8_t*) shortText, trueStrLen);
   if (ret < 0)
-    f7syslog_x(LOG_ERR, "%s@%d-Host xmit err:%d\n", sourceFileName, sourceLineNumber, ret);
+    hcom_utils_f7syslog_x(LOG_ERR, "%s@%d-Host xmit err:%d\n", sourceFileName, sourceLineNumber, ret);
 }
 
 //=====================================================================
@@ -115,7 +115,7 @@ int hcom_comms_send_raw_string_msg(uint16_t requestType, uint32_t userData, char
   if (ret < 0)
   {
     if(ret != -EAGAIN)  // Transmission blocked. EAGAIN is not an error it means the message was blocked
-      f7syslog(LOG_ERR, "%s@%d-Host xmit err:%d\n", thisFile, __LINE__, ret);
+      hcom_utils_f7syslog_x(LOG_ERR, "%s@%d-Host xmit err:%d\n", thisFile, __LINE__, ret);
   }
   return ret;
 }
@@ -210,12 +210,12 @@ int hcom_comms_send_message(uint8_t *message, size_t messageLength)
   {
     if(ret == -EAGAIN)
     {
-      f7syslog_x(LOG_DEBUG, "%s@%d-Last xmit blocked.\n", thisFile, __LINE__);
+      hcom_utils_f7syslog_x(LOG_DEBUG, "%s@%d-Last xmit blocked.\n", thisFile, __LINE__);
       return OK;
     }
     else
     {
-      f7syslog_x(LOG_ERR, "%s@%d-Host xmit, error:%d\n", thisFile, __LINE__, ret);
+      hcom_utils_f7syslog_x(LOG_ERR, "%s@%d-Host xmit, error:%d\n", thisFile, __LINE__, ret);
     }
   }
   

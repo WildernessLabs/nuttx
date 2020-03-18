@@ -119,7 +119,7 @@ void hcom_exec_rqst_misc_change_trace_level(uint32_t userData)
   hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0, hostMsg,
           thisFile, __LINE__);
 
-  f7syslog(LOG_NOTICE, "Trace from 0x%02x to 0x%02x\n\n", newTraceLevel, syslogmask);
+  hcom_utils_f7syslog(LOG_NOTICE, "Trace from 0x%02x to 0x%02x\n\n", newTraceLevel, syslogmask);
 }
 
 //=======================================================================================
@@ -174,7 +174,7 @@ void hcom_exec_rqst_misc_enable_disable_nsh(uint32_t userData)
   }
   else
   {
-    f7syslog(LOG_WARNING, "%s@%d-userData %d meaningless\n", thisFile, __LINE__, userData);
+    hcom_utils_f7syslog(LOG_WARNING, "%s@%d-userData %d meaningless\n", thisFile, __LINE__, userData);
   }
 
   sendMsgToHost = "NSH enabled";
@@ -276,7 +276,7 @@ void hcom_exec_rqst_misc_get_device_info(uint32_t userData)
   csvDevInfo = malloc(HCOM_MAX_HOST_STRING_BUFF_LENGTH);
   if(csvDevInfo == NULL)
   {
-    f7syslog(LOG_ERR, "%s@%d-Alloc failed\n", thisFile, __LINE__);
+    hcom_utils_f7syslog(LOG_ERR, "%s@%d-Alloc failed\n", thisFile, __LINE__);
     stringLen = snprintf(csvDevInfo, HCOM_SHORT_HOST_STRING_BUFF_LENGTH,
             "Memory allocation error. No results will be sent");
     
@@ -284,7 +284,7 @@ void hcom_exec_rqst_misc_get_device_info(uint32_t userData)
     hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_ERROR, 0,
             csvDevInfo, thisFile, __LINE__);
 
-    f7syslog(LOG_NOTICE, "Get device info error\n");
+    hcom_utils_f7syslog(LOG_NOTICE, "Get device info error\n");
     return;
   }
 
@@ -341,7 +341,7 @@ void hcom_exec_rqst_misc_enter_dfu_mode(uint32_t userData)
           hostMsg, thisFile, __LINE__);
 
   // DFU Mode is on hold
-  f7syslog(LOG_INFO, "Got this far %s()\n", __func__);
+  hcom_utils_f7syslog(LOG_INFO, "Got this far %s()\n", __func__);
 
 }
 

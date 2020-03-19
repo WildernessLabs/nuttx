@@ -193,7 +193,7 @@ void hcom_exec_rqst_misc_enable_disable_nsh(uint32_t userData)
 void hcom_exec_rqst_misc_mcu_restart(uint32_t userData)
 {
   // Set flag for testing on restart
-  hcom_utils_bbreg_bit_set(HCOM_BATTERY_BACKED_REG_BIT_FLAGS, HCOM_BBREG_RESTART_CONCLUDED_BIT_FLAG);
+  hcom_utils_bbreg_set_bit(HCOM_BATTERY_BACKED_REG_BIT_FLAGS, HCOM_BBREG_RESTART_CONCLUDED_BIT_FLAG);
 
   char *sendMsgToHost = "Restarting F7 Micro"; 
   hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, userData,
@@ -219,7 +219,7 @@ void hcom_exec_rqst_misc_mono_disable(uint32_t userData)
   hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0,
           sendMsgToHost, thisFile, __LINE__);
 
-  hcom_utils_bbreg_bit_set(HCOM_BATTERY_BACKED_REG_BIT_FLAGS, HCOM_BBREG_RESTART_CONCLUDED_BIT_FLAG);
+  hcom_utils_bbreg_set_bit(HCOM_BATTERY_BACKED_REG_BIT_FLAGS, HCOM_BBREG_RESTART_CONCLUDED_BIT_FLAG);
 
   // Tell host to begin to reconnect
   hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_RECONNECT, userData,
@@ -241,7 +241,7 @@ void hcom_exec_rqst_misc_mono_enable(uint32_t userData)
   hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0,
           sendMsgToHost, thisFile, __LINE__);
 
-  hcom_utils_bbreg_bit_set(HCOM_BATTERY_BACKED_REG_BIT_FLAGS, HCOM_BBREG_RESTART_CONCLUDED_BIT_FLAG);
+  hcom_utils_bbreg_set_bit(HCOM_BATTERY_BACKED_REG_BIT_FLAGS, HCOM_BBREG_RESTART_CONCLUDED_BIT_FLAG);
   
   // Tell host to begin to reconnect
   hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_RECONNECT, userData,

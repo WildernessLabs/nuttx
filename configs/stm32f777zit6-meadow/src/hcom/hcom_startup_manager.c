@@ -46,7 +46,7 @@
 #include <assert.h>
 #include "task/task.h"
 
-#if HCOM_TASK_SHOW_CREATED_TASK_INFORMATION > 0
+#if HCOM_TASK_SHOW_CREATED_TASK_PID_NAME > 0
 #include <nuttx/sched.h>
 #include <../sched/sched/sched.h>
 #endif
@@ -117,7 +117,7 @@ int hcom_manager_syslog_mask_init()
     return ret;
   }
 
-  bool traceToHost = hcom_utils_bbreg_bit_test(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
+  bool traceToHost = hcom_utils_bbreg_is_bit_set(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
           HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG);
   hcom_utils_f7syslog(LOG_INFO, "Meadow %s (%s@%s) %s, Trace level:0x%02x(was 0x%02x), Trace to host:%s, Mono:%s, tick:%d us\n",
         HCOM_DEVICE_INFO_MEADOW_OS_VERSION, __DATE__, __TIME__, 
@@ -326,7 +326,7 @@ FAR void *hcom_comms_recv_worker_pthread(FAR void *arg)
 {
   int ret;
 
-#if HCOM_TASK_SHOW_CREATED_TASK_INFORMATION > 0
+#if HCOM_TASK_SHOW_CREATED_TASK_PID_NAME > 0
   struct tcb_s *rtcb = this_task();
   hcom_utils_f7syslog(LOG_NOTICE, "PID:%d is '%s'\n", getpid(), rtcb->name);
 #endif

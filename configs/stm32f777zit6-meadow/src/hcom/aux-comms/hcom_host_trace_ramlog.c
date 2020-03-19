@@ -45,7 +45,7 @@
 #include <ctype.h>
 #include <poll.h>
 
-#if HCOM_TASK_SHOW_CREATED_TASK_INFORMATION > 0
+#if HCOM_TASK_SHOW_CREATED_TASK_PID_NAME > 0
 #include <nuttx/sched.h>
 #include <../sched/sched/sched.h>
 #endif
@@ -65,8 +65,11 @@
 /****************************************************************************
  * Private Data
  ****************************************************************************/
+#endif
+
 static char *thisFile = __FILE__;
 
+#if defined (CONFIG_RAMLOG_SYSLOG)
 static bool _shutting_down;
 static int _ramlog_fd;
 static bool _trace_logging_requested;
@@ -103,7 +106,7 @@ int hcom_trace_ramlog_setup()
   _trace_logging_requested = false;
 
   // If tracing needed on restart, initialize now
-  if (hcom_utils_bbreg_bit_test(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
+  if (hcom_utils_bbreg_is_bit_set(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
           HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG))
   {
     return hcom_trace_ramlog_lazy_initialization();
@@ -220,7 +223,7 @@ FAR void *hcom_trace_ramlog_pthread(FAR void *arg)
 {
   int ret;
   
-#if HCOM_TASK_SHOW_CREATED_TASK_INFORMATION > 0
+#if HCOM_TASK_SHOW_CREATED_TASK_PID_NAME > 0
   struct tcb_s *rtcb = this_task();
   hcom_utils_f7syslog(LOG_NOTICE, "PID:%d is '%s'\n", getpid(), rtcb->name);
 #endif
@@ -484,7 +487,7 @@ int hcom_trace_ramlog_route_trace_text(uint8_t *recvBuff, int numbBytes)
 // Called from Meadow.CLI
 void hcom_trace_ramlog_send_trace_to_host(uint32_t userData)
 {
-  hcom_utils_bbreg_bit_set(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
+  hcom_utils_bbreg_set_bit(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
           HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG);
 
 #if defined (CONFIG_RAMLOG_SYSLOG)
@@ -502,7 +505,7 @@ void hcom_trace_ramlog_send_trace_to_host(uint32_t userData)
 // Called from Meadow.CLI
 void hcom_trace_ramlog_no_trace_msg_to_host(uint32_t userData)
 {
-  hcom_utils_bbreg_bit_clear(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
+  hcom_utils_bbreg_clear_bit(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
           HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG);
 
 #if defined (CONFIG_RAMLOG_SYSLOG)

@@ -96,7 +96,7 @@ void hcom_utils_bbreg_write(uint32_t regNumber, uint32_t value)
 
 //===================================================================
 // Reads bit(s) in any of the 32 battery backed registers
-bool hcom_utils_bbreg_bit_test_and_clear(uint32_t regNumber, uint32_t value)
+bool hcom_utils_bbreg_is_bit_set_clear(uint32_t regNumber, uint32_t value)
 {
   uint32_t reg = *((uint32_t *) regNumber);
   *((uint32_t *) regNumber) = reg & (~value);
@@ -105,14 +105,14 @@ bool hcom_utils_bbreg_bit_test_and_clear(uint32_t regNumber, uint32_t value)
 
 //===================================================================
 // Reads bit(s) in any of the 32 battery backed registers
-bool hcom_utils_bbreg_bit_test(uint32_t regNumber, uint32_t value)
+bool hcom_utils_bbreg_is_bit_set(uint32_t regNumber, uint32_t value)
 {
   uint32_t reg = *((uint32_t *) regNumber);
   return (value & reg) != 0;
 }
 
 //===================================================================
-void hcom_utils_bbreg_bit_clear(uint32_t regNumber, uint32_t value)
+void hcom_utils_bbreg_clear_bit(uint32_t regNumber, uint32_t value)
 {
   uint32_t reg = *((uint32_t *) regNumber);
   *((uint32_t *) regNumber) = reg & (~value);
@@ -120,7 +120,7 @@ void hcom_utils_bbreg_bit_clear(uint32_t regNumber, uint32_t value)
 
 //===================================================================
 // Set bit(s) in any of the 32 battery backed registers
-void hcom_utils_bbreg_bit_set(uint32_t regNumber, uint32_t value)
+void hcom_utils_bbreg_set_bit(uint32_t regNumber, uint32_t value)
 {
   uint32_t reg = *((uint32_t *) regNumber);
   *((uint32_t *) regNumber) = reg | value;
@@ -252,7 +252,7 @@ void hcom_utils_diag_print_buffer(const uint8_t buffer[], const int bufLen, uint
 #if defined(CONFIG_RAMLOG_SYSLOG)
     hcom_utils_directlog(msgPriority, "%s\n", lineBuff);
 #else          
-    f7syslog(msgPriority, "%s\n", lineBuff);
+    hcom_utils_f7syslog(msgPriority, "%s\n", lineBuff);
 #endif
   }
 
@@ -404,8 +404,7 @@ void hcom_utils_f7syslog(int priority, FAR const IPTR char *fmt, ...)
   vsyslog(priority, finalFmt, args);
   va_end(args);
 
-#if defined (CONFIG_RAMLOG_SYSLOG)
-  if(hcom_utils_bbreg_bit_test(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
+  if(hcom_utils_bbreg_is_bit_set(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
           HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG))
   {
     char *hostMsg;
@@ -414,7 +413,7 @@ void hcom_utils_f7syslog(int priority, FAR const IPTR char *fmt, ...)
     {
       return;
     }
-    
+
     va_start(args, fmt);
     int stringLen = vsnprintf(hostMsg, HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN - 1, finalFmt, args);
     // The snprintf return is considered to be written completely if and only if the returned value
@@ -426,8 +425,6 @@ void hcom_utils_f7syslog(int priority, FAR const IPTR char *fmt, ...)
     va_end(args);
     free(hostMsg);
   }
-
-#endif
 
   free(finalFmt);
 }

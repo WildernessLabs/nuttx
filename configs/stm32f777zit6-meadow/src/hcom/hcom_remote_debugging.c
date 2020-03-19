@@ -56,7 +56,7 @@
 
 #include <nuttx/kmalloc.h>
 
-#if HCOM_TASK_SHOW_CREATED_TASK_INFORMATION > 0
+#if HCOM_TASK_SHOW_CREATED_TASK_PID_NAME > 0
 #include <nuttx/sched.h>
 #include <../sched/sched/sched.h>
 #endif
@@ -189,7 +189,7 @@ FAR void *hcom_remote_dbg_pthread(FAR void *arg)
   int ret;
   struct remote_dbg_session *dbgSock;
 
-#if HCOM_TASK_SHOW_CREATED_TASK_INFORMATION > 0
+#if HCOM_TASK_SHOW_CREATED_TASK_PID_NAME > 0
   struct tcb_s *rtcb = this_task();
   hcom_utils_f7syslog(LOG_NOTICE, "PID:%d is '%s'\n", getpid(), rtcb->name);
 #endif

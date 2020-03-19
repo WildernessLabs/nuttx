@@ -134,9 +134,6 @@ int hcom_comms_send_simple_buffer_msg(uint16_t requestType, uint16_t extraData,
   // cannot transmit at this time, the host isn't available and the
   // semaphore was not held. If it doesn't return false then it's okay to
   // send and the semaphore is being held.
-// #if HCOM_TASK_SHOW_CREATED_TASK_INFORMATION > 0
-//   syslog(0, "Task %d ENTERED at %d - %s\n", getpid(), __LINE__, __func__);
-// #endif
 
   if(hcom_comms_is_host_xmit_blocked())
   {

@@ -177,7 +177,7 @@ int hcom_comms_handle_initial_connection()
   char * monoStartupMsg;
 
   // Check if a command was responsible for this restart, If it was a `Concluded` message must be sent
-  bool is_restart = hcom_utils_bbreg_bit_test_and_clear(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
+  bool is_restart = hcom_utils_bbreg_is_bit_set_clear(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
     HCOM_BBREG_RESTART_CONCLUDED_BIT_FLAG);
 
   if(is_restart)

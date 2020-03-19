@@ -101,7 +101,7 @@
 
 //--------------------------------------------------------------------
 // Diagnostic aids
-#define HCOM_TASK_SHOW_CREATED_TASK_INFORMATION  1
+#define HCOM_TASK_SHOW_CREATED_TASK_PID_NAME  0
 
 // The code not compiled by this #define could be removed
 #define HCOM_IGNORE_UNNECESSARY_FILE_SYSTEM_COMMANDS
@@ -571,10 +571,10 @@ extern "C"
   void hcom_utils_shutdown(void);
   void hcom_utils_bbreg_write(uint32_t regNumber, uint32_t value);
   uint32_t hcom_utils_bbreg_read(uint32_t regNumber);
-  bool hcom_utils_bbreg_bit_test_and_clear(uint32_t regNumber, uint32_t value);
-  void hcom_utils_bbreg_bit_set(uint32_t regNumber, uint32_t value);
-  bool hcom_utils_bbreg_bit_test(uint32_t regNumber, uint32_t value);
-  void hcom_utils_bbreg_bit_clear(uint32_t regNumber, uint32_t value);
+  bool hcom_utils_bbreg_is_bit_set_clear(uint32_t regNumber, uint32_t value);
+  void hcom_utils_bbreg_set_bit(uint32_t regNumber, uint32_t value);
+  bool hcom_utils_bbreg_is_bit_set(uint32_t regNumber, uint32_t value);
+  void hcom_utils_bbreg_clear_bit(uint32_t regNumber, uint32_t value);
   void hcom_utils_diag_print_buffer(const uint8_t packetBuffer[], const int bufLen, uint8_t logPriority);
   bool hcom_utils_boot_time_qemu_check(void);
   void hcom_utils_boot_time_mono_check(void);

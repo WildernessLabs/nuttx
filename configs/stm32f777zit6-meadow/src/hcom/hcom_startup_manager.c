@@ -61,6 +61,8 @@
 static char *thisFile = __FILE__;
 
 static int _hcom_pid;
+static int _syslog_mask;
+static bool _power_on_restart;
 
 /****************************************************************************
  * Private Function Prototypes
@@ -82,50 +84,37 @@ static FAR void *hcom_comms_recv_worker_pthread(FAR void *arg);
 #if defined(CONFIG_STM32F7_PWR)
 int hcom_manager_syslog_mask_init()
 {
-  int syslog_mask;
-  bool power_on_restart;
-
   // Check if this is a reboot or a power-on restart. The MCU on Power-on
   // restart clears all 32 battery backed registers to 0.
   if(hcom_utils_bbreg_read(HCOM_BATTERY_BACKED_REG_SYSLOG_MASK) == 0)
   {
     // Power-on restart
-    power_on_restart = true;
+    _power_on_restart = true;
 
     // Set and save the syslog level to the default value
-    syslog_mask = LOG_MASK(LOG_EMERG) | LOG_MASK(LOG_ALERT) | LOG_MASK(LOG_CRIT) |
+    _syslog_mask = LOG_MASK(LOG_EMERG) | LOG_MASK(LOG_ALERT) | LOG_MASK(LOG_CRIT) |
                LOG_MASK(LOG_ERR) | LOG_MASK(LOG_WARNING);
-    hcom_utils_bbreg_write(HCOM_BATTERY_BACKED_REG_SYSLOG_MASK, syslog_mask);
+    hcom_utils_bbreg_write(HCOM_BATTERY_BACKED_REG_SYSLOG_MASK, _syslog_mask);
   }
   else
   {
     // Rebooted - it's safe to use the battery backed registers and SRAM values
-    power_on_restart = false;
-    syslog_mask = hcom_utils_bbreg_read(HCOM_BATTERY_BACKED_REG_SYSLOG_MASK);
+    _power_on_restart = false;
+    _syslog_mask = hcom_utils_bbreg_read(HCOM_BATTERY_BACKED_REG_SYSLOG_MASK);
   }
 
   // Save for emergency debugging :-)
-  // syslog_mask = LOG_MASK(LOG_EMERG) | LOG_MASK(LOG_ALERT) | LOG_MASK(LOG_CRIT) |
+  // _syslog_mask = LOG_MASK(LOG_EMERG) | LOG_MASK(LOG_ALERT) | LOG_MASK(LOG_CRIT) |
   //             LOG_MASK(LOG_ERR) | LOG_MASK(LOG_WARNING) | LOG_MASK(LOG_NOTICE) | 
   //             LOG_MASK(LOG_INFO); // | LOG_MASK(LOG_DEBUG);
 
   // Sets new mask and returns the previous syslog_mask
-  int ret = setlogmask(syslog_mask);
+  int ret = setlogmask(_syslog_mask);
   if (ret < 0)
   {
     hcom_utils_f7syslog(LOG_CRIT, "%s@%d-setlogmask err:%d\n", thisFile, __LINE__, ret);
     return ret;
   }
-
-  bool traceToHost = hcom_utils_bbreg_is_bit_set(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
-          HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG);
-  hcom_utils_f7syslog(LOG_INFO, "Meadow %s (%s@%s) %s, Trace level:0x%02x(was 0x%02x), Trace to host:%s, Mono:%s, tick:%d us\n",
-        HCOM_DEVICE_INFO_MEADOW_OS_VERSION, __DATE__, __TIME__, 
-        power_on_restart ? "power-on restart" :"rebooted",
-        syslog_mask, ret,
-        traceToHost ?  "Enabled" : "Disabled",
-        hcom_utils_is_mono_disabled() ? "Disabled" : "Enabled",
-        CONFIG_USEC_PER_TICK);
 
   return OK;
 }
@@ -347,9 +336,20 @@ FAR void *hcom_comms_recv_worker_pthread(FAR void *arg)
     return ret;
   }
 
+  bool traceToHost = hcom_utils_bbreg_is_bit_set(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
+          HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG);
+  hcom_utils_f7syslog(LOG_INFO, "Meadow %s (%s@%s) %s, Trace level:0x%02x(was 0x%02x), Trace to host:%s, Mono:%s, tick:%d us\n",
+        HCOM_DEVICE_INFO_MEADOW_OS_VERSION, __DATE__, __TIME__, 
+        _power_on_restart ? "power-on restart" :"rebooted",
+        _syslog_mask, ret,
+        traceToHost ?  "Enabled" : "Disabled",
+        hcom_utils_is_mono_disabled() ? "Disabled" : "Enabled",
+        CONFIG_USEC_PER_TICK);
+
+
   //-------------------------------------------------------
   // Main thread only returns on shutdown or serious error
-  //-------------------------------------------------------
+  //-------------------------------------------------------  
   ret = hcom_comms_recv_thread_loop();
   if (ret < 0)
   {

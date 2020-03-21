@@ -99,8 +99,6 @@ int hcom_comms_setup()
   _encodedXmitBuff = malloc(HCOM_SAFE_PACKET_BUF_SIZE);
 
   sem_init(&_hostXmitSem, 0, 1);
-  // p-m pretty sure this is not needed nor desired
-  //sem_setprotocol(&_hostXmitSem, SEM_PRIO_NONE);
   
   deviceName = CONFIG_HCOM_COMMS_DEVICE_NAME;
 
@@ -141,18 +139,18 @@ int hcom_comms_recv_thread_loop()
   // Same thread must init as uses the timer
   hcom_comms_recv_timer_init();
 
-  // This loop only runs when we loose a connection
+  // This loop only runs initially and when we loose a host connection
   while(! _shutting_down)
   {
     // todo - This is a poor solution. Is this really a problem?
     if(wait_before_retry)
-      sleep(15);    // Delay for certain return values. Thus limiting error messages
+      sleep(1);    // Delay for certain return values. Thus limiting error messages
       
-    // Establish the connection
+    // Attempt to establish the connection
     ret = hcom_comms_open_connection();
     if (ret < 0)
     {
-      // TODO - should not output messages every second (timer or count).
+      // TODO - should not output messages every second.
       hcom_utils_f7syslog(LOG_ERR, "%s@%d-connection not made, %d\n", thisFile, __LINE__, ret);
       sleep(1);   // Can't leave this loop or all hcom will stop
       continue;
@@ -176,11 +174,12 @@ int hcom_comms_handle_initial_connection()
 {
   char * monoStartupMsg;
 
-  // Check if a command was responsible for this restart, If it was a `Concluded` message must be sent
-  bool is_restart = hcom_utils_bbreg_is_bit_set_clear(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
-    HCOM_BBREG_RESTART_CONCLUDED_BIT_FLAG);
+// hcom_utils_f7syslog_x(0, "Initial RECV connection just made!!!\n"); usleep(10 * 1000);
 
-  if(is_restart)
+  // Check if a CLI command was responsible for this restart, If it was a
+  // `Concluded` message must be sent
+  if(hcom_utils_bbreg_is_bit_set_clear(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
+    HCOM_BBREG_RESTART_CONCLUDED_BIT_FLAG))
   {
     hcom_comms_send_header_msg(HCOM_HOST_REQUEST_TEXT_CONCLUDED, 0, thisFile, __LINE__);
   }
@@ -240,8 +239,8 @@ int hcom_comms_open_connection()
 }
 
 //========================================================================
-// Receive all host data and calls transmit to responsed as needed. This thread
-// is the only thread receiving via usb serial.
+// This thread receives all host data and may call transmit to responsed as
+// needed. This thread is the only thread receiving via USB serial data.
 bool hcom_comms_receive_data()
 {
   hcom_comms_dbg(LOG_DEBUG, "Waiting for '%s' message\n", HCOM_COMMUNICATIONS_DEVICE_NAME);
@@ -290,7 +289,7 @@ bool hcom_comms_receive_data()
     {
       bool delayBeforeRetry;
 
-      // Treat all errors the same. Drop the connection and try again
+      // Treat all these errors the same. Drop the connection and try again
       if (readResult == -ENOTCONN || readResult == -ENOTSOCK || readResult == -ENETDOWN)
       {
         // Host dropped connection - calling read will only repeat the error
@@ -456,39 +455,56 @@ int hcom_comms_recv_timer_init()
   return OK;
 }
 
-//=====================================================================
-static int hcom_comms_open_connection_write(void)
+//==========================================================================
+// Below this point
+// If using ramlog don't call syslog or hcom_utils_f7syslog, it will just call
+// syslog again, a never ending message.
+//==========================================================================
+static int hcom_comms_open_xmit_connection(void)
 {
   int ret;
+// hcom_utils_f7syslog_x(0, "[pid %d] Entered open_xmit_conn, %s open\n", getpid(), _is_connection_write_open ? "already" : "not"); usleep(10 * 1000);
 
   if(_is_connection_write_open)
     return OK;
-
-  hcom_comms_dbg_x(LOG_DEBUG, "%s@%d-Open %s write connection\n", thisFile, __LINE__,
-      HCOM_COMMUNICATIONS_DEVICE_NAME);
 
   // Based on observation - If O_NONBLOCK is not specified in the file_open call, the file_read
   // call blocks after writing some number of bytes. It's as if some internal buffer fills causing
   // the file_write call to begin blocking. This is not acceptable as the calling thread has other
   // work to do. So, other measures have been added as can be seen.
-  ret = file_open(&_connection_write_file_fd, deviceName, O_WRONLY|O_NONBLOCK);
-  if(ret < 0)
+  int openAttempts;
+  #define HCOM_COMMS_MAX_XMIT_OPEN_ATTEMPTS 8
+  for(openAttempts = 0; openAttempts < HCOM_COMMS_MAX_XMIT_OPEN_ATTEMPTS; openAttempts++)
   {
-    hcom_utils_f7syslog(LOG_ERR, "%s@%d-Open USB write errno:%d\n", thisFile, __LINE__, errno);
+    ret = file_open(&_connection_write_file_fd, deviceName, O_WRONLY|O_NONBLOCK);
+    if(ret >= 0)
+    {
+// hcom_utils_f7syslog_x(0, "[pid %d] xmit now opened\n", getpid()); usleep(10 * 1000);
+      break;
+    }
+// hcom_utils_f7syslog_x(0, "[pid %d] xmit open failed (%d) ret:%d errno:%d\n", getpid(), i, ret, errno); usleep(10 * 1000);
+
+    usleep(100 * 1000);
+  }
+
+  if(openAttempts == HCOM_COMMS_MAX_XMIT_OPEN_ATTEMPTS)
+  {
+    hcom_utils_f7syslog_x(LOG_ERR, "%s@%d-Open USB write ret:%d errno:%d\n", thisFile, __LINE__, ret, errno);
     return ret;
   }
 
   _is_connection_write_open = true;
+// hcom_utils_f7syslog_x(0, "[pid %d] xmit conn now open\n", getpid()); usleep(10 * 1000);
+
   return OK;
 }
 
-//==========================================================================
-// Below this point    p-m WHAT?
-//==========================================================================
+//=====================================================================
 // Wait for the thread writing to exit
 static void hcom_comms_transmit_takesem(void)
 {
   int ret;
+
   do
     {
       /* Take the semaphore (perhaps waiting) */
@@ -519,39 +535,57 @@ bool hcom_comms_is_host_xmit_blocked()
 {
   int ret;
 
-  // Last attempt was not blocked. Caller should attempt to send.
-  if(!_lastXmitBlocked)
-    return false;
-
   // Only one thread at a time can send to host
+// hcom_utils_f7syslog_x(0, "[pid %d] Entered-xmit is Blocked() sema:wait\n", getpid()); usleep(10 * 1000);
+
   hcom_comms_transmit_takesem();
+  
+// hcom_utils_f7syslog_x(0, "[pid %d] blkd sema:now owned, xmit Blocked?\n", getpid()); usleep(10 * 1000);
+
+  // Last attempt was not blocked. Caller should attempt to send.
+  //  Owns semaphore
+  if(!_lastXmitBlocked)
+  {
+hcom_utils_f7syslog_x(0, "[pid %d] blkd sema:owned,assume not blkd\n", getpid()); usleep(10 * 1000);
+    return false;
+  }
 
   if(! _is_connection_write_open)
   {
-    ret = hcom_comms_open_connection_write();
+// hcom_utils_f7syslog_x(0, "[pid %d] blkd sema:owned,open conn\n", getpid()); usleep(10 * 1000);
+    ret = hcom_comms_open_xmit_connection();
     if(ret < 0)
     {
+    
+      // Not blocked but another error. Release semaphore
       sem_post(&_hostXmitSem);
-      return true;  // Not blocked but another error
+// hcom_utils_f7syslog_x(0, "[pid %d] blkd sema:freed,open failed\n", getpid()); usleep(10 * 1000);
+      return true;
     }
+// hcom_utils_f7syslog_x(0, "[pid %d] blkd sema:owned,open success\n", getpid()); usleep(10 * 1000);
   }
-
-  hcom_comms_dbg_x(LOG_DEBUG, "%s@%d-Sending 0 to host\n", thisFile, __LINE__);
 
   uint8_t oneZero[1];
   oneZero[0] = '\0';
 
-  // Send a '0' message that the host knows to ignore.
+// hcom_utils_f7syslog_x(0, "[pid %d] blkd sema:owned,sending 0\n", getpid());
+  // Send a '0' message that the host knows to ignore. It's the cots
+  // protocol framing character.
   ssize_t writeRet = file_write(&_connection_write_file_fd, &oneZero, 1);
   if(writeRet == 1)
   {
-    // Write successfull, no longer blocked
+    // Write successfull, no longer blocked but keep semaphore
+    // until xmit sends it's data.
+    // Keep semaphore, it's released when hcom_comms_transmit_to_host()
+    // is called.
+hcom_utils_f7syslog_x(0, "[pid %d] blkd sema:owned,exit,sent 0,not blkd\n", getpid());
     _lastXmitBlocked = false;
-    sem_post(&_hostXmitSem);
-    return false;
+    return false;   // Not blocked
   }
   
+  _lastXmitBlocked = true;
   sem_post(&_hostXmitSem);
+hcom_utils_f7syslog_x(0, "[pid %d] blkd sema:freed,send 0 failed => blocked\n", getpid());
   return true;    // blocked or some error
 }
 
@@ -560,19 +594,29 @@ bool hcom_comms_is_host_xmit_blocked()
 // At this time 2 threads use this method
 int hcom_comms_transmit_to_host(FAR uint8_t xmitBuffer[], size_t xmitLength)
 {
-  #define HCOM_XMIT_MAX_BLOCKED_TIME_DELAY  (5 * 1000)
-  #define HCOM_XMIT_MAX_BLOCKED_COUNT_VALUE 800 // 5ms each = 4 seconds
+  #define HCOM_XMIT_MAX_BLOCKED_TIME_DELAY  (50 * 1000)
+  #define HCOM_XMIT_MAX_BLOCKED_COUNT_VALUE 80 // 5ms each = 4 seconds
 
-  int ret;
   size_t remainingBytes;
   size_t toWriteOffset = 0;
   size_t blockedCount = 0;
 
-  if(_shutting_down)
-    return OK;
+  //int sval;
+  // p-m how to insure this semaphore is held and held by the right thread?
+  // if (sem_getvalue(&_hostXmitSem, &sval) < 0)
+  // {
+  //   DEBUGASSERT(false);
+  //   return -EINVAL;
+  // }
+  // DEBUGASSERT(sval <= 0);
 
-  // Only one thread at a time
-  hcom_comms_transmit_takesem();
+  // Only one thread at a time because the blocked test grabbed it
+  if(_shutting_down)
+  {
+    sem_post(&_hostXmitSem);  // release
+    return OK;
+  }
+//usleep(50 * 1000);
 
   // Encode
   size_t encodedLength = hcom_comms_cobs_encoder(xmitBuffer, 0, xmitLength, _encodedXmitBuff);
@@ -583,13 +627,22 @@ int hcom_comms_transmit_to_host(FAR uint8_t xmitBuffer[], size_t xmitLength)
 
   encodedLength++;
   remainingBytes = encodedLength;
+//usleep(50 * 1000);
 
   if(! _is_connection_write_open)
   {
-    ret = hcom_comms_open_connection_write();
+// hcom_utils_f7syslog_x(0, "[pid %d] xmit conn closed attempt open\n", getpid());
+    int ret = hcom_comms_open_xmit_connection();
     if(ret < 0)
-      return ret;
+    {
+// hcom_utils_f7syslog_x(0, "[pid %d] xmit conn open failed\n", getpid());
+      return OK;
+    }
+// hcom_utils_f7syslog_x(0, "[pid %d] xmit open success\n", getpid());
   }
+
+// hcom_utils_f7syslog_x(0, "[pid %d] xmit send msg:\n", getpid());
+// hcom_utils_diag_print_buffer(xmitBuffer, xmitLength, 0);
 
   // Since there's no guarantee all bytes written at one time, loop until message 100% written
   while (remainingBytes > 0)
@@ -610,7 +663,10 @@ int hcom_comms_transmit_to_host(FAR uint8_t xmitBuffer[], size_t xmitLength)
     // EINTR is not really an error... it simply means that this write was
     // interrupted by a signal before it wrote the data.
     if (writeRet == -EINTR)
+    {
+// hcom_utils_f7syslog_x(0, "[pid %d] xmit sema:own,EINTR will loop:%d\n", getpid(), writeRet);
       continue;
+    }
 
     if(writeRet == -EAGAIN)
     {
@@ -631,6 +687,7 @@ int hcom_comms_transmit_to_host(FAR uint8_t xmitBuffer[], size_t xmitLength)
 
       // No reason to close fd. The caller can sort out what to do with partial data.
       sem_post(&_hostXmitSem);
+// hcom_utils_f7syslog_x(0, "[pid %d] xmit sema:freed,EAGAIN exit ret:%d\n", getpid(), writeRet);
       return writeRet;
     }
 
@@ -638,6 +695,7 @@ int hcom_comms_transmit_to_host(FAR uint8_t xmitBuffer[], size_t xmitLength)
     _is_connection_write_open = false;
 
     sem_post(&_hostXmitSem);
+// hcom_utils_f7syslog_x(0, "[pid %d] xmit sema:freed,send error exit ret:%d\n", getpid(), writeRet);
     return writeRet;
   } // while (remainingBytes > 0)
 
@@ -645,5 +703,6 @@ int hcom_comms_transmit_to_host(FAR uint8_t xmitBuffer[], size_t xmitLength)
   _lastXmitBlocked = false;
 
   sem_post(&_hostXmitSem);
+// hcom_utils_f7syslog_x(0, "[pid %d] xmit sema:freed,send success\n", getpid());
   return OK;
 }

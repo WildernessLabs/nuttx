@@ -582,12 +582,9 @@ extern "C"
   void hcom_utils_directlog(int priority, FAR const IPTR char *fmt, ...);
   void hcom_utils_f7syslog(int priority, FAR const IPTR char *fmt, ...);
   void hcom_utils_f7syslog_x(int priority, FAR const IPTR char *fmt, ...);
-  //p-m ramlog NOT NEEDED
-// void f7syslog_host(int priority, FAR const IPTR char *fmt, ...);
-  void hcom_utils_dbg_gpio_led_update(bool ledOn);
-  void hcom_utils_dbg_gpio_update(uint8_t newValue, bool ledOn);
+  void hcom_utils_dbg_gpio_1led_update(bool ledOn);
+  void hcom_utils_dbg_gpio_8bit_update(uint8_t newValue, bool ledOn);
 
-  
   // Ramlog to host
 #if defined (CONFIG_RAMLOG_SYSLOG)
   int hcom_trace_ramlog_setup(void);
@@ -605,8 +602,6 @@ extern "C"
   void hcom_exec_rqst_testing_developer_2(uint32_t userData);
   void hcom_exec_rqst_testing_developer_3(uint32_t userData);
   void hcom_exec_rqst_testing_developer_4(uint32_t userData);
-  void hcom_exec_rqst_testing_gpio_output(uint32_t pinNumber);
-  void hcom_exec_rqst_testing_gpio_input(void);
 
 #endif // __ASSEMBLY__
 

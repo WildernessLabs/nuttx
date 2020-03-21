@@ -308,11 +308,6 @@ int hcom_trace_ramlog_read_ramlog_loop()
   {
     // Blocks till data is available
     ret = poll(fds, HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING, HCOM_TRACE_RAMLOG_POLL_WAIT_DELAY);
-    
-    // If tracing was disabled just ignore everthing
-    if(!_trace_logging_requested)
-      continue;
-
     if (ret < 0 || ret > HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING)
     {
       // Check errno for one of these values
@@ -353,11 +348,15 @@ int hcom_trace_ramlog_read_ramlog_loop()
       }
       else
       {
-        // Successful ramlog read message, so throw data into circular buffer
-        ret = hcom_trace_ramlog_save_recvd_data(buffer, readReturn);
-        if (ret < 0 )
+        // Successful ramlog message read put into circular buffer
+        // unless logging turned off
+        if(_trace_logging_requested)
         {
-          return ret;
+          ret = hcom_trace_ramlog_save_recvd_data(buffer, readReturn);
+          if (ret < 0 )
+          {
+            return ret;
+          }
         }
       }
     }   // while (!_shutting_down)
@@ -487,8 +486,9 @@ int hcom_trace_ramlog_route_trace_text(uint8_t *recvBuff, int numbBytes)
 // Called from Meadow.CLI
 void hcom_trace_ramlog_send_trace_to_host(uint32_t userData)
 {
-  hcom_utils_bbreg_set_bit(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
-          HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG);
+  // p-m ANY REASON FOR TRACEENABLE TO BE PERSISTED ACROSS RESTARTS?
+  // hcom_utils_bbreg_set_bit(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
+  //         HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG);
 
 #if defined (CONFIG_RAMLOG_SYSLOG)
   // Do ramlog initialization, if needed

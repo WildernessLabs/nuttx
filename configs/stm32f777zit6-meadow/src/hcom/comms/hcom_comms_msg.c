@@ -59,7 +59,6 @@ static bool _shutting_down;
  ****************************************************************************/
 static void hcom_comms_build_msg_header(uint16_t requestType, uint16_t extraData,
         uint32_t userData, uint8_t *xmitBuffer);
-static int hcom_comms_send_message(uint8_t * message, size_t messageLength);
 static int hcom_comms_send_simple_buffer_msg(uint16_t requestType, uint16_t extraData,
         uint32_t userData, uint8_t *msgBuffer, size_t msgLen);
 
@@ -121,20 +120,23 @@ int hcom_comms_send_raw_string_msg(uint16_t requestType, uint32_t userData, char
 }
 
 //=====================================================================
+// p-m the xmit semaphore should really be around this function
+// p-m Any way to combine this code with the xmit code?
 // This will prepare and send a simple message, in addtion to the header
 int hcom_comms_send_simple_buffer_msg(uint16_t requestType, uint16_t extraData,
-       uint32_t userData, uint8_t *origMsg, size_t msgLen)
+        uint32_t userData, uint8_t *origMsg, size_t msgLen)
 {
   int ret;
 
-  // p-m Verify this statement
-  // This MUST be called before calling hcom_comms_transmit_to_host to send
-  // a message to the host. It grabs the xmit semaphore and verifies that
-  // transmission is possible. If it returns true then we're blocked and
-  // cannot transmit at this time, the host isn't available and the
-  // semaphore was not held. If it doesn't return false then it's okay to
-  // send and the semaphore is being held.
-
+  // hcom_comms_is_host_xmit_blocked() MUST be called before calling
+  // hcom_comms_transmit_to_host to send() to send a message to the host.
+  // hcom_comms_is_host_xmit_blocked() grabs the xmit semaphore and
+  // verifies that transmission is possible (not blocked). If it returns
+  // true (blocked) and cannot transmit at this time, the host isn't
+  // available and the semaphore is not owned. If it return false
+  // (not blocked) then it's okay to send and the semaphore is being
+  // held and will be released by hcom_comms_transmit_to_host to send()
+  // after the transmission attempt.
   if(hcom_comms_is_host_xmit_blocked())
   {
     // This is a normal occurance since the host is usually not connected
@@ -153,17 +155,18 @@ int hcom_comms_send_simple_buffer_msg(uint16_t requestType, uint16_t extraData,
 
   if(msgLen > 0)
   {
-    // Unique buffer for each call so multithreading works (each thread has a
-    // different stack and xmitBuffer is on that stack)
+    // Unique buffer for each call so multithreading can work (each thread
+    // has a different stack and xmitBuffer is on that stack)
     uint8_t *xmitBuffer = malloc(fullMsgLen);
 
     // Uses the first part of message buffer for header
     hcom_comms_build_msg_header(requestType, extraData, userData, xmitBuffer);
+
     // Copy the body of the message
     memcpy(xmitBuffer + HCOM_PROTOCOL_REQUEST_HEADER_LENGTH, origMsg, fullMsgLen - HCOM_PROTOCOL_REQUEST_HEADER_LENGTH);
     
     // Send the message without a body, just the header
-    ret = hcom_comms_send_message(xmitBuffer, fullMsgLen);
+    ret = hcom_comms_transmit_to_host(xmitBuffer, fullMsgLen);
     free(xmitBuffer);
   }
   else
@@ -175,7 +178,7 @@ int hcom_comms_send_simple_buffer_msg(uint16_t requestType, uint16_t extraData,
     hcom_comms_build_msg_header(requestType, extraData, userData, headerOnlyMsg);
 
     // Send the message
-    ret = hcom_comms_send_message(headerOnlyMsg, fullMsgLen);
+    ret = hcom_comms_transmit_to_host(headerOnlyMsg, fullMsgLen);
   }
 
   return ret;
@@ -194,27 +197,4 @@ void hcom_comms_build_msg_header(uint16_t requestType,
   hdr->rqstType = requestType;
   hdr->extraData = extraData;
   hdr->userData = userData;
-}
-
-//=====================================================================
-// Send the completed message
-int hcom_comms_send_message(uint8_t *message, size_t messageLength)
-{
-  int ret;
-
-  ret = hcom_comms_transmit_to_host(message, messageLength);
-  if(ret < 0)
-  {
-    if(ret == -EAGAIN)
-    {
-      hcom_utils_f7syslog_x(LOG_DEBUG, "%s@%d-Last xmit blocked.\n", thisFile, __LINE__);
-      return OK;
-    }
-    else
-    {
-      hcom_utils_f7syslog_x(LOG_ERR, "%s@%d-Host xmit, error:%d\n", thisFile, __LINE__, ret);
-    }
-  }
-  
-  return ret;
 }

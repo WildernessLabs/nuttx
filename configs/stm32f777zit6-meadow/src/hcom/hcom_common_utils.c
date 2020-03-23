@@ -252,15 +252,6 @@ void hcom_utils_diag_print_buffer(const uint8_t buffer[], const int bufLen, uint
     lineBuff[asciiOffset] = 0x00; // null terminator
 
   // Output one row at a time
-// p-m THIS NEEDS SOME THOUGHT. CAN IT BE MADE TO WORK WITH RAMLOG?
-// #if defined(CONFIG_RAMLOG_SYSLOG)
-//     hcom_utils_directlog(msgPriority, "%s\n", lineBuff);
-// #else          
-//     syslog(msgPriority, "%s\n", lineBuff);
-// #endif
-// p-m WHAT'S CORRECT?
-//     syslog(msgPriority, "%s\n", lineBuff);
-
   hcom_utils_f7syslog(msgPriority, lineBuff);
   }
 

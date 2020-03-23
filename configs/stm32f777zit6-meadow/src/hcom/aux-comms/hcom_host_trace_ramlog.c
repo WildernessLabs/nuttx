@@ -57,6 +57,7 @@
  ****************************************************************************/
 
 #define HCOM_TRACE_RAMLOG_READ_BUFF_SIZE 256
+#define HCOM_TRACE_CIRCULAR_BUFFER_SIZE (HCOM_TRACE_RAMLOG_READ_BUFF_SIZE * 5)
 
 /****************************************************************************
  * Private Types
@@ -134,7 +135,7 @@ int hcom_ramlog_trace_lazy_initialization()
   if(_trace_ramlog_initialized)
     return OK;
 
-  // Create a circular buffer to manage message from ramlog
+  // Create a circular buffer to manage messages read from ramlog
   _ramlog_cbuf = (struct host_com_cir_buffer_s *)malloc(sizeof(struct host_com_cir_buffer_s));
   if (_ramlog_cbuf == NULL)
   {
@@ -142,10 +143,9 @@ int hcom_ramlog_trace_lazy_initialization()
     return -1;
   }
     
-  // p-m DEFINE THESE HARDCODED CONSTANTS!
   // Initialize the circular buffer
   int result = hcom_cirbuf_init(_ramlog_cbuf,
-          HCOM_TRACE_RAMLOG_READ_BUFF_SIZE * 6, 0x0a);
+          HCOM_TRACE_CIRCULAR_BUFFER_SIZE, 0x0a);
   if (result == HCOM_CIR_BUF_INIT_FAILED)
   {
     hcom_ramlog_trace_err_logger(LOG_ERR, "%s@%d-hcom_cirbuf_init\n", thisFile, __LINE__);
@@ -259,7 +259,7 @@ void hcom_ramlog_trace_close_and_delay(bool closeNeeded)
 
   // Wait and try again
   if(!_shutting_down)
-    sleep(5);   // Not a special value, just no prevent hard infinite looping
+    sleep(5);   // Not a special value, just prevent hard infinite looping
 }
 
 //=================================================================
@@ -286,8 +286,8 @@ int hcom_ramlog_trace_open_ramlog()
 int hcom_ramlog_trace_read_ramlog_loop()
 {
   #define HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING 1
-  // p-m EXTEND THIS DELAY WHEN DONE!
-  #define HCOM_TRACE_RAMLOG_POLL_WAIT_DELAY (15 * 1000)   // 1 minute
+  #define HCOM_TRACE_RAMLOG_POLL_WAIT_DELAY (60 * 1000)   // 1 minute - arbitrary
+
   struct pollfd poll_fds[HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING];
   uint8_t buffer[HCOM_TRACE_RAMLOG_READ_BUFF_SIZE];
   ssize_t readReturn;
@@ -476,9 +476,9 @@ int hcom_ramlog_trace_route_trace_text(uint8_t *recvBuff, int numbBytes)
 }
 
 //==========================================================================
-// There's really no good way to handle errors with ramlog because they
+// There's really no good way to handle errors with ramlog because errors
 // cannot be written to syslog or we'll end up with an infinite loop. So,
-// the best we can do is sent them to the host if it's listening.
+// the best we can do is sent them to the host, if it's listening.
 void hcom_ramlog_trace_err_logger(int priority, FAR const IPTR char *fmt, ...)
 {
   if(!_trace_ramlog_requested)
@@ -490,7 +490,7 @@ void hcom_ramlog_trace_err_logger(int priority, FAR const IPTR char *fmt, ...)
   va_end(args);  
 }
 
-#endif
+#endif    // #if defined (CONFIG_RAMLOG_SYSLOG)
 
 // These 2 functions are always built and used by ramlog and syslog
 //======================================================================================
@@ -506,11 +506,11 @@ void hcom_ramlog_trace_err_logger(int priority, FAR const IPTR char *fmt, ...)
 //
 void hcom_trace_send_trace_to_host(uint32_t userData)
 {
-  // Set the persisted trace to host flag
+  // Set the persisted trace to allow host messages
   hcom_utils_bbreg_set_bit(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
           HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG);
 
-  // If ramlog configured, need to init it now
+  // If ramlog configured, need to init ramlog now
 #if defined (CONFIG_RAMLOG_SYSLOG)
   // The only way to undo this initialization is restart Meadow
   hcom_ramlog_trace_lazy_initialization();

@@ -645,7 +645,7 @@ void hcom_exec_rqst_testing_developer_3(uint32_t userData)
   // int ret;
   int i;
 
-//p-m ramlog NOT NEEDED
+// NOT NEEDED
   // for(i = 1; i <= userData; i++)
   // {
   //   if((i % 50) == 0)

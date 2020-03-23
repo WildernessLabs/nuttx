@@ -219,7 +219,7 @@ void hcom_exec_rqst_download_data_packet(const uint8_t *packet, const size_t pac
   {
     if(!_fileDownloadFailedNoted)
     {
-      // New feature - p-m This should send a message to host to stop sending
+      // ToDo - Someday when nothing else to do - This should send a message to host to stop sending
       hcom_utils_f7syslog(LOG_ERR, "%s@%d-Data packets ignored, previous error.\n", thisFile, __LINE__);
       _fileDownloadFailedNoted = true;
     }

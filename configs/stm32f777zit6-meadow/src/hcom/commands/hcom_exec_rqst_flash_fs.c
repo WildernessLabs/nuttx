@@ -279,7 +279,7 @@ void hcom_exec_flash_fs_create(uint32_t numbOfPartitions)
 #ifdef CONFIG_MTD_PARTITION
   if(numbOfPartitions != HCOM_NUMBER_OF_FS_PARTITIONS)
   {
-    // p-m This message makes no sense - investigate when partitioning activated
+    // This message makes no sense - investigate when partitioning activated
     DEBUGASSERT(false);
     stringLen = snprintf(hostMsg, HCOM_SHORT_HOST_STRING_BUFF_LENGTH,
       "Part %d not equal to %d. Please retry with %d",

@@ -283,7 +283,7 @@ int hcom_esp32_recv_handle_text_packet(uint8_t *text_buffer, ssize_t length)
   
   // Since text is not SLIP encoded we can see it if it's terminated
   text_buffer[length] = '\0';   // null terminate
-  // p-m this cannot be routed to Meadow.CLI
+  // This cannot be routed to Meadow.CLI so send directly to syslog
   syslog(LOG_INFO, "ESP32 Trace:%s", text_buffer);
   return OK;
 }

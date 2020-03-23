@@ -120,8 +120,8 @@ int hcom_comms_send_raw_string_msg(uint16_t requestType, uint32_t userData, char
 }
 
 //=====================================================================
-// p-m the xmit semaphore should really be around this function
-// p-m Any way to combine this code with the xmit code?
+// Todo - The xmit semaphore should really be around this function
+// Todo - Any way to combine this code with the xmit code?
 // This will prepare and send a simple message, in addtion to the header
 int hcom_comms_send_simple_buffer_msg(uint16_t requestType, uint16_t extraData,
         uint32_t userData, uint8_t *origMsg, size_t msgLen)

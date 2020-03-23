@@ -584,15 +584,6 @@ int hcom_comms_transmit_to_host(FAR uint8_t xmitBuffer[], size_t xmitLength)
   size_t toWriteOffset = 0;
   size_t blockedCount = 0;
 
-  //int sval;
-  // p-m how to insure this semaphore is held and held by the right thread?
-  // if (sem_getvalue(&_hostXmitSem, &sval) < 0)
-  // {
-  //   DEBUGASSERT(false);
-  //   return -EINVAL;
-  // }
-  // DEBUGASSERT(sval <= 0);
-
   // Only one thread at a time because the blocked test grabbed it
   if(_shutting_down)
   {

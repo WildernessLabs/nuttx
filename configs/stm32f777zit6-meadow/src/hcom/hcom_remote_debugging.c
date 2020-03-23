@@ -346,8 +346,6 @@ int hcom_remote_dbg_accept_connection(struct remote_dbg_session *dbgSock)
 // Returning from this function will kill the thread
 int hcom_remote_dbg_connect_and_receive(struct remote_dbg_session *dbgSock, uint8_t *recvBuffer)
 {
-  // syslog(0, "Debugging server setup successful. Listening on %s for connection with mono.\n", HCOM_REMOTE_DBG_SOCKET_NAME); usleep(50 * 1000);
-
   // Loop to accept connections and forward data
   while(!_shutting_down)
   {
@@ -362,10 +360,6 @@ int hcom_remote_dbg_connect_and_receive(struct remote_dbg_session *dbgSock, uint
       hcom_remote_dbg_close_and_delay();
       continue;
     }
-
-    // p-m why ignore this?
-    // if(transmit_sd == NULL)
-    //   syslog(0, "Server:transmit_sd is NULL!!\n"); usleep(100* 1000);
 
     // Read data from mono via socket until error. Error reported in loop.
     hcom_remote_dbg_read_mono_send_to_host_loop(dbgSock, recvBuffer);

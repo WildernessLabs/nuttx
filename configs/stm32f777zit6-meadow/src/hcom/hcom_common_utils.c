@@ -65,8 +65,9 @@ static char *thisFile = __FILE__;
  * Private Function Prototypes
  ****************************************************************************/
 
+#if HCOM_COMMON_UTILS_GPIO_TEST_PROBE > 0
 static void hcom_utils_dbg_gpio_init(void);
-
+#endif
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
@@ -194,7 +195,7 @@ void hcom_utils_diag_print_buffer(const uint8_t buffer[], const int bufLen, uint
 #define HCOM_UTIL_LEADING_SPACES 2
 #define HCOM_UTIL_HEXADECIMAL_OFFSET (8 + HCOM_UTIL_LEADING_SPACES)
 #define HCOM_UTIL_ASCII_OFFSET (57 + HCOM_UTIL_LEADING_SPACES)
-#define HCOM_UTIL_DISPLAY_LENGTH (HCOM_UTIL_ASCII_OFFSET + HCOM_UTIL_BYTES_PER_LINE + 2)
+#define HCOM_UTIL_DISPLAY_LENGTH (HCOM_UTIL_ASCII_OFFSET + HCOM_UTIL_BYTES_PER_LINE + 3)
 
   if ((g_syslog_mask & LOG_MASK(msgPriority)) == 0)
     return;
@@ -247,8 +248,10 @@ void hcom_utils_diag_print_buffer(const uint8_t buffer[], const int bufLen, uint
 
     // This row is ready
     lineBuff[hexOffset] = 0x20;   // Replace last hex null with a space
-    lineBuff[asciiOffset] = 0x00; // Follow last character with null
+    lineBuff[asciiOffset++] = 0x0a; // line feed
+    lineBuff[asciiOffset] = 0x00; // null terminator
 
+  // Output one row at a time
 // p-m THIS NEEDS SOME THOUGHT. CAN IT BE MADE TO WORK WITH RAMLOG?
 // #if defined(CONFIG_RAMLOG_SYSLOG)
 //     hcom_utils_directlog(msgPriority, "%s\n", lineBuff);
@@ -256,7 +259,9 @@ void hcom_utils_diag_print_buffer(const uint8_t buffer[], const int bufLen, uint
 //     syslog(msgPriority, "%s\n", lineBuff);
 // #endif
 // p-m WHAT'S CORRECT?
-     syslog(msgPriority, "%s\n", lineBuff);
+//     syslog(msgPriority, "%s\n", lineBuff);
+
+  hcom_utils_f7syslog(msgPriority, lineBuff);
   }
 
 #endif
@@ -300,7 +305,7 @@ static int hcom_utils_syslog_priority_to_text(int priority, char *textPri)
 }
 
 //===================================================================
-// Builds the string for syslog
+// Builds the string for syslogs
 static int hcom_util_build_syslog_string(int priority, FAR const IPTR char * fmtStr, va_list argsList,
         char* finalString, int maxStringLen)
 {
@@ -366,23 +371,29 @@ void hcom_utils_f7syslog(int priority, FAR const IPTR char *fmt, ...)
   va_start(args, fmt);
   int stringLen = hcom_util_build_syslog_string(priority, fmt, args, completeMsg,
             HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN);
-  va_end(args);
+  va_end(args);  
 
   // Depending on the nuttx configuration these messages may go to the
   // ramlog, to the serial console or the bit-bucket.
-  // If ramlog configured then the message is sent to syslog which adds a
-  // timestamp (if so configured) and puts it in the nuttx ramlog. Host
-  // trace then reads from ramlog and forwards the message it to the host PC.
-  // If no ramlog not configured and syslog is configured to sent to USART1
-  // then the following syslog call will output to USART1. And the code
-  // immediately below syslog will, forward to the host PC (without a timestamp).
+  // If ramlog configured then the message is sent to syslog only. Here
+  // syslog adds a timestamp (if so configured) and puts it in the nuttx
+  // ramlog buffer. The hcom_host_trace_ramlog read function reads it
+  // from ramlog and forwards the message to the host PC if requested.
+  // If ramlog not configured, but syslog is configured then the call to
+  // syslog writes the message to a UART for serial output. Then this
+  // code (immediately below) forwards it to the host PC. This is without 
+  // a timestamp.
   syslog(priority, completeMsg);
   
-#if !defined CONFIG_RAMLOG_SYSLOG
+#if defined CONFIG_RAMLOG_SYSLOG
+  stringLen = stringLen;    // Keep conpiler from warning (I know there's a better way...)
+#else
+  // syslog - check if these should be routed to host.
+  // Note: no timestamp for these messages
   if(hcom_utils_bbreg_is_bit_set(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
           HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG))
   {
-    // Note: no time stamp to these messages
+    // Strip off cr/lf since Meadow.CLI takes care of this
     if(completeMsg[stringLen - 1] == 0x0a || completeMsg[stringLen - 1] == 0x0d)
       stringLen--;
     if(completeMsg[stringLen - 1] == 0x0a || completeMsg[stringLen - 1] == 0x0d)
@@ -392,46 +403,44 @@ void hcom_utils_f7syslog(int priority, FAR const IPTR char *fmt, ...)
             stringLen, thisFile, __LINE__);
   }
 #endif
-
   free(completeMsg);
 }
 
+#if defined (CONFIG_RAMLOG_SYSLOG)
 //===================================================================
-// hcom_utils_directlog solves the problem that with ramlog enabled, we can't
-// use syslog while processing the syslog message, because it will cause
-// "feedback", every syslog message would generated another ramlog message. So,
-//  we go directly to the host without going to syslog -> ramlog.
+// hcom_utils_safe_ramlog solves the problem that with ramlog 
+// enabled, we can't use syslog while processing the syslog message,
+// because it will cause "feedback", every syslog message would
+// generated another ramlog message. So, we go directly to the host
+// without going to syslog.
 //===================================================================
-void hcom_utils_directlog(int priority, FAR const IPTR char *fmt, ...)
+void hcom_utils_safe_ramlog(int priority, FAR const IPTR char *fmt,
+          va_list args)
 {
+  // Check priority but otherwise ignore syslog.
   if ((g_syslog_mask & LOG_MASK(priority)) == 0)
     return;   // Nothing to do
-
+  
   char *completeMsg;
   completeMsg = malloc(HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN);
   DEBUGASSERT(completeMsg != NULL);
 
-  va_list args;
-  va_start(args, fmt);
   int stringLen = hcom_util_build_syslog_string(priority, fmt, args, completeMsg,
             HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN);
-  va_end(args);
 
-  if(hcom_utils_bbreg_is_bit_set(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
-          HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG))
-  {
-    // Note: no time stamp to these messages
-    if(completeMsg[stringLen - 1] == 0x0a || completeMsg[stringLen - 1] == 0x0d)
-      stringLen--;
-    if(completeMsg[stringLen - 1] == 0x0a || completeMsg[stringLen - 1] == 0x0d)
-      stringLen--;
+  // Note: no time stamp to these messages
+  if(completeMsg[stringLen - 1] == 0x0a || completeMsg[stringLen - 1] == 0x0d)
+    stringLen--;
+  if(completeMsg[stringLen - 1] == 0x0a || completeMsg[stringLen - 1] == 0x0d)
+    stringLen--;
 
-    hcom_comms_send_raw_string_msg(HCOM_HOST_REQUEST_TEXT_TRACE_MSG, 0, completeMsg,
-            stringLen, thisFile, __LINE__);
-  }
+  hcom_comms_send_raw_string_msg(HCOM_HOST_REQUEST_TEXT_TRACE_MSG, 0, completeMsg,
+          stringLen, thisFile, __LINE__);
   free(completeMsg);
 }
+#endif
 
+#if HCOM_COMMON_UTILS_GPIO_TEST_PROBE > 0
 //=================================================================
 // This for testing by using 
 #define HCOM_ONBOARD_D00_PIN_OUTPUT  (GPIO_OUTPUT | GPIO_PORTI | GPIO_PIN9 | GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
@@ -506,3 +515,4 @@ void hcom_utils_dbg_gpio_8bit_update(uint8_t newValue, bool ledOn)
     usleep(50 * 1000);
   }
 }
+#endif

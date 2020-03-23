@@ -1,7 +1,7 @@
 /****************************************************************************
  * configs/stm32f777-zit6-meadow/src/hcom/hcom_common.h
  * 
- *   Copyright (C) 2019 Wilderness Labs. All rights reserved.
+ *   Copyright (C) 2019-2020 Wilderness Labs. All rights reserved.
  *   Copyright (C) 2017 Gregory Nutt. All rights reserved.
  *   Copyright (C) 2017 Alan Carvalho de Assis. All rights reserved.
  *   Author:  Wilderness Labs
@@ -102,6 +102,7 @@
 //--------------------------------------------------------------------
 // Diagnostic aids
 #define HCOM_TASK_SHOW_CREATED_TASK_PID_NAME  0
+#define HCOM_COMMON_UTILS_GPIO_TEST_PROBE 1
 
 // The code not compiled by this #define could be removed
 #define HCOM_IGNORE_UNNECESSARY_FILE_SYSTEM_COMMANDS
@@ -579,19 +580,19 @@ extern "C"
   bool hcom_utils_boot_time_qemu_check(void);
   void hcom_utils_boot_time_mono_check(void);
   bool hcom_utils_is_mono_disabled(void);
-  void hcom_utils_directlog(int priority, FAR const IPTR char *fmt, ...);
   void hcom_utils_f7syslog(int priority, FAR const IPTR char *fmt, ...);
   void hcom_utils_f7syslog_x(int priority, FAR const IPTR char *fmt, ...);
+  void hcom_utils_safe_ramlog(int priority, FAR const IPTR char *fmt, va_list args);
   void hcom_utils_dbg_gpio_1led_update(bool ledOn);
   void hcom_utils_dbg_gpio_8bit_update(uint8_t newValue, bool ledOn);
 
   // Ramlog to host
 #if defined (CONFIG_RAMLOG_SYSLOG)
-  int hcom_trace_ramlog_setup(void);
-  void hcom_trace_ramlog_shutdown(void);
+  int hcom_ramlog_trace_setup(void);
+  void hcom_ramlog_trace_shutdown(void);
 #endif
-  void hcom_trace_ramlog_no_trace_msg_to_host(uint32_t userData);
-  void hcom_trace_ramlog_send_trace_to_host(uint32_t userData);
+  void hcom_trace_send_trace_to_host(uint32_t userData);
+  void hcom_trace_do_not_send_trace_to_host(uint32_t userData);
 
   // Testing utilities
   int hcom_exec_rqst_testing_setup(FAR struct mtd_dev_s *mtd);

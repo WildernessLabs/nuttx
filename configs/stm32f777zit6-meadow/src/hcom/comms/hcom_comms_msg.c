@@ -83,7 +83,7 @@ void hcom_comms_send_header_msg(uint16_t requestType, uint32_t userData,
       char *sourceFileName, int sourceLineNumber)
 {
   int ret = hcom_comms_send_simple_buffer_msg(requestType, 0, userData, NULL, 0);
-  if (ret < 0)
+  if (ret < 0 && ret != -EAGAIN) // EAGAIN is not an error it means the message was blocked
     hcom_utils_f7syslog_x(LOG_ERR, "%s@%d-Host xmit err:%d\n", sourceFileName, sourceLineNumber, ret);
 }
 
@@ -100,20 +100,20 @@ void hcom_comms_send_simple_string_msg(uint16_t requestType, uint32_t userData,
   size_t trueStrLen = strcspn(shortText, "\r\n");
 
   int ret = hcom_comms_send_simple_buffer_msg(requestType, 0, userData, (uint8_t*) shortText, trueStrLen);
-  if (ret < 0)
+  if (ret < 0 && ret != -EAGAIN) // EAGAIN is not an error it means the message was blocked
     hcom_utils_f7syslog_x(LOG_ERR, "%s@%d-Host xmit err:%d\n", sourceFileName, sourceLineNumber, ret);
 }
 
 //=====================================================================
 // THIS IS THE FUNCTION THAT SHOULD BE USED WHEN SPECIAL CIRCUMSTANCES EXIST
-// Prepare a string for transmission and allow any character
+// Prepare a string for transmission, allowing any character
+// This is called for various internal needs (e.g. mono, diagnostic).
 int hcom_comms_send_raw_string_msg(uint16_t requestType, uint32_t userData, char *shortText, size_t msgLength,
         char *sourceFileName, int sourceLineNumber)
 {
   int ret = hcom_comms_send_simple_buffer_msg(requestType, 0, userData, (uint8_t*) shortText, msgLength);
-  if (ret < 0)
+  if (ret < 0 && ret != -EAGAIN) // EAGAIN is not an error it means the message was blocked
   {
-    if(ret != -EAGAIN)  // Transmission blocked. EAGAIN is not an error it means the message was blocked
       hcom_utils_f7syslog_x(LOG_ERR, "%s@%d-Host xmit err:%d\n", thisFile, __LINE__, ret);
   }
   return ret;

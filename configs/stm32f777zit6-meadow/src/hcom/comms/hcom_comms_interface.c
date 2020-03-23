@@ -172,9 +172,7 @@ int hcom_comms_recv_thread_loop()
 //=======================================================================
 int hcom_comms_handle_initial_connection()
 {
-  char * monoStartupMsg;
-
-// hcom_utils_f7syslog_x(0, "Initial RECV connection just made!!!\n"); usleep(10 * 1000);
+  char *monoStartupMsg;
 
   // Check if a CLI command was responsible for this restart, If it was a
   // `Concluded` message must be sent
@@ -463,7 +461,6 @@ int hcom_comms_recv_timer_init()
 static int hcom_comms_open_xmit_connection(void)
 {
   int ret;
-// hcom_utils_f7syslog_x(0, "[pid %d] Entered open_xmit_conn, %s open\n", getpid(), _is_connection_write_open ? "already" : "not"); usleep(10 * 1000);
 
   if(_is_connection_write_open)
     return OK;
@@ -479,10 +476,8 @@ static int hcom_comms_open_xmit_connection(void)
     ret = file_open(&_connection_write_file_fd, deviceName, O_WRONLY|O_NONBLOCK);
     if(ret >= 0)
     {
-// hcom_utils_f7syslog_x(0, "[pid %d] xmit now opened\n", getpid()); usleep(10 * 1000);
       break;
     }
-// hcom_utils_f7syslog_x(0, "[pid %d] xmit open failed (%d) ret:%d errno:%d\n", getpid(), i, ret, errno); usleep(10 * 1000);
 
     usleep(100 * 1000);
   }
@@ -494,7 +489,6 @@ static int hcom_comms_open_xmit_connection(void)
   }
 
   _is_connection_write_open = true;
-// hcom_utils_f7syslog_x(0, "[pid %d] xmit conn now open\n", getpid()); usleep(10 * 1000);
 
   return OK;
 }
@@ -536,39 +530,30 @@ bool hcom_comms_is_host_xmit_blocked()
   int ret;
 
   // Only one thread at a time can send to host
-// hcom_utils_f7syslog_x(0, "[pid %d] Entered-xmit is Blocked() sema:wait\n", getpid()); usleep(10 * 1000);
-
   hcom_comms_transmit_takesem();
   
-// hcom_utils_f7syslog_x(0, "[pid %d] blkd sema:now owned, xmit Blocked?\n", getpid()); usleep(10 * 1000);
-
   // Last attempt was not blocked. Caller should attempt to send.
   //  Owns semaphore
   if(!_lastXmitBlocked)
   {
-hcom_utils_f7syslog_x(0, "[pid %d] blkd sema:owned,assume not blkd\n", getpid()); usleep(10 * 1000);
     return false;
   }
 
   if(! _is_connection_write_open)
   {
-// hcom_utils_f7syslog_x(0, "[pid %d] blkd sema:owned,open conn\n", getpid()); usleep(10 * 1000);
     ret = hcom_comms_open_xmit_connection();
     if(ret < 0)
     {
     
       // Not blocked but another error. Release semaphore
       sem_post(&_hostXmitSem);
-// hcom_utils_f7syslog_x(0, "[pid %d] blkd sema:freed,open failed\n", getpid()); usleep(10 * 1000);
       return true;
     }
-// hcom_utils_f7syslog_x(0, "[pid %d] blkd sema:owned,open success\n", getpid()); usleep(10 * 1000);
   }
 
   uint8_t oneZero[1];
   oneZero[0] = '\0';
 
-// hcom_utils_f7syslog_x(0, "[pid %d] blkd sema:owned,sending 0\n", getpid());
   // Send a '0' message that the host knows to ignore. It's the cots
   // protocol framing character.
   ssize_t writeRet = file_write(&_connection_write_file_fd, &oneZero, 1);
@@ -578,14 +563,12 @@ hcom_utils_f7syslog_x(0, "[pid %d] blkd sema:owned,assume not blkd\n", getpid())
     // until xmit sends it's data.
     // Keep semaphore, it's released when hcom_comms_transmit_to_host()
     // is called.
-hcom_utils_f7syslog_x(0, "[pid %d] blkd sema:owned,exit,sent 0,not blkd\n", getpid());
     _lastXmitBlocked = false;
     return false;   // Not blocked
   }
   
   _lastXmitBlocked = true;
   sem_post(&_hostXmitSem);
-hcom_utils_f7syslog_x(0, "[pid %d] blkd sema:freed,send 0 failed => blocked\n", getpid());
   return true;    // blocked or some error
 }
 
@@ -627,22 +610,15 @@ int hcom_comms_transmit_to_host(FAR uint8_t xmitBuffer[], size_t xmitLength)
 
   encodedLength++;
   remainingBytes = encodedLength;
-//usleep(50 * 1000);
 
   if(! _is_connection_write_open)
   {
-// hcom_utils_f7syslog_x(0, "[pid %d] xmit conn closed attempt open\n", getpid());
     int ret = hcom_comms_open_xmit_connection();
     if(ret < 0)
     {
-// hcom_utils_f7syslog_x(0, "[pid %d] xmit conn open failed\n", getpid());
       return OK;
     }
-// hcom_utils_f7syslog_x(0, "[pid %d] xmit open success\n", getpid());
   }
-
-// hcom_utils_f7syslog_x(0, "[pid %d] xmit send msg:\n", getpid());
-// hcom_utils_diag_print_buffer(xmitBuffer, xmitLength, 0);
 
   // Since there's no guarantee all bytes written at one time, loop until message 100% written
   while (remainingBytes > 0)
@@ -664,7 +640,6 @@ int hcom_comms_transmit_to_host(FAR uint8_t xmitBuffer[], size_t xmitLength)
     // interrupted by a signal before it wrote the data.
     if (writeRet == -EINTR)
     {
-// hcom_utils_f7syslog_x(0, "[pid %d] xmit sema:own,EINTR will loop:%d\n", getpid(), writeRet);
       continue;
     }
 
@@ -687,7 +662,6 @@ int hcom_comms_transmit_to_host(FAR uint8_t xmitBuffer[], size_t xmitLength)
 
       // No reason to close fd. The caller can sort out what to do with partial data.
       sem_post(&_hostXmitSem);
-// hcom_utils_f7syslog_x(0, "[pid %d] xmit sema:freed,EAGAIN exit ret:%d\n", getpid(), writeRet);
       return writeRet;
     }
 
@@ -695,7 +669,6 @@ int hcom_comms_transmit_to_host(FAR uint8_t xmitBuffer[], size_t xmitLength)
     _is_connection_write_open = false;
 
     sem_post(&_hostXmitSem);
-// hcom_utils_f7syslog_x(0, "[pid %d] xmit sema:freed,send error exit ret:%d\n", getpid(), writeRet);
     return writeRet;
   } // while (remainingBytes > 0)
 
@@ -703,6 +676,5 @@ int hcom_comms_transmit_to_host(FAR uint8_t xmitBuffer[], size_t xmitLength)
   _lastXmitBlocked = false;
 
   sem_post(&_hostXmitSem);
-// hcom_utils_f7syslog_x(0, "[pid %d] xmit sema:freed,send success\n", getpid());
   return OK;
 }

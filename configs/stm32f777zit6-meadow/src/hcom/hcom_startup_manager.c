@@ -136,7 +136,10 @@ int hcom_manager_setup(FAR struct mtd_dev_s *mtd)
   hcom_utils_boot_time_mono_check();
 
 #if defined (CONFIG_RAMLOG_SYSLOG)
-  ret = hcom_trace_ramlog_setup();
+  // Sets up some basic initialization for ramlog, but does not
+  // create the receive thread etc. as this is not a commonly
+  // needed feature.
+  ret = hcom_ramlog_trace_setup();
   if (ret < 0)
   {
     hcom_utils_f7syslog(LOG_CRIT, "%s@%d-setup log tracing %d\n", thisFile, __LINE__, ret);
@@ -336,16 +339,18 @@ FAR void *hcom_comms_recv_worker_pthread(FAR void *arg)
     return ret;
   }
 
-  bool traceToHost = hcom_utils_bbreg_is_bit_set(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
-          HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG);
-  hcom_utils_f7syslog(LOG_INFO, "Meadow %s (%s@%s) %s, Trace level:0x%02x(was 0x%02x), Trace to host:%s, Mono:%s, tick:%d us\n",
+  hcom_utils_f7syslog(LOG_INFO, "Meadow %s (%s@%s) %s, Mono:%s, Trace level:0x%02x(was 0x%02x), to host:%s, type:%s\n",
         HCOM_DEVICE_INFO_MEADOW_OS_VERSION, __DATE__, __TIME__, 
         _power_on_restart ? "power-on restart" :"rebooted",
-        _syslog_mask, ret,
-        traceToHost ?  "Enabled" : "Disabled",
         hcom_utils_is_mono_disabled() ? "Disabled" : "Enabled",
-        CONFIG_USEC_PER_TICK);
-
+        _syslog_mask, ret,
+        hcom_utils_bbreg_is_bit_set(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
+              HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG) ? "yes" : "no",
+#if defined CONFIG_RAMLOG_SYSLOG
+        "ramlog");
+#else
+        "syslog");
+#endif
 
   //-------------------------------------------------------
   // Main thread only returns on shutdown or serious error
@@ -383,6 +388,6 @@ void hcom_manager_shutdown()
   hcom_remote_dbg_shutdown();
   hcom_esp32_uart_comms_shutdown();
 #if defined (CONFIG_RAMLOG_SYSLOG)
-  hcom_trace_ramlog_shutdown();
+  hcom_ramlog_trace_shutdown();
 #endif
 }

@@ -233,7 +233,6 @@ int hcom_parse_request_and_process(const uint8_t *packet, const size_t packetSiz
   {
     // Data Packet (sequence number > 0) 
     hcom_comms_dbg(LOG_DEBUG, "%s@%d-Data seq:%d, len:%d\n", thisFile, __LINE__, seqNumb, packetSize); 
-
     hcom_exec_rqst_download_data_packet(packet, packetSize, seqNumb);
   }
 
@@ -432,13 +431,13 @@ void hcom_execute_host_command_type(const uint8_t *recvOrigData, const size_t re
 
     case HCOM_MDOW_REQUEST_NO_TRACE_TO_HOST:
       hcom_comms_send_header_msg(HCOM_HOST_REQUEST_TEXT_ACCEPTED, 0, thisFile, __LINE__);
-      hcom_trace_ramlog_no_trace_msg_to_host(userData);
+      hcom_trace_do_not_send_trace_to_host(userData);
       hcom_comms_send_header_msg(HCOM_HOST_REQUEST_TEXT_CONCLUDED, 0, thisFile, __LINE__);
       break;
 
     case HCOM_MDOW_REQUEST_SEND_TRACE_TO_HOST:
       hcom_comms_send_header_msg(HCOM_HOST_REQUEST_TEXT_ACCEPTED, 0, thisFile, __LINE__);
-      hcom_trace_ramlog_send_trace_to_host(userData);
+      hcom_trace_send_trace_to_host(userData);
       hcom_comms_send_header_msg(HCOM_HOST_REQUEST_TEXT_CONCLUDED, 0, thisFile, __LINE__);
       break;
 

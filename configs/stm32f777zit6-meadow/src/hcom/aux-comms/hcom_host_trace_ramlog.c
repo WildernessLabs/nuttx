@@ -56,7 +56,7 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define HCOM_TRACE_RAMLOG_READ_BUFF_SIZE 384
+#define HCOM_TRACE_RAMLOG_READ_BUFF_SIZE 256
 
 /****************************************************************************
  * Private Types
@@ -72,7 +72,7 @@ static char *thisFile = __FILE__;
 #if defined (CONFIG_RAMLOG_SYSLOG)
 static bool _shutting_down;
 static int _ramlog_fd;
-static bool _trace_logging_requested;
+static bool _trace_ramlog_requested;
 static struct host_com_cir_buffer_s *_ramlog_cbuf;
 static bool _trace_ramlog_initialized;
 static uint8_t *_singleMsgBuf;
@@ -81,86 +81,74 @@ static uint8_t *_singleMsgBuf;
  * Private Functions
  ****************************************************************************/
 #ifdef CONFIG_BUILD_PROTECTED
-static int hcom_trace_ramlog_kthread(int argc, char *argv[]);
+static int hcom_ramlog_trace_kthread(int argc, char *argv[]);
 #else
-static FAR void *hcom_trace_ramlog_pthread(FAR void *arg);
+static FAR void *hcom_ramlog_trace_pthread(FAR void *arg);
 #endif
 
-static int hcom_trace_ramlog_lazy_initialization(void);
-static int hcom_trace_ramlog_make_thread(void);
-static int hcom_trace_ramlog_open_ramlog(void);
-static void hcom_trace_ramlog_close_and_delay(bool closeNeeded);
-static int hcom_trace_ramlog_read_ramlog_loop(void);
-static int hcom_trace_ramlog_save_recvd_data(uint8_t recvBuff[], const ssize_t recvByteCnt);
-static int hcom_trace_ramlog_pull_all_packets_from_buffer(void);
-static int hcom_trace_ramlog_route_trace_text(uint8_t *buffer, int readReturn);
+static int hcom_ramlog_trace_make_thread(void);
+static int hcom_ramlog_trace_open_ramlog(void);
+static int hcom_ramlog_trace_lazy_initialization(void);
+static void hcom_ramlog_trace_close_and_delay(bool closeNeeded);
+static int hcom_ramlog_trace_read_ramlog_loop(void);
+static int hcom_ramlog_trace_save_recvd_data(uint8_t recvBuff[], const ssize_t recvByteCnt);
+static int hcom_ramlog_trace_pull_all_packets_from_buffer(void);
+static int hcom_ramlog_trace_route_trace_text(uint8_t *buffer, int readReturn);
 
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
-int hcom_trace_ramlog_setup()
+int hcom_ramlog_trace_setup()
 {
   _shutting_down = false;
   _trace_ramlog_initialized = false;
   _ramlog_fd = -1;
-  _trace_logging_requested = false;
-
-  // If tracing needed on restart, initialize now
-  if (hcom_utils_bbreg_is_bit_set(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
-          HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG))
-  {
-    return hcom_trace_ramlog_lazy_initialization();
-  }
-  
+  _trace_ramlog_requested = false;
   return OK;
 }
 
 //==========================================================================
 // Closing connection forces a receive error which, causes the thread to return.
-void hcom_trace_ramlog_shutdown()
+void hcom_ramlog_trace_shutdown()
 {
   _shutting_down = true;
 
-  close(_ramlog_fd);
-  _ramlog_fd = -1;
+  if(_ramlog_fd > -1)
+  {
+    close(_ramlog_fd);
+    _ramlog_fd = -1;
+  }
 
-  free(_singleMsgBuf);
-  free(_ramlog_cbuf);
+  if(_singleMsgBuf != NULL)
+    free(_singleMsgBuf);
+  if(_ramlog_cbuf != NULL)
+    free(_ramlog_cbuf);
 }
 
 //==========================================================================
-// Because this feature is rarely used we initialize only on request
-int hcom_trace_ramlog_lazy_initialization()
+// Because this feature is rarely used we initialize only by request
+int hcom_ramlog_trace_lazy_initialization()
 {
   int ret;
 
   if(_trace_ramlog_initialized)
     return OK;
 
-  // Create a thread to read the ramlog
-  ret = hcom_trace_ramlog_make_thread();
-  if (ret < 0)
-  {
-    hcom_utils_directlog(LOG_ERR, "%s@%d-thread create, errno:%d\n",
-      thisFile, __LINE__, errno);
-    return -1;
-  }
-
   // Create a circular buffer to manage message from ramlog
   _ramlog_cbuf = (struct host_com_cir_buffer_s *)malloc(sizeof(struct host_com_cir_buffer_s));
   if (_ramlog_cbuf == NULL)
   {
-    hcom_utils_directlog(LOG_ERR, "%s@%d-cir buf alloc\n", thisFile, __LINE__);
+    hcom_ramlog_trace_err_logger(LOG_ERR, "%s@%d-cir buf alloc\n", thisFile, __LINE__);
     return -1;
   }
     
   // p-m DEFINE THESE HARDCODED CONSTANTS!
   // Initialize the circular buffer
   int result = hcom_cirbuf_init(_ramlog_cbuf,
-          HCOM_TRACE_RAMLOG_READ_BUFF_SIZE * 4, 0x0a);
+          HCOM_TRACE_RAMLOG_READ_BUFF_SIZE * 6, 0x0a);
   if (result == HCOM_CIR_BUF_INIT_FAILED)
   {
-    hcom_utils_directlog(LOG_ERR, "%s@%d-hcom_cirbuf_init\n", thisFile, __LINE__);
+    hcom_ramlog_trace_err_logger(LOG_ERR, "%s@%d-hcom_cirbuf_init\n", thisFile, __LINE__);
     return -1;
   }
   
@@ -168,7 +156,16 @@ int hcom_trace_ramlog_lazy_initialization()
   _singleMsgBuf = malloc(HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN);
   if (_singleMsgBuf == NULL)
   {
-    hcom_utils_directlog(LOG_ERR, "%s@%d-cir buf alloc\n", thisFile, __LINE__);
+    hcom_ramlog_trace_err_logger(LOG_ERR, "%s@%d-cir buf alloc\n", thisFile, __LINE__);
+    return -1;
+  }
+
+  // Create a thread to read the ramlog
+  ret = hcom_ramlog_trace_make_thread();
+  if (ret < 0)
+  {
+    hcom_ramlog_trace_err_logger(LOG_ERR, "%s@%d-thread create, errno:%d\n",
+              thisFile, __LINE__, errno);
     return -1;
   }
 
@@ -177,13 +174,13 @@ int hcom_trace_ramlog_lazy_initialization()
 }
 
 //=============================================================
-int hcom_trace_ramlog_make_thread()
+int hcom_ramlog_trace_make_thread()
 {
   #ifdef CONFIG_BUILD_PROTECTED
     int pid = kthread_create(
       HCOM_THREAD_NAME_TRACE_RAMLOG,
       HCOM_THREAD_PRIORITY_TRACE_RAMLOG,
-      2048, (main_t)hcom_trace_ramlog_kthread,
+      2048, (main_t)hcom_ramlog_trace_kthread,
       (FAR char * const *)  NULL);
      if(pid <= 0)
     {
@@ -202,10 +199,10 @@ int hcom_trace_ramlog_make_thread()
     (void)pthread_attr_setschedparam(&attr, &param);
     (void)pthread_attr_setstacksize(&attr, 1024);
 
-    ret = pthread_create(&thread, &attr, hcom_trace_ramlog_pthread, NULL);
+    ret = pthread_create(&thread, &attr, hcom_ramlog_trace_pthread, NULL);
     if (ret < 0)
     {
-      hcom_utils_directlog(LOG_CRIT, "%s@%d-Thread create error:%d\n", thisFile, __LINE__, ret);
+      hcom_ramlog_trace_err_logger(LOG_CRIT, "%s@%d-Thread create error:%d\n", thisFile, __LINE__, ret);
       return ret;
     }
   #endif
@@ -216,9 +213,9 @@ int hcom_trace_ramlog_make_thread()
 //=================================================================
 // This thread receives all ramlog messages received from syslog
 #ifdef CONFIG_BUILD_PROTECTED
-int hcom_trace_ramlog_kthread(int argc, char *argv[])
+int hcom_ramlog_trace_kthread(int argc, char *argv[])
 #else
-FAR void *hcom_trace_ramlog_pthread(FAR void *arg)
+FAR void *hcom_ramlog_trace_pthread(FAR void *arg)
 #endif
 {
   int ret;
@@ -230,17 +227,17 @@ FAR void *hcom_trace_ramlog_pthread(FAR void *arg)
 
   while(!_shutting_down)
   {
-    ret = hcom_trace_ramlog_open_ramlog();
+    ret = hcom_ramlog_trace_open_ramlog();
     if(ret < 0)
     {
-      hcom_trace_ramlog_close_and_delay(false);
+      hcom_ramlog_trace_close_and_delay(false);
       continue;
     }
 
-    ret = hcom_trace_ramlog_read_ramlog_loop();
+    ret = hcom_ramlog_trace_read_ramlog_loop();
     if(ret < 0)
     {
-      hcom_trace_ramlog_close_and_delay(true);
+      hcom_ramlog_trace_close_and_delay(true);
     }
   }
 
@@ -252,7 +249,7 @@ FAR void *hcom_trace_ramlog_pthread(FAR void *arg)
 }
 
 //=================================================================
-void hcom_trace_ramlog_close_and_delay(bool closeNeeded)
+void hcom_ramlog_trace_close_and_delay(bool closeNeeded)
 {
   if(closeNeeded)
   {
@@ -266,7 +263,7 @@ void hcom_trace_ramlog_close_and_delay(bool closeNeeded)
 }
 
 //=================================================================
-int hcom_trace_ramlog_open_ramlog()
+int hcom_ramlog_trace_open_ramlog()
 {
   if(_ramlog_fd >= 0)
   {
@@ -275,61 +272,59 @@ int hcom_trace_ramlog_open_ramlog()
   }
 
   _ramlog_fd = open(HCOM_TRACE_RAMLOG_DEVICE_NAME, O_RDONLY);
-  // p-m for testing with a text file
- //  _ramlog_fd = open("/meadow/RamlogTest.txt", O_RDONLY);
   if (_ramlog_fd < 0)
   {
-    hcom_utils_directlog(LOG_ERR, "%s@%d-open %s, errno:%d\n",
-          thisFile, __LINE__, HCOM_TRACE_RAMLOG_DEVICE_NAME, errno);
+    hcom_ramlog_trace_err_logger(LOG_ERR, "%s@%d-open %s, errno:%d\n",
+            thisFile, __LINE__, HCOM_TRACE_RAMLOG_DEVICE_NAME, errno);
     return -1;
   }
-
   return OK;
 }
 
 //=================================================================
 // This function reads the data put into the ramlog.
-int hcom_trace_ramlog_read_ramlog_loop()
+int hcom_ramlog_trace_read_ramlog_loop()
 {
   #define HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING 1
-  #define HCOM_TRACE_RAMLOG_POLL_WAIT_DELAY (10 * 1000)   // 10 seconds
-  struct pollfd fds[HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING];
+  // p-m EXTEND THIS DELAY WHEN DONE!
+  #define HCOM_TRACE_RAMLOG_POLL_WAIT_DELAY (15 * 1000)   // 1 minute
+  struct pollfd poll_fds[HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING];
   uint8_t buffer[HCOM_TRACE_RAMLOG_READ_BUFF_SIZE];
   ssize_t readReturn;
   int ret;
 
-  memset(fds, 0, sizeof(struct pollfd) * HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING);
+  memset(poll_fds, 0, sizeof(struct pollfd) * HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING);
 
-  fds[0].fd      = _ramlog_fd;
-  fds[0].events  = POLLIN;
-  fds[0].revents = 0;
+  poll_fds[0].fd      = _ramlog_fd;
+  poll_fds[0].events  = POLLIN;
+  poll_fds[0].revents = 0;
 
   while (!_shutting_down)
   {
     // Blocks till data is available
-    ret = poll(fds, HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING, HCOM_TRACE_RAMLOG_POLL_WAIT_DELAY);
-    if (ret < 0 || ret > HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING)
+    ret = poll(poll_fds, HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING, HCOM_TRACE_RAMLOG_POLL_WAIT_DELAY);
+    if (ret == 0)
+    {
+      // Timeout - which is being ignored
+      DEBUGASSERT(poll_fds[0].revents == 0);
+      continue;
+    }
+    else if (ret < 0 || ret > HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING)
     {
       // Check errno for one of these values
       // EBADF. An invalid file descriptor was given in one of the sets.
-      // EFAULT. The fds address is invalid
+      // EFAULT. The poll_fds address is invalid
       // EINTR. A signal occurred before any requested event.
-      // EINVAL. The nfds value exceeds a system limit.
+      // EINVAL. The npoll_fds value exceeds a system limit.
       // ENOMEM. There was no space to allocate internal data structures.
       // ENOSYS. One or more of the drivers supporting the file descriptor does not support the poll method.
-      hcom_utils_directlog(LOG_ERR, "%s@%d ramlog poll ret:%d errno:%d\n", thisFile, __LINE__, ret, errno);
-      continue;
-    }
-    else if (ret == 0)
-    {
-      // Timeout - which is being ignored
-      DEBUGASSERT(fds[0].revents == 0);
+      hcom_ramlog_trace_err_logger(LOG_ERR, "%s@%d ramlog poll ret:%d errno:%d\n", thisFile, __LINE__, ret, errno);
       continue;
     }
 
     // Data must be available
     DEBUGASSERT(ret == 1);
-    DEBUGASSERT(fds[0].revents == POLLIN);    // POLLIN = 0x01
+    DEBUGASSERT(poll_fds[0].revents == POLLIN);    // POLLIN = 0x01
 
     while(!_shutting_down)
     {
@@ -338,21 +333,21 @@ int hcom_trace_ramlog_read_ramlog_loop()
       if (readReturn < 0 )
       {
         // Error
-        hcom_utils_directlog(LOG_ERR, "%s@%d ramlog read readReturn:%d errno:%d\n", thisFile, __LINE__, readReturn, errno);
+        hcom_ramlog_trace_err_logger(LOG_ERR, "%s@%d ramlog read readReturn:%d errno:%d\n", thisFile, __LINE__, readReturn, errno);
         return -errno;    // Close connection and try again
       }
       else if (readReturn == 0)
       {
-        // All data read, need to wait for poll to indicate more data
+        // All data has been read, need to wait for poll to indicate more data
         break;
       }
       else
       {
         // Successful ramlog message read put into circular buffer
         // unless logging turned off
-        if(_trace_logging_requested)
+        if(_trace_ramlog_requested)
         {
-          ret = hcom_trace_ramlog_save_recvd_data(buffer, readReturn);
+          ret = hcom_ramlog_trace_save_recvd_data(buffer, readReturn);
           if (ret < 0 )
           {
             return ret;
@@ -368,7 +363,7 @@ int hcom_trace_ramlog_read_ramlog_loop()
 //=======================================================================
 // Add the received data to the circular buffer. It can be added byte by byte
 // or several messages at once.
-int hcom_trace_ramlog_save_recvd_data(uint8_t recvBuff[], const ssize_t recvByteCnt)
+int hcom_ramlog_trace_save_recvd_data(uint8_t recvBuff[], const ssize_t recvByteCnt)
 {
   int result;
 
@@ -388,39 +383,39 @@ int hcom_trace_ramlog_save_recvd_data(uint8_t recvBuff[], const ssize_t recvByte
     {
       // Wasn't possible to put these bytes in the buffer. We need to
       // pull packets and retry to add this data
-      hcom_utils_directlog(LOG_WARNING, "%s@%d-No room in cir buf, pull and retry\n",
+      hcom_ramlog_trace_err_logger(LOG_WARNING, "%s@%d-No room in cir buf, pull and retry\n",
               thisFile, __LINE__);
-      result = hcom_trace_ramlog_pull_all_packets_from_buffer();
+      result = hcom_ramlog_trace_pull_all_packets_from_buffer();
       if (result == HCOM_CIR_BUF_GET_FOUND_MSG)
         continue;   // There should be room now for the failed add
 
       if (result == HCOM_CIR_BUF_GET_NONE_FOUND || result == HCOM_CIR_BUF_GET_DEST_NO_ROOM)
       {
-        hcom_utils_directlog(LOG_ERR, "%s@%d-pull packets from cir buf %d\n",
+        hcom_ramlog_trace_err_logger(LOG_ERR, "%s@%d-pull packets from cir buf %d\n",
                  thisFile, __LINE__, result);
         return OK;    // Report and throw data away.
       }
     }
     else if (result == HCOM_CIR_BUF_ADD_BAD_ARG)
     {
-      hcom_utils_directlog(LOG_ERR, "%s@%d-Bad argument to cir buf\n", thisFile, __LINE__);
+      hcom_ramlog_trace_err_logger(LOG_ERR, "%s@%d-Bad argument to cir buf\n", thisFile, __LINE__);
       return OK; // Report and throw data away and keep going
     }
     else
     {
-      hcom_utils_directlog(LOG_ERR, "%s@%d-Unknown cir buf add err:%d\n", thisFile, __LINE__, result);
+      hcom_ramlog_trace_err_logger(LOG_ERR, "%s@%d-Unknown cir buf add err:%d\n", thisFile, __LINE__, result);
       return OK; // Report and throw data away and keep going
     }
   }
 
   // See if there's 1 or more complete message(s)
-  result = hcom_trace_ramlog_pull_all_packets_from_buffer();
+  result = hcom_ramlog_trace_pull_all_packets_from_buffer();
   return result;
 }
 
 //====================================================================
 // Pull and process all the complete packets from the circular buffer
-int hcom_trace_ramlog_pull_all_packets_from_buffer()
+int hcom_ramlog_trace_pull_all_packets_from_buffer()
 {
   int result;
   size_t packetLength;
@@ -436,9 +431,9 @@ int hcom_trace_ramlog_pull_all_packets_from_buffer()
 
     DEBUGASSERT(result != HCOM_CIR_BUF_GET_DEST_NO_ROOM);
     DEBUGASSERT(result == HCOM_CIR_BUF_GET_FOUND_MSG);
-      
+
     // Process the isolated message
-    result = hcom_trace_ramlog_route_trace_text(_singleMsgBuf, packetLength);
+    result = hcom_ramlog_trace_route_trace_text(_singleMsgBuf, packetLength);
     if (result == OK)
     {
       continue; // pull next packet
@@ -449,7 +444,7 @@ int hcom_trace_ramlog_pull_all_packets_from_buffer()
     }
     else
     {
-      hcom_utils_directlog(LOG_ERR, "%s@%d-processing data:%d\n", thisFile, __LINE__, result);
+      hcom_ramlog_trace_err_logger(LOG_ERR, "%s@%d-processing data:%d\n", thisFile, __LINE__, result);
       return result;
     }
   }
@@ -457,9 +452,8 @@ int hcom_trace_ramlog_pull_all_packets_from_buffer()
 }
 
 //=================================================================
-// Ship the ramlog text to host PC
-// This is the LAST POSSIBLE place that hcom_utils_directlog can be called  
-int hcom_trace_ramlog_route_trace_text(uint8_t *recvBuff, int numbBytes)
+// Ship the ramlog text directly to the host PC
+int hcom_ramlog_trace_route_trace_text(uint8_t *recvBuff, int numbBytes)
 {
   if(numbBytes == 0)
     return OK;
@@ -480,20 +474,49 @@ int hcom_trace_ramlog_route_trace_text(uint8_t *recvBuff, int numbBytes)
     
   return OK;
 }
+
+//==========================================================================
+// There's really no good way to handle errors with ramlog because they
+// cannot be written to syslog or we'll end up with an infinite loop. So,
+// the best we can do is sent them to the host if it's listening.
+void hcom_ramlog_trace_err_logger(int priority, FAR const IPTR char *fmt, ...)
+{
+  if(!_trace_ramlog_requested)
+    return;
+  
+  va_list args;
+  va_start(args, fmt);
+  hcom_utils_safe_ramlog(priority, fmt, args);
+  va_end(args);  
+}
+
 #endif
 
+// These 2 functions are always built and used by ramlog and syslog
 //======================================================================================
-// Called from Meadow.CLI
-void hcom_trace_ramlog_send_trace_to_host(uint32_t userData)
+// Called from Meadow.CLI for both ramlog and syslog.
+//
+// For syslog if HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG is set across
+// a reboot then the startup initialization messages can be seen via
+// the diagnostic port without --TraceEnable being received.
+// For ramlog, if HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG is left set,
+// across a reboot it is ignored. this is because ramlog initialization
+// at startup and early startup messages would be read and lost before
+// the host (Meadow.CLI) could display them.
+//
+void hcom_trace_send_trace_to_host(uint32_t userData)
 {
-  // p-m ANY REASON FOR TRACEENABLE TO BE PERSISTED ACROSS RESTARTS?
-  // hcom_utils_bbreg_set_bit(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
-  //         HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG);
+  // Set the persisted trace to host flag
+  hcom_utils_bbreg_set_bit(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
+          HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG);
 
+  // If ramlog configured, need to init it now
 #if defined (CONFIG_RAMLOG_SYSLOG)
-  // Do ramlog initialization, if needed
-  _trace_logging_requested = true;
-  hcom_trace_ramlog_lazy_initialization();
+  // The only way to undo this initialization is restart Meadow
+  hcom_ramlog_trace_lazy_initialization();
+
+  // Turn on ramlogs to host
+  _trace_ramlog_requested = true;
 #endif
 
   char *sendMsgToHost = "Trace logs sent to PC";
@@ -502,17 +525,19 @@ void hcom_trace_ramlog_send_trace_to_host(uint32_t userData)
 }
 
 //======================================================================================
-// Called from Meadow.CLI
-void hcom_trace_ramlog_no_trace_msg_to_host(uint32_t userData)
+// Called from Meadow.CLI for both ramlog and syslog
+void hcom_trace_do_not_send_trace_to_host(uint32_t userData)
 {
+  // Clear
   hcom_utils_bbreg_clear_bit(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
           HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG);
 
 #if defined (CONFIG_RAMLOG_SYSLOG)
-  _trace_logging_requested = false;
+  // Turn off ramlogs to host
+  _trace_ramlog_requested = false;
 #endif
 
-  char *sendMsgToHost = "Trace logs not sent to PC";
+  char *sendMsgToHost = "Trace logs no longer sent to PC";
   hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0,
           sendMsgToHost, thisFile, __LINE__);
 }

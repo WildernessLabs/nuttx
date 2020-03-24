@@ -38,7 +38,7 @@
  * Included Files
  ****************************************************************************/
 
-#include "../hcom_common.h"
+#include "hcom_common.h"
 
 #include <nuttx/kthread.h>
 #include <sys/stat.h>

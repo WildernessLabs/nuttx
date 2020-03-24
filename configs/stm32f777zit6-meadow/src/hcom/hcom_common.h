@@ -1,7 +1,7 @@
 /****************************************************************************
  * configs/stm32f777-zit6-meadow/src/hcom/hcom_common.h
  * 
- *   Copyright (C) 2019-2020 Wilderness Labs. All rights reserved.
+ *   Copyright (C) 2019 - 2020 Wilderness Labs. All rights reserved.
  *   Copyright (C) 2017 Gregory Nutt. All rights reserved.
  *   Copyright (C) 2017 Alan Carvalho de Assis. All rights reserved.
  *   Author:  Wilderness Labs
@@ -142,9 +142,9 @@
 
 // These define how long the receive thread waits before "waking up"
 // p-m DON'T FORGET
-// #define HCOM_RECV_TIMEOUT_DEFAULT_SECONDS 30
+#define HCOM_RECV_TIMEOUT_DEFAULT_SECONDS 30
 // #define HCOM_RECV_TIMEOUT_DEFAULT_SECONDS (5 * 60)    // 5 minutes
-#define HCOM_RECV_TIMEOUT_DEFAULT_SECONDS (1 * 60 * 60) // once an hour report hcom thread running
+// #define HCOM_RECV_TIMEOUT_DEFAULT_SECONDS (1 * 60 * 60) // once an hour report hcom thread running
 #define HCOM_RECV_TIMEOUT_ACTIVE_SECONDS 5
 
 #define HCOM_CONNECTION_TIMEOUT_STARTUP 50 * 1000   // At startup we connect quickly

@@ -1,7 +1,7 @@
 /****************************************************************************
  * configs/stm32f777-zit6-meadow/src/hcom/hcom_exed_download.c
  * 
- *   Copyright (C) 2019 Wilderness Labs. All rights reserved.
+ *   Copyright (C) 2019-2020 Wilderness Labs. All rights reserved.
  *   Copyright (C) 2017 Gregory Nutt. All rights reserved.
  *   Copyright (C) 2017 Alan Carvalho de Assis. All rights reserved.
  *   Author:  Wilderness Labs
@@ -200,7 +200,7 @@ void hcom_exec_rqst_download_file_rqst_start(const uint8_t *recvPacketData, cons
   if (_fileSystemOpenFailed)
     sendStartMsg = "Failed to start file transfer";
   else
-    sendStartMsg = "File transfer start begun";
+    sendStartMsg = "File transfer has begun";
 
   hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0, sendStartMsg,
           thisFile, __LINE__);

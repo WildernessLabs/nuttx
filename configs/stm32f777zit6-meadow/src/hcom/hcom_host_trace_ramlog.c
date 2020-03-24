@@ -95,6 +95,7 @@ static int hcom_ramlog_trace_read_ramlog_loop(void);
 static int hcom_ramlog_trace_save_recvd_data(uint8_t recvBuff[], const ssize_t recvByteCnt);
 static int hcom_ramlog_trace_pull_all_packets_from_buffer(void);
 static int hcom_ramlog_trace_route_trace_text(uint8_t *buffer, int readReturn);
+static void hcom_ramlog_trace_err_logger(int priority, FAR const IPTR char *fmt, ...);
 
 /****************************************************************************
  * Public Functions
@@ -510,7 +511,8 @@ void hcom_trace_send_trace_to_host(uint32_t userData)
   hcom_utils_bbreg_set_bit(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
           HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG);
 
-  // If ramlog configured, need to init ramlog now
+  // If ramlog configured, need to init ramlog now. This insures
+  // that Meadow.CLI is listening
 #if defined (CONFIG_RAMLOG_SYSLOG)
   // The only way to undo this initialization is restart Meadow
   hcom_ramlog_trace_lazy_initialization();

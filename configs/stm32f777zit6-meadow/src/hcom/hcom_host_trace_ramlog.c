@@ -55,6 +55,9 @@
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
+#define HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING 1
+// There's a ramlog bug. It only readsallows 
+#define HCOM_TRACE_RAMLOG_POLL_WAIT_DELAY (15 * 1000)   // 1 minute - arbitrary
 
 #define HCOM_TRACE_RAMLOG_READ_BUFF_SIZE 256
 #define HCOM_TRACE_CIRCULAR_BUFFER_SIZE (HCOM_TRACE_RAMLOG_READ_BUFF_SIZE * 5)
@@ -286,9 +289,6 @@ int hcom_ramlog_trace_open_ramlog()
 // This function reads the data put into the ramlog.
 int hcom_ramlog_trace_read_ramlog_loop()
 {
-  #define HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING 1
-  #define HCOM_TRACE_RAMLOG_POLL_WAIT_DELAY (60 * 1000)   // 1 minute - arbitrary
-
   struct pollfd poll_fds[HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING];
   uint8_t buffer[HCOM_TRACE_RAMLOG_READ_BUFF_SIZE];
   ssize_t readReturn;

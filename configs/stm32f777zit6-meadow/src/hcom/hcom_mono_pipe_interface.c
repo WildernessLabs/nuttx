@@ -318,19 +318,15 @@ int hcom_mono_pipe_route_mono_text_stdout(uint8_t *recvBuff, int numbBytes)
     availBufSpace = numbBytes;
 
   // Includes ctrl chararacter
-<<<<<<< HEAD
   int ret = hcom_comms_send_raw_string_msg(HCOM_HOST_REQUEST_TEXT_MONO_MSG, 0, (char *) recvBuff,
           availBufSpace, thisFile, __LINE__);
-=======
-  int ret = hcom_comms_send_raw_string_msg(HCOM_HOST_REQUEST_TEXT_MONO_MSG, 0, (char *) recvBuff, availBufSpace);
   if (ret < 0)
   {
     // Transmission blocked. EAGAIN is not an error it means the message was blocked.
     // Because the mono app can send really fast, we have not choice but to throw extras away.
     if(ret != -EAGAIN)      // Transmission blocked. EAGAIN is not an error it means the message was blocked
-      f7syslog(LOG_ERR, "%s@%d-Host xmit err:%d\n", thisFile, __LINE__, ret);
+      hcom_utils_f7syslog(LOG_ERR, "%s@%d-Host xmit err:%d\n", thisFile, __LINE__, ret);
   }
->>>>>>> 26121237fe952dd7bbedcedc2fcb2c350c6b6a4b
 
   return ret;
 }

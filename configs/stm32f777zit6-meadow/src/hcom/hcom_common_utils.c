@@ -403,7 +403,7 @@ void hcom_utils_f7syslog(int priority, FAR const IPTR char *fmt, ...)
 // enabled, we can't use syslog while processing the syslog message,
 // because it will cause "feedback", every syslog message would
 // generated another ramlog message. So, we go directly to the host
-// without going to syslog.
+// without going to syslog -> ramlog -> host PC.
 //===================================================================
 void hcom_utils_safe_ramlog(int priority, FAR const IPTR char *fmt,
           va_list args)

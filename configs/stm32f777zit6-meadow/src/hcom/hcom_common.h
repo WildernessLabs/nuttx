@@ -142,8 +142,8 @@
 
 // These define how long the receive thread waits before "waking up"
 // p-m DON'T FORGET
-#define HCOM_RECV_TIMEOUT_DEFAULT_SECONDS 5
-// #define HCOM_RECV_TIMEOUT_DEFAULT_SECONDS (5 * 60)    // 5 minutes
+// #define HCOM_RECV_TIMEOUT_DEFAULT_SECONDS 15
+#define HCOM_RECV_TIMEOUT_DEFAULT_SECONDS (5 * 60)    // 5 minutes
 // #define HCOM_RECV_TIMEOUT_DEFAULT_SECONDS (1 * 60 * 60) // once an hour report hcom thread running
 #define HCOM_RECV_TIMEOUT_ACTIVE_SECONDS 5
 

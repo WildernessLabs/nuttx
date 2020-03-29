@@ -55,9 +55,6 @@
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
-#define HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING 1
-// There's a ramlog bug. It only readsallows 
-#define HCOM_TRACE_RAMLOG_POLL_WAIT_DELAY (15 * 1000)   // 1 minute - arbitrary
 
 #define HCOM_TRACE_RAMLOG_READ_BUFF_SIZE 256
 #define HCOM_TRACE_CIRCULAR_BUFFER_SIZE (HCOM_TRACE_RAMLOG_READ_BUFF_SIZE * 5)
@@ -74,6 +71,7 @@
 static char *thisFile = __FILE__;
 
 #if defined (CONFIG_RAMLOG_SYSLOG)
+
 static bool _shutting_down;
 static int _ramlog_fd;
 static bool _trace_ramlog_requested;
@@ -131,7 +129,7 @@ void hcom_ramlog_trace_shutdown()
 }
 
 //==========================================================================
-// Because this feature is rarely used we initialize only by request
+// Because this feature is rarely used we initialize only when needed
 int hcom_ramlog_trace_lazy_initialization()
 {
   int ret;
@@ -289,73 +287,40 @@ int hcom_ramlog_trace_open_ramlog()
 // This function reads the data put into the ramlog.
 int hcom_ramlog_trace_read_ramlog_loop()
 {
-  struct pollfd poll_fds[HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING];
   uint8_t buffer[HCOM_TRACE_RAMLOG_READ_BUFF_SIZE];
   ssize_t readReturn;
   int ret;
 
-  memset(poll_fds, 0, sizeof(struct pollfd) * HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING);
-
-  poll_fds[0].fd      = _ramlog_fd;
-  poll_fds[0].events  = POLLIN;
-  poll_fds[0].revents = 0;
-
-  while (!_shutting_down)
+  while(!_shutting_down)
   {
-    // Blocks till data is available
-    ret = poll(poll_fds, HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING, HCOM_TRACE_RAMLOG_POLL_WAIT_DELAY);
-    if (ret == 0)
+    // Read ramlog
+    readReturn = read(_ramlog_fd, buffer, HCOM_TRACE_RAMLOG_READ_BUFF_SIZE);
+    if (readReturn < 0 )
     {
-      // Timeout - which is being ignored
-      DEBUGASSERT(poll_fds[0].revents == 0);
-      continue;
+      // Error
+      hcom_ramlog_trace_err_logger(LOG_ERR, "%s@%d ramlog read readReturn:%d errno:%d\n",
+              thisFile, __LINE__, readReturn, errno);
+      return -errno;    // Close connection and try again
     }
-    else if (ret < 0 || ret > HCOM_TRACE_RAMLOG_POLL_THREADS_POLLING)
+    else if (readReturn == 0)
     {
-      // Check errno for one of these values
-      // EBADF. An invalid file descriptor was given in one of the sets.
-      // EFAULT. The poll_fds address is invalid
-      // EINTR. A signal occurred before any requested event.
-      // EINVAL. The npoll_fds value exceeds a system limit.
-      // ENOMEM. There was no space to allocate internal data structures.
-      // ENOSYS. One or more of the drivers supporting the file descriptor does not support the poll method.
-      hcom_ramlog_trace_err_logger(LOG_ERR, "%s@%d ramlog poll ret:%d errno:%d\n", thisFile, __LINE__, ret, errno);
-      continue;
+      hcom_ramlog_trace_err_logger(LOG_ERR, "%s@%d ramlog read EOF readReturn:%d errno:%d\n",
+              thisFile, __LINE__, readReturn, errno);
+      break;  // End of file should not happen
     }
-
-    // Data must be available
-    DEBUGASSERT(ret == 1);
-    DEBUGASSERT(poll_fds[0].revents == POLLIN);    // POLLIN = 0x01
-
-    while(!_shutting_down)
+    else
     {
-      // Read ramlog
-      readReturn = read(_ramlog_fd, buffer, HCOM_TRACE_RAMLOG_READ_BUFF_SIZE);
-      if (readReturn < 0 )
+      // Successful ramlog message read put into circular buffer
+      // unless logging turned off
+      if(_trace_ramlog_requested)
       {
-        // Error
-        hcom_ramlog_trace_err_logger(LOG_ERR, "%s@%d ramlog read readReturn:%d errno:%d\n", thisFile, __LINE__, readReturn, errno);
-        return -errno;    // Close connection and try again
-      }
-      else if (readReturn == 0)
-      {
-        // All data has been read, need to wait for poll to indicate more data
-        break;
-      }
-      else
-      {
-        // Successful ramlog message read put into circular buffer
-        // unless logging turned off
-        if(_trace_ramlog_requested)
+        ret = hcom_ramlog_trace_save_recvd_data(buffer, readReturn);
+        if (ret < 0 )
         {
-          ret = hcom_ramlog_trace_save_recvd_data(buffer, readReturn);
-          if (ret < 0 )
-          {
-            return ret;
-          }
+          return ret;
         }
       }
-    }   // while (!_shutting_down)
+    }
   }   // while (!_shutting_down)
 
   return OK;
@@ -386,6 +351,7 @@ int hcom_ramlog_trace_save_recvd_data(uint8_t recvBuff[], const ssize_t recvByte
       // pull packets and retry to add this data
       hcom_ramlog_trace_err_logger(LOG_WARNING, "%s@%d-No room in cir buf, pull and retry\n",
               thisFile, __LINE__);
+              
       result = hcom_ramlog_trace_pull_all_packets_from_buffer();
       if (result == HCOM_CIR_BUF_GET_FOUND_MSG)
         continue;   // There should be room now for the failed add

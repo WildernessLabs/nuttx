@@ -107,6 +107,24 @@ int hcom_ramlog_trace_setup()
   _trace_ramlog_initialized = false;
   _ramlog_fd = -1;
   _trace_ramlog_requested = false;
+
+  // For syslog if HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG is set across
+  // a reboot then the startup initialization messages can be seen via
+  // the diagnostic port without --TraceEnable being received.
+  //
+  // For ramlog, HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG is not checked
+  // here. If it was and used to initialize this functionality then
+  // it would start reading the ramlog and sending the messages nowhere
+  // as the CLI app would not be running.
+    if(hcom_utils_bbreg_is_bit_set(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
+          HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG))
+  {
+    // The only way to undo this initialization is restarting Meadow
+    hcom_ramlog_trace_lazy_initialization();
+
+    // Turn on ramlogs to host
+    _trace_ramlog_requested = true;
+  }
   return OK;
 }
 
@@ -311,7 +329,7 @@ int hcom_ramlog_trace_read_ramlog_loop()
     else
     {
       // Successful ramlog message read put into circular buffer
-      // unless logging turned off
+      // unless logging has been turned off
       if(_trace_ramlog_requested)
       {
         ret = hcom_ramlog_trace_save_recvd_data(buffer, readReturn);
@@ -443,7 +461,7 @@ int hcom_ramlog_trace_route_trace_text(uint8_t *recvBuff, int numbBytes)
 }
 
 //==========================================================================
-// There's really no good way to handle errors with ramlog because errors
+// There's really isn't a good way to handle errors with ramlog because errors
 // cannot be written to syslog or we'll end up with an infinite loop. So,
 // the best we can do is sent them to the host, if it's listening.
 void hcom_ramlog_trace_err_logger(int priority, FAR const IPTR char *fmt, ...)
@@ -461,16 +479,7 @@ void hcom_ramlog_trace_err_logger(int priority, FAR const IPTR char *fmt, ...)
 
 // These 2 functions are always built and used by ramlog and syslog
 //======================================================================================
-// Called from Meadow.CLI for both ramlog and syslog.
-//
-// For syslog if HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG is set across
-// a reboot then the startup initialization messages can be seen via
-// the diagnostic port without --TraceEnable being received.
-// For ramlog, if HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG is left set,
-// across a reboot it is ignored. this is because ramlog initialization
-// at startup and early startup messages would be read and lost before
-// the host (Meadow.CLI) could display them.
-//
+// Called from Meadow.CLI to enable tracing.
 void hcom_trace_send_trace_to_host(uint32_t userData)
 {
   // Set the persisted trace to allow host messages
@@ -487,7 +496,7 @@ void hcom_trace_send_trace_to_host(uint32_t userData)
   _trace_ramlog_requested = true;
 #endif
 
-  char *sendMsgToHost = "Trace logs sent to PC";
+  char *sendMsgToHost = "Trace logs to be sent to CLI";
   hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0,
           sendMsgToHost, thisFile, __LINE__);
 }
@@ -505,7 +514,7 @@ void hcom_trace_do_not_send_trace_to_host(uint32_t userData)
   _trace_ramlog_requested = false;
 #endif
 
-  char *sendMsgToHost = "Trace logs no longer sent to PC";
+  char *sendMsgToHost = "Trace logs no longer sent to CLI";
   hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0,
           sendMsgToHost, thisFile, __LINE__);
 }

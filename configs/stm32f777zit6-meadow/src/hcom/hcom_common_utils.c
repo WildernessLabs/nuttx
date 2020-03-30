@@ -366,14 +366,16 @@ void hcom_utils_f7syslog(int priority, FAR const IPTR char *fmt, ...)
 
   // Depending on the nuttx configuration these messages may go to the
   // ramlog, to the serial console or the bit-bucket.
-  // If ramlog configured then the message is sent to syslog only. Here
+  //
+  // If ramlog is configured then the message is sent to syslog only. Here
   // syslog adds a timestamp (if so configured) and puts it in the nuttx
   // ramlog buffer. The hcom_host_trace_ramlog read function reads it
-  // from ramlog and forwards the message to the host PC if requested.
-  // If ramlog not configured, but syslog is configured then the call to
-  // syslog writes the message to a UART for serial output. Then this
-  // code (immediately below) forwards it to the host PC. This is without 
-  // a timestamp.
+  // from ramlog and forwards the message to the host PC, if requested.
+  //
+  // If syslog is configured then the call to syslog writes the message to
+  // the configured UART for serial output. On return from the syslog call
+  // this the code (immediately below) forwards it to the host PC.
+  //
   syslog(priority, completeMsg);
   
 #if defined CONFIG_RAMLOG_SYSLOG
@@ -389,7 +391,7 @@ void hcom_utils_f7syslog(int priority, FAR const IPTR char *fmt, ...)
       stringLen--;
     if(completeMsg[stringLen - 1] == 0x0a || completeMsg[stringLen - 1] == 0x0d)
       stringLen--;
-
+  
     hcom_comms_send_raw_string_msg(HCOM_HOST_REQUEST_TEXT_TRACE_MSG, 0, completeMsg,
             stringLen, thisFile, __LINE__);
   }

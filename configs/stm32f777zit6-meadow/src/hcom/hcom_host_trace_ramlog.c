@@ -108,15 +108,7 @@ int hcom_ramlog_trace_setup()
   _ramlog_fd = -1;
   _trace_ramlog_requested = false;
 
-  // For syslog if HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG is set across
-  // a reboot then the startup initialization messages can be seen via
-  // the diagnostic port without --TraceEnable being received.
-  //
-  // For ramlog, HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG is not checked
-  // here. If it was and used to initialize this functionality then
-  // it would start reading the ramlog and sending the messages nowhere
-  // as the CLI app would not be running.
-    if(hcom_utils_bbreg_is_bit_set(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
+  if(hcom_utils_bbreg_is_bit_set(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
           HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG))
   {
     // The only way to undo this initialization is restarting Meadow
@@ -322,9 +314,10 @@ int hcom_ramlog_trace_read_ramlog_loop()
     }
     else if (readReturn == 0)
     {
-      hcom_ramlog_trace_err_logger(LOG_ERR, "%s@%d ramlog read EOF readReturn:%d errno:%d\n",
+      // This will happen whenever the ramlog is empty  if CONFIG_RAMLOG_NONBLOCKING is selected
+      hcom_ramlog_trace_err_logger(LOG_WARNING, "%s@%d ramlog read EOF readReturn:%d errno:%d\n",
               thisFile, __LINE__, readReturn, errno);
-      break;  // End of file should not happen
+      return -1;
     }
     else
     {
@@ -463,7 +456,7 @@ int hcom_ramlog_trace_route_trace_text(uint8_t *recvBuff, int numbBytes)
 //==========================================================================
 // There's really isn't a good way to handle errors with ramlog because errors
 // cannot be written to syslog or we'll end up with an infinite loop. So,
-// the best we can do is sent them to the host, if it's listening.
+// the best we can do is sent them to the host, and hope it's listening.
 void hcom_ramlog_trace_err_logger(int priority, FAR const IPTR char *fmt, ...)
 {
   if(!_trace_ramlog_requested)

@@ -62,6 +62,7 @@ static char *thisFile = __FILE__;
 
 static int _hcom_pid;
 static int _syslog_mask;
+static int _syslog_mask_old;
 static bool _power_on_restart;
 
 /****************************************************************************
@@ -106,14 +107,15 @@ int hcom_manager_syslog_mask_init()
   // Save for emergency debugging :-)
   // _syslog_mask = LOG_MASK(LOG_EMERG) | LOG_MASK(LOG_ALERT) | LOG_MASK(LOG_CRIT) |
   //             LOG_MASK(LOG_ERR) | LOG_MASK(LOG_WARNING) | LOG_MASK(LOG_NOTICE) | 
-  //             LOG_MASK(LOG_INFO); // | LOG_MASK(LOG_DEBUG);
+  //             LOG_MASK(LOG_INFO);  // | LOG_MASK(LOG_DEBUG);
+
 
   // Sets new mask and returns the previous syslog_mask
-  int ret = setlogmask(_syslog_mask);
-  if (ret < 0)
+  _syslog_mask_old = setlogmask(_syslog_mask);
+  if (_syslog_mask_old < 0)
   {
-    hcom_utils_f7syslog(LOG_CRIT, "%s@%d-setlogmask err:%d\n", thisFile, __LINE__, ret);
-    return ret;
+    hcom_utils_f7syslog(LOG_CRIT, "%s@%d-setlogmask err:%d\n", thisFile, __LINE__, _syslog_mask_old);
+    return _syslog_mask_old;
   }
 
   return OK;
@@ -130,7 +132,14 @@ int hcom_manager_setup(FAR struct mtd_dev_s *mtd)
     return ERROR;
   }
   
-  // First determine if there's any special action required by mono_main. This sets up
+  ret = hcom_utils_setup();
+  if (ret < 0)
+  {
+    hcom_utils_f7syslog(LOG_CRIT, "%s@%d-setup hcom utils:%d\n", thisFile, __LINE__, ret);
+    return ret;
+  }
+
+  // Determine if there's any special action required by mono_main. This sets up
   // variables within mono_main.c before it is started by nuttx. When mono_main is started
   // it checks if special action is necessary.
   hcom_utils_boot_time_mono_check();
@@ -164,8 +173,8 @@ int hcom_manager_setup(FAR struct mtd_dev_s *mtd)
     hcom_utils_f7syslog(LOG_CRIT, "%s@%d-setup misc %d\n", thisFile, __LINE__, ret);
     return ret;
   }
-
-// Sets a few internal variable states
+  
+  // Sets a few internal variable states
   ret = hcom_exec_rqst_download_file_rqst_setup();
   if (ret < 0)
   {
@@ -173,7 +182,7 @@ int hcom_manager_setup(FAR struct mtd_dev_s *mtd)
     return ret;
   }
 
-// Sets a few internal variable states
+  // Sets a few internal variable states
   ret = hcom_file_commands_setup();
   if (ret < 0)
   {
@@ -205,18 +214,25 @@ int hcom_manager_setup(FAR struct mtd_dev_s *mtd)
   }
 #endif
 
-  ret = hcom_comms_setup();
+  ret = hcom_comms_recv_setup();
   if (ret < 0)
   {
     hcom_utils_f7syslog(LOG_CRIT, "%s@%d-setup Host comms %d\n", thisFile, __LINE__, ret);
     return ret;
   }
 
+  ret = hcom_comms_send_setup();
+  if (ret < 0)
+  {
+    hcom_utils_f7syslog(LOG_CRIT, "%s@%d-setup host msg builder:%d\n", thisFile, __LINE__, ret);
+    return ret;
+  }
+
 #if defined(CONFIG_HCOM_FILESYSTEM_INIT)
-  // This call may not return for several minutes. It will format the file system if needed.
-  // This will prevent the nuttx OS from starting which includes mono. Therefore, mono cannot
-  // start until the file system is at least initialized. This is the desired behavior since
-  // mono starting before the file system could be a problem.
+  // This will format the file system as needed. This will prevent the nuttx OS from
+  // starting which includes mono. Therefore, mono cannot start until the file system
+  // is at least initialized. This is the desired behavior since mono starting before
+  // the file system would be a problem.
   ret = hcom_fs_init_file_system();
   if (ret < 0)
   {
@@ -323,27 +339,12 @@ FAR void *hcom_comms_recv_worker_pthread(FAR void *arg)
   hcom_utils_f7syslog(LOG_NOTICE, "PID:%d is '%s'\n", getpid(), rtcb->name);
 #endif
 
-  // Creates Semaphore for utils
-  ret = hcom_utils_setup();
-  if (ret < 0)
-  {
-    hcom_utils_f7syslog(LOG_CRIT, "%s@%d-setup hcom utils:%d\n", thisFile, __LINE__, ret);
-    return ret;
-  }
-
-  // Allocates buffer and gets this thread's PID
-  ret = hcom_comms_msg_builder_setup();
-  if (ret < 0)
-  {
-    hcom_utils_f7syslog(LOG_CRIT, "%s@%d-setup host msg builder:%d\n", thisFile, __LINE__, ret);
-    return ret;
-  }
-
+  // Provide some information that may be useful for debugging
   hcom_utils_f7syslog(LOG_INFO, "Meadow %s (%s@%s) %s, Mono:%s, Trace level:0x%02x(was 0x%02x), to host:%s, type:%s\n",
         HCOM_DEVICE_INFO_MEADOW_OS_VERSION, __DATE__, __TIME__, 
         _power_on_restart ? "power-on restart" :"rebooted",
         hcom_utils_is_mono_disabled() ? "Disabled" : "Enabled",
-        _syslog_mask, ret,
+        _syslog_mask, _syslog_mask_old,
         hcom_utils_bbreg_is_bit_set(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
               HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG) ? "yes" : "no",
 #if defined CONFIG_RAMLOG_SYSLOG
@@ -378,11 +379,11 @@ FAR void *hcom_comms_recv_worker_pthread(FAR void *arg)
 void hcom_manager_shutdown()
 {
   // todo - confirm that all functions that need shutdown are called
-  hcom_comms_shutdown();
+  hcom_comms_recv_shutdown();
   hcom_mono_pipe_shutdown();
   hcom_utils_shutdown();
   hcom_save_parse_request_shutdown();
-  hcom_comms_msg_builder_shutdown();
+  hcom_comms_send_msg_shutdown();
   hcom_file_commands_shutdown();
   hcom_fs_shutdown();
   hcom_remote_dbg_shutdown();

@@ -102,12 +102,12 @@
 //--------------------------------------------------------------------
 // Diagnostic aids
 #define HCOM_TASK_SHOW_CREATED_TASK_PID_NAME  0
-#define HCOM_COMMON_UTILS_GPIO_TEST_PROBE 1
+#define HCOM_COMMON_UTILS_GPIO_TEST_PROBE 0
 
 // The code not compiled by this #define could be removed
 #define HCOM_IGNORE_UNNECESSARY_FILE_SYSTEM_COMMANDS
 
-// To reduce Meadow.OS size "syslog(LOG_DEBUG, ...);  messages are optional
+// To reduce Meadow.OS size "syslog(LOG_DEBUG, ...);" messages are optional
 #define HCOM_COMMS_DEBUG 0
 #if HCOM_COMMS_DEBUG > 0
 #define hcom_comms_dbg(...) hcom_utils_f7syslog(__VA_ARGS__)
@@ -213,14 +213,15 @@ enum hcom_comms_recv_buffer_return
 };
 
 // This enum defines the current processing activity for a data packet
-// download. This could be modified so that each data packet contains
-// this information. This would allow more than one operation to be
-// processed at a time.
+// download.
+// The protocol could be modified so that each data packet contains this
+// information. This would allow more than one operation to be processed
+// at a time.
 // To do this the protocol would need to be enhanced so that start download
 // command carried an additional field to identify the "series" a particular
-// data packet belonged to. Each now dowload command would be unuque and the 
-// the sequence numbers 1-n would be unique for each series.
-enum hcom_current_recv_action
+// data packet belonged to. Each data packet would be unuque and the
+// sequence numbers 1-n would be unique for each series.
+enum hcom_current_data_packet_activity
 {
   CurrentHcomDataPacketActionNone,
   CurrentHcomDataPacketActionF7FileXfer, // Could be expanded to specify file type (e.g. mscorlib.dll)
@@ -445,18 +446,17 @@ extern "C"
   int hcom_manager_syslog_mask_init(void);
 #endif
 
-  // USB CDC/ACM host interface
-  int hcom_comms_setup(void);
-  void hcom_comms_shutdown(void);
-  int hcom_comms_open_connection(void);
-  int hcom_comms_handle_initial_connection(void);
+  // USB CDC/ACM receive host messages
+  int hcom_comms_recv_setup(void);
+  void hcom_comms_recv_shutdown(void);
+  int hcom_comms_recv_open_connection(void);
+  int hcom_comms_recv_restart_concluded(void);
   int hcom_comms_recv_thread_loop(void);
-  int hcom_comms_transmit_to_host(FAR uint8_t xmitBuffer[], size_t xmitLength);
-  bool hcom_comms_is_host_xmit_blocked(void);
+  const char *hcom_comms_recv_get_device_name(void);
 
-  // Host message builder
-  int hcom_comms_msg_builder_setup(void);
-  void hcom_comms_msg_builder_shutdown(void);
+  // USB CDC/ACM send host messages
+  int hcom_comms_send_setup(void);
+  void hcom_comms_send_msg_shutdown(void);
   void hcom_comms_send_header_msg(uint16_t requestType, uint32_t userData,
           char *sourceFileName, int sourceLineNumber);
   void hcom_comms_send_simple_string_msg(uint16_t requestType, uint32_t userData, char *shortText,
@@ -475,7 +475,7 @@ extern "C"
   void hcom_exec_rqst_download_file_rqst_start(const uint8_t *recvPacketData,
       const size_t recvPacketDataSize,uint32_t partitionId, uint16_t requestType);
   void hcom_exec_rqst_download_file_rqst_end(uint32_t user_data);
-  void hcom_exec_rqst_download_data_packet(const uint8_t *packet, const size_t packetSize, uint16_t seqNumb);
+  void hcom_exec_rqst_data_packet_recvd(const uint8_t *packet, const size_t packetSize, uint16_t seqNumb);
 
   // Execute Flash file system related request
   int hcom_exec_flash_fs_setup(FAR struct mtd_dev_s *mtd);

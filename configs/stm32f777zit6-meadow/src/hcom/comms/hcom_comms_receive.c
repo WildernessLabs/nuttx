@@ -1,5 +1,5 @@
 /****************************************************************************
- * configs/stm32f777-zit6-meadow/src/hcom/hcom_comms_interface.c
+ * configs/stm32f777-zit6-meadow/src/hcom/hcom_comms_receive.c
  * 
  *   Copyright (C) 2019 - 2020 Wilderness Labs. All rights reserved.
  *   Copyright (C) 2017 Gregory Nutt. All rights reserved.
@@ -59,18 +59,11 @@ static bool _shutting_down;
 // can use them.
 static FAR struct file _connection_read_file_fd;
 static bool _is_connection_read_open;
-static FAR struct file _connection_write_file_fd;
-static bool _is_connection_write_open;
 
 static uint8_t *_tempRecvBuff;
 static bool _firstTimeToConnect;
 static timer_t _recv_timerid;
 static bool _hcom_comms_recv_timed_out;
-
-static uint8_t *_encodedXmitBuff;
-static sem_t _hostXmitSem;    /* Implements event waiting */
-static bool _lastXmitBlocked;
-
 static const char *deviceName;
 
 /****************************************************************************
@@ -87,19 +80,12 @@ static int hcom_comms_recv_timer_init(void);
  * Public Functions
  ****************************************************************************/
 
-int hcom_comms_setup()
+int hcom_comms_recv_setup()
 {
   _shutting_down = false;
   _is_connection_read_open = false;
-  _is_connection_write_open = false;
   _firstTimeToConnect = true;
-  _lastXmitBlocked = false;
-
-  _tempRecvBuff = malloc(HCOM_SAFE_PACKET_BUF_SIZE);
-  _encodedXmitBuff = malloc(HCOM_SAFE_PACKET_BUF_SIZE);
-
-  sem_init(&_hostXmitSem, 0, 1);
-  
+  _tempRecvBuff = malloc(HCOM_SAFE_PACKET_BUF_SIZE);  
   deviceName = CONFIG_HCOM_COMMS_DEVICE_NAME;
 
   /* If we detect that we are booting into QEMU, then use serial comms
@@ -112,20 +98,20 @@ int hcom_comms_setup()
 }
 
 //=======================================================================
-void hcom_comms_shutdown()
+const char *hcom_comms_recv_get_device_name()
+{
+  return deviceName;
+}
+
+//=======================================================================
+void hcom_comms_recv_shutdown()
 {
   _shutting_down = true;
 
   // Forces a receive error which, causes the thread to return.
   file_close(&_connection_read_file_fd);
   _is_connection_read_open = false;
-  file_close(&_connection_write_file_fd);
-  _is_connection_write_open = false;
   free(_tempRecvBuff);
-  free(_encodedXmitBuff);
-
-  // use sem_destroy
-  sem_destroy(&_hostXmitSem);
 }
 
 //=======================================================================
@@ -147,7 +133,7 @@ int hcom_comms_recv_thread_loop()
       sleep(1);    // Delay for certain return values. Thus limiting error messages
       
     // Attempt to establish the connection
-    ret = hcom_comms_open_connection();
+    ret = hcom_comms_recv_open_connection();
     if (ret < 0)
     {
       // TODO - should not output messages every second.
@@ -159,7 +145,7 @@ int hcom_comms_recv_thread_loop()
     if(_firstTimeToConnect)
     {
       _firstTimeToConnect = false;
-      hcom_comms_handle_initial_connection();
+      hcom_comms_recv_restart_concluded();
     }
 
     // Some errors need a delay
@@ -170,7 +156,9 @@ int hcom_comms_recv_thread_loop()
 }
 
 //=======================================================================
-int hcom_comms_handle_initial_connection()
+// When Meadow is restarted by some CLI command we need to send the
+// "Concluded" message type
+int hcom_comms_recv_restart_concluded()
 {
   char *monoStartupMsg;
 
@@ -196,7 +184,7 @@ int hcom_comms_handle_initial_connection()
 
 //=======================================================================
 // 
-int hcom_comms_open_connection()
+int hcom_comms_recv_open_connection()
 {
   useconds_t hostConnectionAttemptCount = HCOM_CONNECTION_STARTUP_ATTEMPTS;
 
@@ -450,222 +438,5 @@ int hcom_comms_recv_timer_init()
     hcom_utils_f7syslog(LOG_ERR, "%s@%d-attach signal errno:%d\n", thisFile, __LINE__, errorcode);
     return -errorcode;
   }
-  return OK;
-}
-
-//==========================================================================
-// Below this point
-// If using ramlog don't call syslog or hcom_utils_f7syslog, it will just call
-// syslog again, a never ending message.
-//==========================================================================
-static int hcom_comms_open_xmit_connection(void)
-{
-  int ret;
-
-  if(_is_connection_write_open)
-    return OK;
-
-  // Based on observation - If O_NONBLOCK is not specified in the file_open call, the file_read
-  // call blocks after writing some number of bytes. It's as if some internal buffer fills causing
-  // the file_write call to begin blocking. This is not acceptable as the calling thread has other
-  // work to do. So, other measures have been added as can be seen.
-  int openAttempts;
-  #define HCOM_COMMS_MAX_XMIT_OPEN_ATTEMPTS 8
-  for(openAttempts = 0; openAttempts < HCOM_COMMS_MAX_XMIT_OPEN_ATTEMPTS; openAttempts++)
-  {
-    ret = file_open(&_connection_write_file_fd, deviceName, O_WRONLY|O_NONBLOCK);
-    if(ret >= 0)
-    {
-      break;
-    }
-
-    usleep(100 * 1000);
-  }
-
-  if(openAttempts == HCOM_COMMS_MAX_XMIT_OPEN_ATTEMPTS)
-  {
-    hcom_utils_f7syslog_x(LOG_ERR, "%s@%d-Open USB write ret:%d errno:%d\n", thisFile, __LINE__, ret, errno);
-    return ret;
-  }
-
-  _is_connection_write_open = true;
-
-  return OK;
-}
-
-//=====================================================================
-// Wait for the thread writing to exit
-static void hcom_comms_transmit_takesem(void)
-{
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-      ret = sem_wait(&_hostXmitSem);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
-}
-
-//=====================================================================
-//
-// This MUST be called before hcom_comms_transmit_to_host() is called.
-//
-// Usually, no host PC is running and connected. When this is the case these
-// messages eventually will be blocked (after filling some nuttx internal buffer).
-// To workaround this, once we get a -EAGAIN error (i.e. blocked) we'll attempt
-// to send 0x00 before every message. This way, when the host PC begins to consume
-// messages our 0x00 will be the first thing to arrive after whatever nuttx has
-// buffered (probably a bunch of 0x00 bytes). The CLI is designed to ignore a
-// single 0x00 byte message. Therefore, the message after the blockage is removed
-// can be sent successfully and be properly parsed.
-//
-bool hcom_comms_is_host_xmit_blocked()
-{
-  int ret;
-
-  // Only one thread at a time can send to host
-  hcom_comms_transmit_takesem();
-  
-  // Last attempt was not blocked. Caller should attempt to send.
-  //  Owns semaphore
-  if(!_lastXmitBlocked)
-  {
-    return false;
-  }
-
-  if(! _is_connection_write_open)
-  {
-    ret = hcom_comms_open_xmit_connection();
-    if(ret < 0)
-    {
-    
-      // Not blocked but another error. Release semaphore
-      sem_post(&_hostXmitSem);
-      return true;
-    }
-  }
-
-  uint8_t oneZero[1];
-  oneZero[0] = '\0';
-
-  // Send a '0' message that the host knows to ignore. It's the cots
-  // protocol framing character.
-  ssize_t writeRet = file_write(&_connection_write_file_fd, &oneZero, 1);
-  if(writeRet == 1)
-  {
-    // Write successfull, no longer blocked but keep semaphore
-    // until xmit sends it's data.
-    // Keep semaphore, it's released when hcom_comms_transmit_to_host()
-    // is called.
-    _lastXmitBlocked = false;
-    return false;   // Not blocked
-  }
-  
-  _lastXmitBlocked = true;
-  sem_post(&_hostXmitSem);
-  return true;    // blocked or some error
-}
-
-//===================================================================================
-// All messages sent to host pass through here.
-// At this time 2 threads use this method
-int hcom_comms_transmit_to_host(FAR uint8_t xmitBuffer[], size_t xmitLength)
-{
-  #define HCOM_XMIT_MAX_BLOCKED_TIME_DELAY  (50 * 1000)
-  #define HCOM_XMIT_MAX_BLOCKED_COUNT_VALUE 80 // 5ms each = 4 seconds
-
-  size_t remainingBytes;
-  size_t toWriteOffset = 0;
-  size_t blockedCount = 0;
-
-  // Only one thread at a time because the blocked test grabbed it
-  if(_shutting_down)
-  {
-    sem_post(&_hostXmitSem);  // release
-    return OK;
-  }
-//usleep(50 * 1000);
-
-  // Encode
-  size_t encodedLength = hcom_comms_cobs_encoder(xmitBuffer, 0, xmitLength, _encodedXmitBuff);
-
-  // Encoded message needs a terminating delimiter for COBS
-  DEBUGASSERT(encodedLength < HCOM_SAFE_PACKET_BUF_SIZE - 1);
-  _encodedXmitBuff[encodedLength] = HCOM_PROTOCOL_PACKET_DELIMITER_VALUE;
-
-  encodedLength++;
-  remainingBytes = encodedLength;
-
-  if(! _is_connection_write_open)
-  {
-    int ret = hcom_comms_open_xmit_connection();
-    if(ret < 0)
-    {
-      return OK;
-    }
-  }
-
-  // Since there's no guarantee all bytes written at one time, loop until message 100% written
-  while (remainingBytes > 0)
-  {
-    ssize_t writeRet = file_write(&_connection_write_file_fd, &_encodedXmitBuff[toWriteOffset], remainingBytes);
-    if(writeRet >= 0)
-    {
-      remainingBytes -= writeRet;   // Note: if remainingBytes == 0 will exit while loop
-      toWriteOffset += writeRet;
-
-      hcom_comms_dbg_x(LOG_DEBUG, "%s@%d-Send %d bytes, sent %d (%d remaining) will %s\n\n",
-          thisFile, __LINE__, encodedLength, writeRet, remainingBytes == 0 ? "exit" : "retry");
-
-      continue;
-    }
-
-    // Examine error
-    // EINTR is not really an error... it simply means that this write was
-    // interrupted by a signal before it wrote the data.
-    if (writeRet == -EINTR)
-    {
-      continue;
-    }
-
-    if(writeRet == -EAGAIN)
-    {
-      // Write attempt was blocked, either host PC not connected, CLI not running
-      // or PC just can't keep up. Give it a chance to catchup.
-      if(blockedCount < HCOM_XMIT_MAX_BLOCKED_COUNT_VALUE)
-      {
-        blockedCount++;
-        usleep(HCOM_XMIT_MAX_BLOCKED_TIME_DELAY);
-        hcom_comms_dbg_x(LOG_DEBUG, "%s@%d-Resend #%d\n", thisFile, __LINE__, blockedCount);
-        continue;
-      }
-
-      // Set the global flag - seems the host isn't connected or CLI not running
-      _lastXmitBlocked = true;
-      hcom_comms_dbg_x(LOG_DEBUG, "%d USB write attempts (wrote %d, %d remain of %d bytes), message not sent\n",
-                    blockedCount, toWriteOffset, remainingBytes, encodedLength);
-
-      // No reason to close fd. The caller can sort out what to do with partial data.
-      sem_post(&_hostXmitSem);
-      return writeRet;
-    }
-
-    file_close(&_connection_write_file_fd);
-    _is_connection_write_open = false;
-
-    sem_post(&_hostXmitSem);
-    return writeRet;
-  } // while (remainingBytes > 0)
-
-  // Success exit
-  _lastXmitBlocked = false;
-
-  sem_post(&_hostXmitSem);
   return OK;
 }

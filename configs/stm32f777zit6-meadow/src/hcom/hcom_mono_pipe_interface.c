@@ -204,6 +204,7 @@ FAR void *hcom_mono_pipe_pthread(FAR void *arg)
   hcom_utils_f7syslog(LOG_NOTICE, "PID:%d is '%s'\n", getpid(), rtcb->name);
 #endif
 
+  // This loop runs forever
   while(!_shutting_down)
   {
     ret = hcom_mono_pipe_open_pipe();
@@ -236,7 +237,7 @@ int hcom_mono_pipe_open_pipe()
     _pipe_fd = -1;
   }
 
-  // The docs say that is open call will block until some writer opens the pipe
+  // The docs say that this open call will block until some writer opens the pipe
   _pipe_fd = open(HCOM_MONO_MAIN_STDOUT_PIPE, O_RDONLY);
   if (_pipe_fd < 0)
   {
@@ -270,8 +271,7 @@ int hcom_mono_pipe_read_pipe_loop()
     else if (readReturn == 0)    // EOF, last writer closed pipe
     {
       hcom_utils_f7syslog(LOG_WARNING, "%s@%d-pipe read EOF\n", thisFile, __LINE__);
-      sleep(1);
-      continue;
+      return -1;
     }
     else
     {
@@ -323,8 +323,8 @@ int hcom_mono_pipe_route_mono_text_stdout(uint8_t *recvBuff, int numbBytes)
   if (ret < 0)
   {
     // Transmission blocked. EAGAIN is not an error it means the message was blocked.
-    // Because the mono app can send really fast, we have not choice but to throw extras away.
-    if(ret != -EAGAIN)      // Transmission blocked. EAGAIN is not an error it means the message was blocked
+    // Because the mono app can send really fast, we have no choice but to throw extras away.
+    if(ret != -EAGAIN)
       hcom_utils_f7syslog(LOG_ERR, "%s@%d-Host xmit err:%d\n", thisFile, __LINE__, ret);
   }
 

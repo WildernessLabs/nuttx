@@ -78,8 +78,8 @@ endif
 
 ifeq ($(CONFIG_MEADOW_HCOM),y)
 HCOM_SRCS = hcom/hcom_startup_manager.c \
- hcom/comms/hcom_comms_msg.c \
- hcom/comms/hcom_comms_interface.c \
+ hcom/comms/hcom_comms_send.c \
+ hcom/comms/hcom_comms_receive.c \
  hcom/comms/hcom_comms_support.c \
  hcom/commands/hcom_save_parse_request.c \
  hcom/commands/hcom_file_commands.c \

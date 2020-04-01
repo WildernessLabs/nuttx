@@ -233,7 +233,7 @@ int hcom_parse_request_and_process(const uint8_t *packet, const size_t packetSiz
   {
     // Data Packet (sequence number > 0) 
     hcom_comms_dbg(LOG_DEBUG, "%s@%d-Data seq:%d, len:%d\n", thisFile, __LINE__, seqNumb, packetSize); 
-    hcom_exec_rqst_download_data_packet(packet, packetSize, seqNumb);
+    hcom_exec_rqst_data_packet_recvd(packet, packetSize, seqNumb);
   }
 
   return OK;

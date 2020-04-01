@@ -60,6 +60,8 @@
 uint8_t g_syslog_mask;
 
 static char *thisFile = __FILE__;
+static sem_t _f7syslogSem;    /* Implements event waiting */
+static char *_f7syslogTextBuf;
 
 /****************************************************************************
  * Private Function Prototypes
@@ -68,19 +70,22 @@ static char *thisFile = __FILE__;
 #if HCOM_COMMON_UTILS_GPIO_TEST_PROBE > 0
 static void hcom_utils_dbg_gpio_init(void);
 #endif
+
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
-
-//============================================================================
 int hcom_utils_setup()
 {
+  _f7syslogTextBuf = malloc(HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN);
+  sem_init(&_f7syslogSem, 0, 1);
   return OK;
 }
 
 //============================================================================
 void hcom_utils_shutdown()
 {
+  free(_f7syslogTextBuf);
+  sem_destroy(&_f7syslogSem);
 }
 
 //===================================================================
@@ -151,8 +156,8 @@ bool hcom_utils_boot_time_qemu_check()
 
 //===================================================================
 // This is called during startup, before the hcom thread is created.
-// Its purpose it to allow hcom a chance to call mono_main and configure
-// it to either run or not run, before mono_main has a chance to run.
+// Its purpose is to allow inform mono (via mono_main) whether it is
+// to run or not run.
 void hcom_utils_boot_time_mono_check()
 {
 #ifdef CONFIG_USER_ENTRYPOINT
@@ -188,6 +193,7 @@ bool hcom_utils_is_mono_disabled()
 }
 
 //============================================================================
+// For diagnostic use only
 void hcom_utils_diag_print_buffer(const uint8_t buffer[], const int bufLen, uint8_t msgPriority)
 {
 #if 1
@@ -259,6 +265,9 @@ void hcom_utils_diag_print_buffer(const uint8_t buffer[], const int bufLen, uint
 }
 
 //===================================================================
+// This is part of memory saving effort to remove from all the syslog
+// messages the need to identify the type of log. It's done here and
+// not in 100+ places.
 static int hcom_utils_syslog_priority_to_text(int priority, char *textPri)
 {
   switch (priority)
@@ -323,23 +332,43 @@ static int hcom_util_build_syslog_string(int priority, FAR const IPTR char * fmt
   return stringLen;
 }
 
+//=====================================================================
+// Wait for the thread writing to exit
+static void hcom_utils_f7syslog_takesem(void)
+{
+  int ret;
+
+  do
+    {
+      /* Take the semaphore (perhaps waiting) */
+      ret = sem_wait(&_f7syslogSem);
+
+      /* The only case that an error should occur here is if the wait was
+       * awakened by a signal.
+       */
+      DEBUGASSERT(ret == OK || ret == -EINTR);
+    }
+  while (ret == -EINTR);
+}
+
 //===================================================================
-// This function is for those places where THE processing involves sending
-// text to the host PC. If hcom_utils_f7syslog is used these calls will introduce
-// recursion with no exit.
+// This function is for those places where hcom is processing text to
+// send to the host PC. If hcom_utils_f7syslog had been used these calls
+// will introduce recursion as each syslog will create another syslog.
 void hcom_utils_f7syslog_x(int priority, FAR const IPTR char *fmt, ...)
 {
 #if defined CONFIG_RAMLOG_SYSLOG
-  // Can't send to syslog because this will be a recursive too. Can't
-  // send directly to the host because this also would be recursive too.
+  // Can't send to syslog because this will be a recursive. Can't send
+  // directly to the host because this also would be recursive too.
   return;
 #else
   if ((g_syslog_mask & LOG_MASK(priority)) == 0)
+  {
     return;   // Nothing to do
+  }
 
   // If nuttx is configured for outputting syslogs to the console
-  // then this works. But, cannot be routed to the host PC.
-  // Can send to syslog as that is not going to return here
+  // then this works. But, these cannot be routed to the host PC.
   va_list args;
   va_start(args, fmt);
   vsyslog(priority, fmt, args);
@@ -351,33 +380,36 @@ void hcom_utils_f7syslog_x(int priority, FAR const IPTR char *fmt, ...)
 // Use this for syslogs writes that can be routed to host.
 void hcom_utils_f7syslog(int priority, FAR const IPTR char *fmt, ...)
 {
-  if ((g_syslog_mask & LOG_MASK(priority)) == 0)
-    return;   // Nothing to do
+  // Prevent multiple threads from garbling message
+  hcom_utils_f7syslog_takesem();
 
-  char *completeMsg;
-  completeMsg = malloc(HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN);
-  DEBUGASSERT(completeMsg != NULL);
+  if ((g_syslog_mask & LOG_MASK(priority)) == 0)
+  {
+    sem_post(&_f7syslogSem);
+    return;   // Nothing to do
+  }
 
   va_list args;
   va_start(args, fmt);
-  int stringLen = hcom_util_build_syslog_string(priority, fmt, args, completeMsg,
+  int stringLen = hcom_util_build_syslog_string(priority, fmt, args, _f7syslogTextBuf,
             HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN);
   va_end(args);  
 
   // Depending on the nuttx configuration these messages may go to the
   // ramlog, to the serial console or the bit-bucket.
   //
-  // If ramlog is configured then the message is sent to syslog only. Here
-  // syslog adds a timestamp (if so configured) and puts it in the nuttx
+  // If ramlog is configured then the message is sent to syslog only. Nuttx
+  // adds a syslog timestamp (if so configured) and puts it in the nuttx
   // ramlog buffer. The hcom_host_trace_ramlog read function reads it
   // from ramlog and forwards the message to the host PC, if requested.
   //
   // If syslog is configured then the call to syslog writes the message to
   // the configured UART for serial output. On return from the syslog call
-  // this the code (immediately below) forwards it to the host PC.
+  // this code (immediately below) forwards it to the host PC, if trace is
+  // enabled
   //
-  syslog(priority, completeMsg);
-  
+  syslog(priority, _f7syslogTextBuf);
+
 #if defined CONFIG_RAMLOG_SYSLOG
   stringLen = stringLen;    // Keep conpiler from warning (I know there's a better way...)
 #else
@@ -387,16 +419,16 @@ void hcom_utils_f7syslog(int priority, FAR const IPTR char *fmt, ...)
           HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG))
   {
     // Strip off cr/lf since Meadow.CLI takes care of this
-    if(completeMsg[stringLen - 1] == 0x0a || completeMsg[stringLen - 1] == 0x0d)
+    if(_f7syslogTextBuf[stringLen - 1] == 0x0a || _f7syslogTextBuf[stringLen - 1] == 0x0d)
       stringLen--;
-    if(completeMsg[stringLen - 1] == 0x0a || completeMsg[stringLen - 1] == 0x0d)
+    if(_f7syslogTextBuf[stringLen - 1] == 0x0a || _f7syslogTextBuf[stringLen - 1] == 0x0d)
       stringLen--;
   
-    hcom_comms_send_raw_string_msg(HCOM_HOST_REQUEST_TEXT_TRACE_MSG, 0, completeMsg,
+    hcom_comms_send_raw_string_msg(HCOM_HOST_REQUEST_TEXT_TRACE_MSG, 0, _f7syslogTextBuf,
             stringLen, thisFile, __LINE__);
   }
 #endif
-  free(completeMsg);
+  sem_post(&_f7syslogSem);
 }
 
 #if defined (CONFIG_RAMLOG_SYSLOG)
@@ -414,28 +446,28 @@ void hcom_utils_safe_ramlog(int priority, FAR const IPTR char *fmt,
   if ((g_syslog_mask & LOG_MASK(priority)) == 0)
     return;   // Nothing to do
   
-  char *completeMsg;
-  completeMsg = malloc(HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN);
-  DEBUGASSERT(completeMsg != NULL);
+  char *_safeRamlogText;
+  _safeRamlogText = malloc(HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN);
+  DEBUGASSERT(_safeRamlogText != NULL);
 
-  int stringLen = hcom_util_build_syslog_string(priority, fmt, args, completeMsg,
+  int stringLen = hcom_util_build_syslog_string(priority, fmt, args, _safeRamlogText,
             HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN);
 
   // Note: no time stamp to these messages
-  if(completeMsg[stringLen - 1] == 0x0a || completeMsg[stringLen - 1] == 0x0d)
+  if(_safeRamlogText[stringLen - 1] == 0x0a || _safeRamlogText[stringLen - 1] == 0x0d)
     stringLen--;
-  if(completeMsg[stringLen - 1] == 0x0a || completeMsg[stringLen - 1] == 0x0d)
+  if(_safeRamlogText[stringLen - 1] == 0x0a || _safeRamlogText[stringLen - 1] == 0x0d)
     stringLen--;
 
-  hcom_comms_send_raw_string_msg(HCOM_HOST_REQUEST_TEXT_TRACE_MSG, 0, completeMsg,
+  hcom_comms_send_raw_string_msg(HCOM_HOST_REQUEST_TEXT_TRACE_MSG, 0, _safeRamlogText,
           stringLen, thisFile, __LINE__);
-  free(completeMsg);
+  free(_safeRamlogText);
 }
 #endif
 
 #if HCOM_COMMON_UTILS_GPIO_TEST_PROBE > 0
 //=================================================================
-// This for testing by using 
+// This for testing only
 #define HCOM_ONBOARD_D00_PIN_OUTPUT  (GPIO_OUTPUT | GPIO_PORTI | GPIO_PIN9 | GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
 #define HCOM_ONBOARD_D01_PIN_OUTPUT  (GPIO_OUTPUT | GPIO_PORTH | GPIO_PIN13| GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
 #define HCOM_ONBOARD_D02_PIN_OUTPUT  (GPIO_OUTPUT | GPIO_PORTC | GPIO_PIN6 | GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
@@ -469,7 +501,7 @@ void hcom_utils_dbg_gpio_init()
 }
 
 //=================================================================
-// Assumes gpio (D8 on meadow) that can output as binary
+// Assumes gpio (D8 on meadow) can output as binary
 void hcom_utils_dbg_gpio_1led_update(bool ledOn)
 {
   // Note: Low (false) turns led on for an open drain
@@ -477,7 +509,7 @@ void hcom_utils_dbg_gpio_1led_update(bool ledOn)
 }
 
 //=================================================================
-// Assumes gpio (D0-D7 on meadow) that can output 8-bit as binary
+// Assumes gpio (D0-D7 on meadow) can output 8-bit as binary
 void hcom_utils_dbg_gpio_8bit_update(uint8_t newValue, bool ledOn)
 {
   hcom_utils_dbg_gpio_init();
@@ -492,20 +524,23 @@ void hcom_utils_dbg_gpio_8bit_update(uint8_t newValue, bool ledOn)
   stm32_gpiowrite(HCOM_ONBOARD_D06_PIN_OUTPUT, (newValue & 0x40) > 0 ?  false : true);
   stm32_gpiowrite(HCOM_ONBOARD_D07_PIN_OUTPUT, (newValue & 0x80) > 0 ?  false : true);
 
-  // Give time to see the results
-  if(ledOn)
-  {
-    for(int i = 0; i < 5; i++)
-    {
-      hcom_utils_dbg_gpio_1led_update(i % 2 == 0 ? true : false);
-      usleep(100 * 1000);
-    }
-    hcom_utils_dbg_gpio_1led_update(false);
-  }
-  else
-  {
-    hcom_utils_dbg_gpio_1led_update(false);
-    usleep(50 * 1000);
-  }
+  hcom_utils_dbg_gpio_1led_update(ledOn);
+  usleep(50 * 1000);  // Give time to see the results
+
+  // if(ledOn)
+  // {
+  //   for(int i = 0; i < 5; i++)
+  //   {
+  //     // flash
+  //     hcom_utils_dbg_gpio_1led_update(i % 2 == 0 ? true : false);
+  //     usleep(100 * 1000);
+  //   }
+  //   hcom_utils_dbg_gpio_1led_update(false);
+  // }
+  // else
+  // {
+  //   hcom_utils_dbg_gpio_1led_update(false);
+  //   usleep(50 * 1000);
+  // }
 }
 #endif

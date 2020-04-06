@@ -72,8 +72,9 @@ static uint32_t _xferMeadowCalcCrc = 0;  // This is over all the payload (origin
 static uint32_t _xferCalcFullFileSize = 0; // This is the size of the original
 static uint32_t _xferCalcPacketCrc = 0;    // This is over all packets
 
+#if defined (CONFIG_HCOM_ESP32_COMMS)
 static char _md5FileHash[HCOM_PROTOCOL_REQUEST_MD5_HASH_LENGTH + 1];
-
+#endif
 static int _dbgNumbPacketsRecvd = 0;
 static int _lastPercentSent;
 
@@ -295,7 +296,9 @@ void hcom_exec_rqst_download_file_rqst_end(uint32_t userData)
   int ret;
   char hostMsg[HCOM_SHORT_HOST_STRING_BUFF_LENGTH];
   char *sendMsgToHost;
-  char *espCalculatedMd5;  
+#if defined (CONFIG_HCOM_ESP32_COMMS)
+  char *espCalculatedMd5;
+#endif  
   int stringLen;
   uint16_t requestType;
 

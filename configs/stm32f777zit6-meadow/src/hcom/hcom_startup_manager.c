@@ -339,7 +339,7 @@ FAR void *hcom_comms_recv_worker_pthread(FAR void *arg)
   hcom_utils_f7syslog(LOG_NOTICE, "PID:%d is '%s'\n", getpid(), rtcb->name);
 #endif
 
-  // Provide some information that may be useful for debugging
+  // Provide some information that may be useful
   hcom_utils_f7syslog(LOG_INFO, "Meadow %s (%s@%s) %s, Mono:%s, Trace level:0x%02x(was 0x%02x), to host:%s, type:%s\n",
         HCOM_DEVICE_INFO_MEADOW_OS_VERSION, __DATE__, __TIME__, 
         _power_on_restart ? "power-on restart" :"rebooted",

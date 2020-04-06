@@ -196,7 +196,8 @@ bool hcom_utils_is_mono_disabled()
 // For diagnostic use only
 void hcom_utils_diag_print_buffer(const uint8_t buffer[], const int bufLen, uint8_t msgPriority)
 {
-#if 1
+#if HCOM_COMMON_UTILS_DIAG_PRINT_BUFFER > 0
+
 #define HCOM_UTIL_BYTES_PER_LINE 16
 #define HCOM_UTIL_LEADING_SPACES 2
 #define HCOM_UTIL_HEXADECIMAL_OFFSET (8 + HCOM_UTIL_LEADING_SPACES)

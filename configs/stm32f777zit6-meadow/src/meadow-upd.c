@@ -162,9 +162,36 @@ static struct spi_dev_s *g_spi2 = NULL; // to ESP32
 
 static int upd_gpio_interrupt(int irq, void *context, void *arg)
 {
+static uint32_t interruptDbgCnt;
+static char lastIntId;
+
+  // C
+
+
+
   // arg here will be the port/pin designator passed in during the register ioctl
   memset(queue_buffer, 0, QUEUE_MSG_SIZE);
   memcpy(queue_buffer, arg, 4);
+
+syslog(1, "----\n");
+// syslog(1, "-->%04d Nuttx: Interrupt handler\n",
+//         ++interruptDbgCnt,
+//         ((queue_buffer[0] & 0xf0) >> 4) + 'A',
+//         (queue_buffer[0] & 0x0f));
+syslog(1, "-->%04d Nuttx Interrupt:arg:0x%02x, pid:%d, irq:0x%02x, (P%c%d)\n",
+        ++interruptDbgCnt,
+        queue_buffer[0],
+        getpid(),
+        irq,
+        ((queue_buffer[0] & 0xf0) >> 4) + 'A',
+        (queue_buffer[0] & 0x0f));
+
+if(lastIntId != queue_buffer[0])
+{
+syslog(1, "****** Interrupt source changed from:0x%02x to 0x%02x\n",
+          lastIntId, queue_buffer[0]);
+  lastIntId = queue_buffer[0];
+}
 
   int result = mq_send(s_int_queue, queue_buffer, QUEUE_MSG_SIZE, 0);
 
@@ -231,6 +258,9 @@ static int upd_config_interrupt(struct upd_gpio_int_config* cfg)
   // determine a pin designator
   uint32_t designator = cfg->port << 4 | cfg->pin;
 
+syslog(1, "Configuring interrupt designator:0x%02x cfg->irq:0x%02x\n",
+        designator, cfg->irq);
+  
   // the app will give us the signal number.  
   // This is expected to remain constant for the entire app, so we store the first one we get
   if(cfg->enable)
@@ -240,10 +270,18 @@ static int upd_config_interrupt(struct upd_gpio_int_config* cfg)
     // find the first empty (== 0) map index
     for(int i = 0 ; i < 26 ; i++)
     {
+      // p-m Verify not already int the map.
+      if(s_interruptPinMap[i] == cfg->irq)
+      {
+        syslog(1, "\n**** THIS IS BAD! -> IRQ (0x02x) already in map\n\n", cfg->irq);
+      }
+
       if(s_interruptPinMap[i] == 0)
       {
         s_interruptPinMap[i] = cfg->irq;
         index = i;
+syslog(1, "Configuring interrupt, designator:0x%02x, cfg->irq:0x%02x, slot:%d\n",
+        designator, cfg->irq, index);
         break;
       }
     }

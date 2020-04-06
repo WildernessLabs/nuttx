@@ -40,7 +40,9 @@
  ****************************************************************************/
 
 #include "hcom_common.h"
+#if defined (CONFIG_HCOM_ESP32_COMMS)
 #include "esp32/hcom_esp32_comms.h"
+#endif
 
 #include <nuttx/kthread.h>
 #include <assert.h>
@@ -261,6 +263,15 @@ int hcom_manager_setup(FAR struct mtd_dev_s *mtd)
   }
 #endif
 
+#if defined (CONFIG_HCOM_ESP32_COMMS)
+  ret = hcom_esp32_uart_comms_setup();
+  if (ret < 0)
+  {
+    hcom_utils_f7syslog(LOG_CRIT, "%s@%d-setup esp32 comms %d\n", thisFile, __LINE__, ret);
+    return ret;
+  }
+#endif
+
   ret = hcom_esp32_uart_comms_setup();
   if (ret < 0)
   {
@@ -387,7 +398,9 @@ void hcom_manager_shutdown()
   hcom_file_commands_shutdown();
   hcom_fs_shutdown();
   hcom_remote_dbg_shutdown();
+#if defined (CONFIG_HCOM_ESP32_COMMS)
   hcom_esp32_uart_comms_shutdown();
+#endif
 #if defined (CONFIG_RAMLOG_SYSLOG)
   hcom_ramlog_trace_shutdown();
 #endif

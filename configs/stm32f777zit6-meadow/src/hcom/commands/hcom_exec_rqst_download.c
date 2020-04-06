@@ -1,5 +1,5 @@
 /****************************************************************************
- * configs/stm32f777-zit6-meadow/src/hcom/hcom_exed_download.c
+ * configs/stm32f777-zit6-meadow/src/hcom/hcom_exec_rqst_download.c
  * 
  *   Copyright (C) 2019-2020 Wilderness Labs. All rights reserved.
  *   Copyright (C) 2017 Gregory Nutt. All rights reserved.
@@ -40,7 +40,10 @@
  ****************************************************************************/
 
 #include "../hcom_common.h"
+
+#if defined (CONFIG_HCOM_ESP32_COMMS)
 #include "../esp32/hcom_esp32_comms.h"
+#endif
 
 #include <nuttx/arch.h>
 #include <nuttx/mtd/mtd.h>
@@ -174,6 +177,7 @@ void hcom_exec_rqst_download_file_rqst_start(const uint8_t *recvPacketData, cons
 
     case HCOM_MDOW_REQUEST_START_ESP_FILE_TRANSFER:
       // ESP32
+#if defined (CONFIG_HCOM_ESP32_COMMS)
       _currentHcomDataPacketAction = CurrentHcomDataPacketActionEsp32FileXfer;
       memcpy(_md5FileHash, recvPacketData + msgOffset, HCOM_PROTOCOL_REQUEST_MD5_HASH_LENGTH);
       _md5FileHash[HCOM_PROTOCOL_REQUEST_MD5_HASH_LENGTH] = '\0';
@@ -189,6 +193,7 @@ void hcom_exec_rqst_download_file_rqst_start(const uint8_t *recvPacketData, cons
         _currentHcomDataPacketAction = CurrentHcomDataPacketActionNone;
         hcom_utils_f7syslog(LOG_ERR, "%s@%d-from call for ESP32 start transfer:%d\n", thisFile, __LINE__, ret);
       }
+#endif
       break;
 
       default:
@@ -264,9 +269,11 @@ void hcom_exec_rqst_data_packet_recvd(const uint8_t *packet, const size_t packet
       break;
 
     case CurrentHcomDataPacketActionEsp32FileXfer:
+#if defined (CONFIG_HCOM_ESP32_COMMS)
       ret = hcom_esp32_exec_add_flash_data(recvOrigData, recvOrigDataSize, seqNumb);
+#endif
       break;
-
+      
     default:
       ret = -1;
       hcom_utils_f7syslog(LOG_ERR, "%s@%d-Data Packet (SeqNumb=%d), unknown data packet action\n",
@@ -338,12 +345,12 @@ void hcom_exec_rqst_download_file_rqst_end(uint32_t userData)
       break;
 
     case CurrentHcomDataPacketActionEsp32FileXfer:
+#if defined (CONFIG_HCOM_ESP32_COMMS)
       ret = hcom_esp32_exec_add_flash_end(userData);
       if (ret < 0)
       {
         hcom_utils_f7syslog(LOG_ERR, "%s@%d-ESP32 File end error:%d\n", thisFile, __LINE__, ret);
       }
-
       // Compare the two MD5 hashs
       espCalculatedMd5 = hcom_esp32_exec_get_md5_file_hash();
       int cmpResult = strcmp(espCalculatedMd5, _md5FileHash);
@@ -363,6 +370,7 @@ void hcom_exec_rqst_download_file_rqst_end(uint32_t userData)
           sendMsgToHost = hostMsg;
           requestType = HCOM_HOST_REQUEST_TEXT_ERROR;
       }
+#endif
       break;
 
       default:

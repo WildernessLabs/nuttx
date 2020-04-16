@@ -90,6 +90,7 @@ HCOM_SRCS = hcom/hcom_startup_manager.c \
  hcom/hcom_mono_pipe_interface.c \
  hcom/hcom_remote_debugging.c \
  hcom/hcom_host_trace_ramlog.c \
+ hcom/esp32/hcom_esp32_spi_comms.c \
  hcom/esp32/hcom_esp32_uart_comms.c \
  hcom/esp32/hcom_esp32_proc_xmit.c \
  hcom/esp32/hcom_esp32_proc_recv.c \

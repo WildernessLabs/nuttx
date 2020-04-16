@@ -268,6 +268,13 @@ int hcom_manager_setup(FAR struct mtd_dev_s *mtd)
     return ret;
   }
 
+  ret = hcom_esp32_spi_comms_setup();
+  if (ret < 0)
+  {
+    hcom_utils_f7syslog(LOG_CRIT, "%s@%d-Error:setup esp32 SPI comms %d\n", thisFile, __LINE__, ret);
+    return ret;
+  }
+
   // Do this last! - Create a thread to handle receiving and responding to received messages
   ret = hcom_manager_create_worker_thread();
   if (ret < 0)

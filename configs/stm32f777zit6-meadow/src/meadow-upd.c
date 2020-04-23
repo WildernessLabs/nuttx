@@ -31,6 +31,10 @@
 #if defined CONFIG_SYSTEMTICK_HOOK
 #include <nuttx/board.h>
 #endif
+#include <nuttx/timers/timer.h>
+#include <sys/ioctl.h>
+#include "stm32_tim.h"
+//#include <nuttx/clock.h>    // for testing
 
 /****************************************************************************
  * Private Types
@@ -156,6 +160,8 @@ static struct spi_dev_s *g_spi3 = NULL; // external
 static struct spi_dev_s *g_spi2 = NULL; // to ESP32
 
 //------- GPIO Interrupt stuff ---------
+//static struct stm32_tim_dev_s *interrupt_timer;
+
 static mqd_t s_int_queue = 0;
 static char queue_buffer[QUEUE_MSG_SIZE];
 
@@ -241,8 +247,86 @@ static volatile int numbDebounceActive = 0;      // increment by ISR decremented
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
-#if defined CONFIG_SYSTEMTICK_HOOK
 
+static struct stm32_tim_dev_s *_debounceTimer;
+// #define CONFIG_EXAMPLES_TIMER_DEVNAME "/dev/timer10"
+// #define CONFIG_EXAMPLES_TIMER_INTERVAL 1000
+// #define MEADOW_TIMER_SIGNO 17   // Not sure why it's 17
+#define MEADOW_DEBOUNCE_TIMER_NUMBER (10)
+#define MEADOW_DEBOUNCE_TIMER_FREQUENCY (1000)  // 1000 usec or 1 millisec
+static bool isTimerInitialized = false;
+
+#define HCOM_ONBOARD_D05_PIN_OUTPUT  (GPIO_OUTPUT | GPIO_PORTC | GPIO_PIN7 | GPIO_FLOAT | GPIO_PUSHPULL | GPIO_SPEED_100MHz)
+#define HCOM_ONBOARD_D06_PIN_OUTPUT  (GPIO_OUTPUT | GPIO_PORTB | GPIO_PIN0 | GPIO_FLOAT | GPIO_PUSHPULL | GPIO_SPEED_100MHz)
+#define HCOM_ONBOARD_D07_PIN_OUTPUT  (GPIO_OUTPUT | GPIO_PORTB | GPIO_PIN7 | GPIO_FLOAT | GPIO_PUSHPULL | GPIO_SPEED_100MHz)
+#define HCOM_ONBOARD_D08_PIN_OUTPUT  (GPIO_OUTPUT | GPIO_PORTB | GPIO_PIN6 | GPIO_FLOAT | GPIO_PUSHPULL | GPIO_SPEED_100MHz)
+
+  // stm32_gpiowrite(HCOM_ONBOARD_D05_PIN_OUTPUT, true);
+  // stm32_gpiowrite(HCOM_ONBOARD_D06_PIN_OUTPUT, true);
+  // stm32_gpiowrite(HCOM_ONBOARD_D07_PIN_OUTPUT, true);
+  // stm32_gpiowrite(HCOM_ONBOARD_D08_PIN_OUTPUT, true);
+
+static int debounce_timer_handler(int irq, void *context, void *arg);
+
+//==================================================================
+static int upd_gpio_interrupt_timer_config(void)
+{
+  int ret;
+
+  if(isTimerInitialized)
+    return OK;
+
+  stm32_configgpio(HCOM_ONBOARD_D05_PIN_OUTPUT);
+  stm32_configgpio(HCOM_ONBOARD_D06_PIN_OUTPUT);
+  stm32_configgpio(HCOM_ONBOARD_D07_PIN_OUTPUT);
+  stm32_configgpio(HCOM_ONBOARD_D08_PIN_OUTPUT);
+
+  syslog(1, "udp-(timer cfg)--Begin initializing timer #%d for debounce\n", MEADOW_DEBOUNCE_TIMER_NUMBER);
+
+  // TIM7 global interrupt Position:55 Priority:62, NVIC Offset:0x0000011C
+  _debounceTimer = stm32_tim_init(MEADOW_DEBOUNCE_TIMER_NUMBER);
+  if(_debounceTimer == NULL)
+  {
+    syslog(1, "udp-(timer cfg)--initializing failed, returned NULL\n");
+    return OK;
+  }
+  
+  // Increasing frequency increases the frequency
+  // STM32_APB2_TIM10_CLKIN = 192,000,000
+  // uint32_t debounceFreq = STM32_APB2_TIM10_CLKIN;  // for 1 microsec
+  uint32_t debounceFreq = STM32_APB2_TIM10_CLKIN / 100;   // for 1 millisec
+  syslog(1, "udp-(timer cfg)--initialization debounceFreq:%d, STM32_APB2_TIM10_CLKIN:%d\n",
+          debounceFreq, STM32_APB2_TIM10_CLKIN);
+
+  // This determines the prescaler value 0 - 65535
+  int prescaler = STM32_TIM_SETCLOCK(_debounceTimer, debounceFreq); 
+  syslog(1, "udp-(timer cfg)--initialization debounceFreq:%d => prescaler:%d\n",
+          debounceFreq, prescaler);
+
+  // arg (third parameter) is a pointer that's returned in the isr handler
+  ret = STM32_TIM_SETISR(_debounceTimer, (xcpt_t)debounce_timer_handler, NULL, 0);
+  if(ret < 0)
+  {
+    syslog(1, "udp-(timer cfg)--STM32_TIM_SETISR failed:%d\n", ret);
+    return ret;
+  }
+
+  uint32_t debouncePeriod = 1920 - 1;   // for 1 millisec
+  // uint32_t debouncePeriod = 192; // for 1 microsec
+  STM32_TIM_SETPERIOD(_debounceTimer, debouncePeriod);
+
+  syslog(1, "udp-(timer cfg)--initialization debounceFreq:%d => prescaler:%d, debouncePeriod:%d\n",
+          debounceFreq, prescaler, debouncePeriod);
+
+  STM32_TIM_ACKINT(_debounceTimer, GTIM_SR_UIF);
+  STM32_TIM_ENABLEINT(_debounceTimer, GTIM_DIER_UIE);
+
+  syslog(1, "udp-(timer cfg)--SUCCESS EXIT\n\n");
+  isTimerInitialized = true;
+  return OK;
+}
+
+//===============================================================
 static int upd_gpio_interrupt_forward(uint8_t pinId, uint8_t state)
 {
   // Forwared to Foundation
@@ -256,22 +340,36 @@ static int upd_gpio_interrupt_forward(uint8_t pinId, uint8_t state)
 // Debounce recognizes the first state transition and then ignores anything after that
 //  for a period of time.
 //
-// This is called by Nuttx on every tick (default is every 10 ms)
-void board_timerhook()
+int debounce_timer_handler(int irq, void *context, void *arg)
 {
-  // p-m DEBUGGING STUFF
+  int ret;
+
+  // p-m DEBUG Just toggle for fun
+  static bool dbgState5 = false;
+  dbgState5 = !dbgState5;
+    stm32_gpiowrite(HCOM_ONBOARD_D05_PIN_OUTPUT, dbgState5);
+  // DEBUG Just toggle for fun
+
+  // p-m more DEBUGGING STUFF
   static uint32_t tickHookCounter = 0;
+  static clock_t prevHookCount = 0;
+  if(tickHookCounter == 0)
+    prevHookCount = clock_systimer();
   tickHookCounter++;
   if(tickHookCounter % (30 * (1000000/CONFIG_USEC_PER_TICK)) == 0)
   {
-    syslog(1, "udp-(tick)-30 seconds have passed\n");
+    clock_t now = clock_systimer();
+    syslog(1, "udp-(tick)-30 seconds have passed (%d from last)\n", now - prevHookCount);
+    prevHookCount = now;
   }
   // DEBUGGING STUFF
+
+  STM32_TIM_ACKINT(_debounceTimer, GTIM_SR_UIF);
 
   // Only if at least one gpio configured and active
   if(numbDebounceActive == 0 || numbDebounceConfigured == 0)
   {
-    return;
+    return OK;
   }
 
   struct interruptPinMap_s *pinDbncAddr;
@@ -365,7 +463,7 @@ void board_timerhook()
       }
       else
       {
-        int ret = OK;
+        ret = OK;
         switch(pinDbncAddr->InterruptMode)
         {
           case dbime_both:
@@ -413,6 +511,16 @@ void board_timerhook()
       // Allow ISR to again monitor this GPIO for interrupts
       pinDbncAddr->DebounceStateEnum = dbse_wait_isr;    // Terminate capture
       numbDebounceActive--;      // So this function knows when there's no work to do.
+      // Stop Timer if nothing to do
+      if(numbDebounceActive == 0)
+      {
+        ret = STM32_TIM_SETMODE(_debounceTimer, STM32_TIM_MODE_DOWN);
+        if(ret < 0)
+        {
+          syslog(1, "udp-(tick)--STM32_TIM_SETMODE failed:%d\n", ret);
+          return ret;
+        }
+      }
     }
     else
     {
@@ -420,10 +528,11 @@ void board_timerhook()
               pinDbncAddr->HistoryCount, pinDbncAddr->PinId);
     }
   }
+    return OK;
 }
-#endif
 
 //===============================================================
+// There has been a transition on the GPIO
 static int upd_gpio_interrupt(int irq, void *context, void *arg)
 {
   // Only true if at least one gpio configured for interrupts
@@ -454,10 +563,14 @@ static int upd_gpio_interrupt(int irq, void *context, void *arg)
     return OK;
   }
 
+  // Prepare to do debounce checking
   pinDbncAddr->HistoryCount = 0;
   pinDbncAddr->HistoryBits = 0;  
   pinDbncAddr->DebounceStateEnum = dbse_timed;
   numbDebounceActive++;
+
+  // Start the timer to drive debouce checking
+  STM32_TIM_SETMODE(_debounceTimer, STM32_TIM_MODE_UP);  
   return OK;
 }
 
@@ -525,6 +638,14 @@ static int upd_config_interrupt(struct upd_gpio_int_config* cfg)
 
   uint32_t designator = cfg->port << 4 | cfg->pin;
   uint32_t pinMapOffset;
+
+  ret = upd_gpio_interrupt_timer_config();
+  if(ret < 0)
+  {
+    syslog(1, "upd-(cfg)---BAD NEWS! upd_gpio_interrupt_timer_config failed\n");
+    return -1;
+  }
+
 
   // Walk the gpio data to find the matching entry
   for(i = 0; i < MEADOW_UPD_MAX_GPIOS_W_INTERRUPTS; i++)

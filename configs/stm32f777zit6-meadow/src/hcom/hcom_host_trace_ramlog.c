@@ -436,8 +436,6 @@ int hcom_ramlog_trace_route_trace_text(uint8_t *recvBuff, int numbBytes)
   if(numbBytes == 0)
     return OK;
 
-  // todo - consider treating trace message like mono Console.Write(Line)
-  // message are treated. All \r and \n are honored by CLI
   // Look for 0x0d & 0x0a at the end and shorten message length accordingly
   if(recvBuff[numbBytes - 1] == 0x0a || recvBuff[numbBytes - 1] == 0x0d)
     numbBytes--;

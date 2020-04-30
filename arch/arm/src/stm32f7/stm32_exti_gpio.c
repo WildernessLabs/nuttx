@@ -103,7 +103,6 @@ static int stm32_exti0_isr(int irq, void *context, void *arg)
   /* Clear the pending interrupt */
 
   putreg32(0x0001, STM32_EXTI_PR);
-syslog(1, "Entered stm32_exti0_isr\n");
 
   /* And dispatch the interrupt to the handler */
 
@@ -125,7 +124,6 @@ static int stm32_exti1_isr(int irq, void *context, void *arg)
   /* Clear the pending interrupt */
 
   putreg32(0x0002, STM32_EXTI_PR);
-syslog(1, "Entered stm32_exti1_isr\n");
 
   /* And dispatch the interrupt to the handler */
 
@@ -147,7 +145,6 @@ static int stm32_exti2_isr(int irq, void *context, void *arg)
   /* Clear the pending interrupt */
 
   putreg32(0x0004, STM32_EXTI_PR);
-syslog(1, "Entered stm32_exti2_isr\n");
 
   /* And dispatch the interrupt to the handler */
 
@@ -169,7 +166,6 @@ static int stm32_exti3_isr(int irq, void *context, void *arg)
   /* Clear the pending interrupt */
 
   putreg32(0x0008, STM32_EXTI_PR);
-syslog(1, "Entered stm32_exti3_isr\n");
 
   /* And dispatch the interrupt to the handler */
 
@@ -191,7 +187,6 @@ static int stm32_exti4_isr(int irq, void *context, void *arg)
   /* Clear the pending interrupt */
 
   putreg32(0x0010, STM32_EXTI_PR);
-syslog(1, "Entered stm32_exti4_isr\n");
 
   /* And dispatch the interrupt to the handler */
 
@@ -251,13 +246,11 @@ static int stm32_exti_multiisr(int irq, void *context, int first, int last)
 
 static int stm32_exti95_isr(int irq, void *context, void *arg)
 {
-syslog(1, "Entered stm32_exti95_isr\n");
   return stm32_exti_multiisr(irq, context, 5, 9);
 }
 
 static int stm32_exti1510_isr(int irq, void *context, void *arg)
 {
-syslog(1, "Entered stm32_exti510_isr\n");
   return stm32_exti_multiisr(irq, context, 10, 15);
 }
 
@@ -328,7 +321,7 @@ int stm32_gpiosetevent(uint32_t pinset, bool risingedge, bool fallingedge,
     }
   else if (pin < 10)
     {
-      irq        = STM32_IRQ_EXTI95;  // (39 = 0x27)
+      irq        = STM32_IRQ_EXTI95;
       handler    = stm32_exti95_isr;
       shared_cbs = &g_gpio_callbacks[5];
       nshared    = 5;

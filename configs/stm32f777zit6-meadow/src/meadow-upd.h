@@ -41,26 +41,28 @@
  * Included Files
  ****************************************************************************/
 
- #include <string.h>
+#include <string.h>
+#include <nuttx/mqueue.h>
 
 #define QUEUE_NAME          "/mdw_int"
 #define QUEUE_MSG_SIZE      2
 
-static mqd_t s_int_queue = 0;
-char queue_buffer[QUEUE_MSG_SIZE];
+mqd_t s_int_queue;
 
 struct upd_gpio_int_config
 {
+  // Must match ...\Meadow\Meadow.Core\source\Meadow.Core\Interop\Interop.upd.cs
   uint32_t irq;
   uint32_t port;
   uint32_t pin;
   uint32_t enable;
   uint32_t risingEdge;
   uint32_t fallingEdge;
-  uint32_t debounceDuration;
-  uint32_t glitchFilterCycleCount;
+  uint32_t debounceDuration_us2;   // us2 = 100 usec
+  uint32_t glitchDuration_us2;     // us2 = 100 usec
 };
 
+// in meadow-upd-interrupt.c called from meadow-upd.c
 int upd_config_interrupt(struct upd_gpio_int_config* cfg);
 
 #endif  // __CONFIGS_MEADOW_SRC_MEADOW_UPD__H

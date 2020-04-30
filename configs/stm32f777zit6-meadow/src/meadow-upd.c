@@ -441,6 +441,7 @@ static int upd_handle_pwm(int cmd, unsigned long arg)
 
 static int upd_open(struct file *filep)
 {
+  extern mqd_t s_int_queue;
   struct mq_attr attr;
   attr.mq_flags = 0;
   attr.mq_maxmsg = 10;
@@ -450,12 +451,19 @@ static int upd_open(struct file *filep)
   if(s_int_queue == 0)
   {
     s_int_queue = mq_open(QUEUE_NAME, O_WRONLY | O_CREAT, 0660, &attr);
+    if (s_int_queue == (mqd_t)-1)
+    {
+      int errcode = get_errno();
+      syslog(LOG_ERR, "%s@%d-mq_open failed: %d\n", __FILE__, __LINE__, errcode);
+      return -errcode;
+    }
   }
   return OK;
 }
 
 static int upd_close(struct file *filep)
 {
+  extern mqd_t s_int_queue;
   mq_close(s_int_queue);
 
   return OK;

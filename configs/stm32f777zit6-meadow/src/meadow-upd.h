@@ -58,8 +58,8 @@ struct upd_gpio_int_config
   uint32_t enable;
   uint32_t risingEdge;
   uint32_t fallingEdge;
-  uint32_t debounceDurationx10;   // millisec * 10c
-  uint32_t glitchDurationx10;     // millisec * 10c
+  uint32_t debounceDuration;   // millisec * 10
+  uint32_t glitchDuration;     // millisec * 10
 };
 
 // in meadow-upd-interrupt.c called from meadow-upd.c

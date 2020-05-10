@@ -774,7 +774,7 @@ int upd_config_interrupt(struct upd_gpio_int_config* cfg)
     if(gpioMapTblPtr->CurrentProcessState != updipstate_uncfg)
         numbGpioConfigured--;
 
-    gpioMapTblPtr->CurrentProcessState == updipstate_beingcfg;
+    gpioMapTblPtr->CurrentProcessState = updipstate_beingcfg;
 
     // Get the current state which can be used to detect changes when processing
     // interrupts

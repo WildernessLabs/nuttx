@@ -52,14 +52,14 @@ mqd_t s_int_queue;
 struct upd_gpio_int_config
 {
   // Must match ...\Meadow\Meadow.Core\source\Meadow.Core\Interop\Interop.upd.cs
-  uint32_t irq;
-  uint32_t port;
-  uint32_t pin;
-  uint32_t enable;
-  uint32_t risingEdge;
-  uint32_t fallingEdge;
-  uint32_t debounceDuration;   // millisec * 10
-  uint32_t glitchDuration;     // millisec * 10
+  uint32_t port;                // 0 - 15 (A-K)
+  uint32_t pin;                 // 0 - 15
+  uint32_t enable;              // 1 = enable
+  uint32_t risingEdge;          // 1 = enable
+  uint32_t fallingEdge;         // 1 = enable
+  uint32_t resistorMode;        // 0 = float, 1 = pull up, 2 = pull down
+  uint32_t debounceDuration;    // millisec * 10
+  uint32_t glitchDuration;      // millisec * 10
 };
 
 // in meadow-upd-interrupt.c called from meadow-upd.c

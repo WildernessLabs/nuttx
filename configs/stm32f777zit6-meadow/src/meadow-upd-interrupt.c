@@ -79,7 +79,7 @@
 //  and then looks at state to make sure the result is stable
 
 #define MEADOW_UPD_INCLUDE_DIAGNOSTIC_SYSLOG (0)    // 0 > will include
-#define MEADOW_UPD_INCLUDE_DIAGNOSTIC_GPIO (0)    // 0 > will include
+#define MEADOW_UPD_INCLUDE_DIAGNOSTIC_GPIO (1)    // 0 > will include
 #define MEADOW_UPD_INTERRUPT_STM32F7_TIMER_NUMBER (10)
 
 #define MEADOW_UPD_GLITCH_MAX_TIME_TO_COUNT (200)    // 200 == 20 milliseconds
@@ -304,10 +304,10 @@ int upd_periodic_timeout_isr(int irq, void *context, void *arg)
   STM32_TIM_ACKINT(_periodicTimer, GTIM_SR_UIF);
 
 #if MEADOW_UPD_INCLUDE_DIAGNOSTIC_GPIO > 0
-  // Just toggle for time measurements
-  static bool digStateToggle = false;
-  digStateToggle = !digStateToggle;
-  stm32_gpiowrite(UPD_MEADOW_GPIO_D15_OUTPUT, digStateToggle);
+  // // Just toggle for time measurements
+  // static bool digStateToggle = false;
+  // digStateToggle = !digStateToggle;
+  // stm32_gpiowrite(UPD_MEADOW_GPIO_D15_OUTPUT, digStateToggle);
 #endif
 
   // Only needed if at least one gpio configured and active
@@ -316,14 +316,14 @@ int upd_periodic_timeout_isr(int irq, void *context, void *arg)
     return OK;
   }
 
-
 #if MEADOW_UPD_INCLUDE_DIAGNOSTIC_GPIO > 0
   // How long does it take to run?
   stm32_gpiowrite(UPD_MEADOW_GPIO_D14_OUTPUT, true);
 #endif
 
   // Look at all GPIOs to find those active.
-  // p-m This could be optimized.
+  // p-m This could be optimized. For loop plus one active gpio
+  // takes about 4 usec with 1 gpio hard coded about 1 usec.
   for(int offset = 0; offset < MEADOW_UPD_F7_SUPPORTED_GPIOS; offset++)
   {
     gpioMapTblPtr = &gpioDebounceData[offset];
@@ -789,6 +789,7 @@ int upd_config_interrupt(struct upd_gpio_int_config* cfg)
     stm32_configgpio(UPD_MEADOW_GPIO_D08_OUTPUT);
     stm32_configgpio(UPD_MEADOW_GPIO_D14_OUTPUT);
     stm32_configgpio(UPD_MEADOW_GPIO_D15_OUTPUT);
+    usleep(10 * 1000);
 #endif
   }
 
@@ -823,7 +824,7 @@ int upd_config_interrupt(struct upd_gpio_int_config* cfg)
     // in WireInterrupt()
     gpioMapTblPtr->GpioInterruptMode = (cfg->risingEdge & 0x01) | (cfg->fallingEdge & 0x01) << 1;
 
-#if MEADOW_UPD_INCLUDE_DIAGNOSTIC_SYSLOG > 0
+// #if MEADOW_UPD_INCLUDE_DIAGNOSTIC_SYSLOG > 0
     syslog(1, "upd-(cfg)- 0x%02x (P%c%d)-Enabled-LKS:%d, GLDuration:%d, DBDuration:%d, InterruptMode:%d\n",
               gpioMapTblPtr->PinId,
               ((gpioMapTblPtr->PinId) >> 4) + 'A', gpioMapTblPtr->PinId & 0x0f,
@@ -831,7 +832,40 @@ int upd_config_interrupt(struct upd_gpio_int_config* cfg)
               gpioMapTblPtr->GlitchRequestedDuration,
               gpioMapTblPtr->DebounceRequestedDuration,
               gpioMapTblPtr->GpioInterruptMode);
-#endif
+// #endif
+  stm32_gpiowrite(UPD_MEADOW_GPIO_D15_OUTPUT, true);
+
+    // cfgset contains 20-bits of data. It is required by the Nuttx stm32_gpiosetevent
+    // function. This function will reconfigure the GPIO based on the data in cfgset.
+    // See stm32_gpio.h for more information.
+    // Inputs: MMUU .... ...X PPPP BBBB
+    // MM = Mode for input (this is 00)
+    // UU = pull up, pull down or float
+    // X  = is external interrupt selection, stm32_gpiosetevent sets this
+    uint32_t cfgset = (designator & 0x000000ff);   // Port and Pin as well as clear MM
+
+    switch(cfg->resistorMode)
+    {
+      case 0: // Float
+        cfgset = GPIO_FLOAT;
+        break;    // 0 = do nothing
+      case 1: // Pull up
+        cfgset = GPIO_PULLUP;
+        break;
+      case 2: // Pull down
+        cfgset = GPIO_PULLDOWN;
+        break;
+    }
+
+//#if MEADOW_UPD_INCLUDE_DIAGNOSTIC_SYSLOG > 0
+    syslog(1, "udp-(cfg)-0x%02x (P%c%d)--designator:0x%08x, resistorMode:0x%08x, cfgset:0x%08x\n",
+              gpioMapTblPtr->PinId,
+              ((gpioMapTblPtr->PinId) >> 4) + 'A',
+              gpioMapTblPtr->PinId & 0x0f,
+              designator,
+              cfg->resistorMode,
+              cfgset);
+//#endif
 
     // Tell Nuttx about interrupt parameters
     if(gpioMapTblPtr->GlitchRequestedDuration > 0)
@@ -841,7 +875,7 @@ int upd_config_interrupt(struct upd_gpio_int_config* cfg)
       // this value. Without this we couldn't send rising and falling correctly
       // to Meadow.Core
       ret = stm32_gpiosetevent(
-      gpioMapTblPtr->PinId,
+      cfgset,               // special gpio for call
       1,                    // risingEdge,
       1,                    // fallingEdge,
       0,                    // event
@@ -854,7 +888,7 @@ int upd_config_interrupt(struct upd_gpio_int_config* cfg)
       // the interrupt notification, so we rely on the MCU only sending interrupts
       // based on the rising and falling configuration. For Both it's a guess.
       ret = stm32_gpiosetevent(
-      gpioMapTblPtr->PinId,
+      cfgset,               // special gpio for call
       cfg->risingEdge,      // risingEdge,
       cfg->fallingEdge,     // fallingEdge,
       0,                    // event
@@ -887,6 +921,8 @@ int upd_config_interrupt(struct upd_gpio_int_config* cfg)
         gpioMapTblPtr->PinId,
         0, 0, 0, NULL, NULL);
   }
+
+  stm32_gpiowrite(UPD_MEADOW_GPIO_D15_OUTPUT, false);
 
   return ret;
 }

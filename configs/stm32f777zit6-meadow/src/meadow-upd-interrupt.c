@@ -78,7 +78,7 @@
 // Glitch filtering ignores the first state transition and waits a period of time
 //  and then looks at state to make sure the result is stable
 
-#define MEADOW_UPD_INCLUDE_DIAGNOSTIC_SYSLOG (1)    // 0 > will include
+#define MEADOW_UPD_INCLUDE_DIAGNOSTIC_SYSLOG (0)    // 0 > will include
 
 // A free STM32F7 timer
 #define MEADOW_UPD_INTERRUPT_STM32F7_TIMER_NUMBER (10)
@@ -134,7 +134,7 @@ struct interruptPinMap_s
   // Contains the configured interrupt mode: None = 0, Rising = 1, Falling = 2 and Both = 3;
   // Note: for mode 'None' configuration is not sent from Meadow.Core.
   uint8_t GpioInterruptMode;
-  // LastKnownGpioState - Last known GPIO state (often last reported to Foundation.Core)
+  // LastKnownGpioState - Last known GPIO state (often last reported to Meadow.Core)
   uint8_t LastKnownGpioState;    // 1 = high, 0 = low, 0xff = unknown
 
   // The number of debounce timer timeouts needed to satisfy user's config
@@ -569,7 +569,7 @@ int upd_process_gpio_glitch(struct interruptPinMap_s *gpioMapTblPtr)
 }
 
 //==================================================================
-// This code is only used for notifying Foundation for debounce
+// This code is only used for notifying Meadow.Core for debounce
 int upd_meadow_debounce_notification_logic(struct interruptPinMap_s *gpioMapTblPtr)
 {
   uint8_t newState;
@@ -624,13 +624,13 @@ int upd_meadow_debounce_notification_logic(struct interruptPinMap_s *gpioMapTblP
 }
 
 //===============================================================
-// This will forward an interrupt to Foundation.Core
+// This will forward an interrupt to Meadow.Core
 int upd_forward_interrupt_to_core(struct interruptPinMap_s *gpioMapTblPtr, uint8_t state)
 {
   int ret;
   extern mqd_t s_int_queue;
 
-  // Forward to Foundation
+  // Forward to Meadow.Core
   char queue_buffer[QUEUE_MSG_SIZE];
   queue_buffer[0] = gpioMapTblPtr->PinId;
   queue_buffer[1] = state;

@@ -238,17 +238,17 @@ static int upd_gpio_interrupt(int irq, void *context, void *arg)
             ((gpioMapTblPtr->PinId) >> 4) + 'A', gpioMapTblPtr->PinId & 0x0f);
 #endif
 
-#if MEADOW_UPD_INCLUDE_DIAGNOSTIC_SYSLOG > 0
   // Unless waiting for gpio interrupt, ignore
   if(gpioMapTblPtr->CurrentProcessState != updipstate_wait_gpio_isr)
   {
     // The updipstate_uncfg, updipstate_mon_glitch and updipstate_mon_debounce states
     // exit here. When work is finished the state is returned to updipstate_wait_gpio_isr.
     // Therefore, switch bouncing will exits here too
+#if MEADOW_UPD_INCLUDE_DIAGNOSTIC_SYSLOG > 0
     syslog(LOG_INFO, "upd-(GPIO isr)--PinId:0x%02x ignored\n", gpioMapTblPtr->PinId);
+#endif
     return OK;
   }
-#endif
 
   // This GPIO is not being processed so begin processing
   // Check configuration to know what to do, glitch or debounce.
@@ -647,7 +647,7 @@ int upd_forward_interrupt_to_core(struct interruptPinMap_s *gpioMapTblPtr, uint8
   {
     if(errno == ENOMEM)
     {
-      syslog(LOG_ERR, "0x%02x Interrupts too fast\n", gpioMapTblPtr->PinId);
+      syslog(LOG_ERR, "0x%02x Queue overflow (too fast?)\n", gpioMapTblPtr->PinId);
     }
     else
     {

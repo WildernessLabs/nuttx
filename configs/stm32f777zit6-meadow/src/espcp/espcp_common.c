@@ -43,6 +43,7 @@
 
 #include <nuttx/semaphore.h>
 #include <nuttx/pthread.h>
+#include <nuttx/config.h>
 
 #include "espcp_system.h"
 #include "espcp_encoders.h"

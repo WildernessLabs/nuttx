@@ -33,12 +33,6 @@
  *
  ****************************************************************************/
 
-#ifdef CONFIG_MEADOW_ESPCP_USE_EXTERNAL_ESP32_BOARD
-
-#warning "Configuring for external ESP32 board"
-
-#endif
-
 /****************************************************************************
  * Included Files
  ****************************************************************************/
@@ -58,6 +52,7 @@
 #include <nuttx/net/usrsock.h>
 #include <nuttx/pthread.h>
 #include <nuttx/mqueue.h>
+#include <nuttx/config.h>
 
 #include "espcp_coprocessor.h"
 #include "espcp_queue.h"
@@ -66,6 +61,12 @@
 #include "espcp_thread.h"
 #include "espcp_encoders.h"
 #include "espcp_posix.h"
+
+#ifdef CONFIG_MEADOW_ESPCP_USE_EXTERNAL_ESP32_BOARD
+
+#warning "Using external ESP32 development board."
+
+#endif
 
 /****************************************************************************
  * Definitions

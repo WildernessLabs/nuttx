@@ -23,7 +23,7 @@ config MEADOW_ESPCP_STACKSIZE
     ---help---
         Amount of memory reserved for the process dealing with messages for / from the ESP32.
 
-config MEADOW_ESP32CP_USE_EXTERNAL_ESP32_BOARD
+config MEADOW_ESPCP_USE_EXTERNAL_ESP32_BOARD
     bool "Use external ESP32 chip"
     default n
     ---help---

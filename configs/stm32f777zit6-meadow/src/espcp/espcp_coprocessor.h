@@ -54,6 +54,7 @@
 #include <nuttx/net/usrsock.h>
 #include <nuttx/pthread.h>
 #include <nuttx/board.h>
+#include <nuttx/config.h>
 #include <arch/board/board.h>
 #include <nuttx/spi/spi.h>
 #include "stm32_spi.h"

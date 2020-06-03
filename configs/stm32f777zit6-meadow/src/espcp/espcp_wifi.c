@@ -43,6 +43,7 @@
 
 #include <nuttx/semaphore.h>
 #include <nuttx/pthread.h>
+#include <nuttx/config.h>
 
 #include "espcp_wifi.h"
 #include "espcp_shared_enums.h"

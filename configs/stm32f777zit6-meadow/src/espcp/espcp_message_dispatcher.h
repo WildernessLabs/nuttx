@@ -42,6 +42,7 @@
 #include <debug.h>
 
 #include <nuttx/semaphore.h>
+#include <nuttx/config.h>
 
 #include "espcp_message.h"
 #include "espcp_coprocessor.h"

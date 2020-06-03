@@ -58,6 +58,7 @@
 #include "up_arch.h"
 #include "stm32f777zit6-meadow.h"
 #include "hcom/hcom_common.h"
+#include "espcp/espcp_coprocessor.h"
 #include "stm32_mpuinit.h"
 #include "stm32_pwr.h"
 
@@ -283,6 +284,16 @@ void board_late_initialize(void)
   if(ret < 0)
   {
     syslog(LOG_EMERG, "ERROR: HCOM initialization failed!\n");
+    PANIC();
+  }
+#endif
+
+#if defined(CONFIG_MEADOW_ESPCP_MANAGER)
+  // Setup the ESP32 coprocessor.
+  ret = espcp_init();
+  if(ret != OK)
+  {
+    syslog(LOG_EMERG, "ERROR: ESP32 initialization failed!\n");
     PANIC();
   }
 #endif

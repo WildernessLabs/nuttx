@@ -56,8 +56,13 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
+#define HCOM_TRACE_ROUTE_RAMLOG_TO_SERIAL 1   // > 0 to include
 #define HCOM_TRACE_RAMLOG_READ_BUFF_SIZE 256
 #define HCOM_TRACE_CIRCULAR_BUFFER_SIZE (HCOM_TRACE_RAMLOG_READ_BUFF_SIZE * 5)
+
+#if HCOM_TRACE_ROUTE_RAMLOG_TO_SERIAL > 0
+#define HCOM_TRACE_RAMLOG_SERIAL_NAME ("/dev/ttyS0")
+#endif
 
 /****************************************************************************
  * Private Types
@@ -74,10 +79,15 @@ static char *thisFile = __FILE__;
 
 static bool _shutting_down;
 static int _ramlog_fd;
-static bool _trace_ramlog_requested;
+static bool _trace_ramlog_to_host;
+static bool _trace_ramlog_to_uart;
 static struct host_com_cir_buffer_s *_ramlog_cbuf;
 static bool _trace_ramlog_initialized;
 static uint8_t *_singleMsgBuf;
+
+#if HCOM_TRACE_ROUTE_RAMLOG_TO_SERIAL > 0
+static int _uart_fd;
+#endif
 
 /****************************************************************************
  * Private Functions
@@ -98,6 +108,10 @@ static int hcom_ramlog_trace_pull_all_packets_from_buffer(void);
 static int hcom_ramlog_trace_route_trace_text(uint8_t *buffer, int readReturn);
 static void hcom_ramlog_trace_err_logger(int priority, FAR const IPTR char *fmt, ...);
 
+#if HCOM_TRACE_ROUTE_RAMLOG_TO_SERIAL > 0
+static int hcom_ramlog_trace_send_msg_to_uart(char *sendBuff, size_t numbBytes);
+#endif
+
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
@@ -106,16 +120,24 @@ int hcom_ramlog_trace_setup()
   _shutting_down = false;
   _trace_ramlog_initialized = false;
   _ramlog_fd = -1;
-  _trace_ramlog_requested = false;
+  _trace_ramlog_to_host = false;
+#if HCOM_TRACE_ROUTE_RAMLOG_TO_SERIAL > 0
+  _trace_ramlog_to_uart = false;
+  _uart_fd = -1;
+#endif
+
+  if(hcom_utils_bbreg_is_bit_set(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
+          HCOM_BBREG_TRACE_MSG_TO_UART_BIT_FLAG))
+    _trace_ramlog_to_uart = true;
 
   if(hcom_utils_bbreg_is_bit_set(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
           HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG))
+    _trace_ramlog_to_host = true;
+
+  if(_trace_ramlog_to_uart || _trace_ramlog_to_host)
   {
     // The only way to undo this initialization is restarting Meadow
     hcom_ramlog_trace_lazy_initialization();
-
-    // Turn on ramlogs to host
-    _trace_ramlog_requested = true;
   }
   return OK;
 }
@@ -131,6 +153,14 @@ void hcom_ramlog_trace_shutdown()
     close(_ramlog_fd);
     _ramlog_fd = -1;
   }
+
+#if HCOM_TRACE_ROUTE_RAMLOG_TO_SERIAL > 0
+  if(_uart_fd > -1)
+  {
+    close(_uart_fd);
+    _uart_fd = -1;
+  }
+#endif
 
   if(_singleMsgBuf != NULL)
     free(_singleMsgBuf);
@@ -269,6 +299,14 @@ void hcom_ramlog_trace_close_and_delay(bool closeNeeded)
     _ramlog_fd = -1;
   }
 
+#if HCOM_TRACE_ROUTE_RAMLOG_TO_SERIAL > 0
+  if(_uart_fd > -1)
+  {
+    close(_uart_fd);
+    _uart_fd = -1;
+  }
+#endif
+
   // Wait and try again
   if(!_shutting_down)
     sleep(5);   // Not a special value, just prevent hard infinite looping
@@ -323,7 +361,7 @@ int hcom_ramlog_trace_read_ramlog_loop()
     {
       // Successful ramlog message read put into circular buffer
       // unless logging has been turned off
-      if(_trace_ramlog_requested)
+      if(_trace_ramlog_to_host || _trace_ramlog_to_uart)
       {
         ret = hcom_ramlog_trace_save_recvd_data(buffer, readReturn);
         if (ret < 0 )
@@ -436,22 +474,49 @@ int hcom_ramlog_trace_route_trace_text(uint8_t *recvBuff, int numbBytes)
   if(numbBytes == 0)
     return OK;
 
-  // Look for 0x0d & 0x0a at the end and shorten message length accordingly
-  if(recvBuff[numbBytes - 1] == 0x0a || recvBuff[numbBytes - 1] == 0x0d)
-    numbBytes--;
-  if(recvBuff[numbBytes - 1] == 0x0a || recvBuff[numbBytes - 1] == 0x0d)
-    numbBytes--;
+  if(_trace_ramlog_to_uart)
+  {
+#if HCOM_TRACE_ROUTE_RAMLOG_TO_SERIAL > 0
+    // Any error ignore
+    hcom_ramlog_trace_send_msg_to_uart((char *) recvBuff, numbBytes);
+#endif
+  }
 
-  DEBUGASSERT(numbBytes < HCOM_MAX_HOST_STRING_BUFF_LENGTH);
+  if(_trace_ramlog_to_host)
+  {
+    // Look for 0x0d & 0x0a at the end and shorten message length accordingly
+    if(recvBuff[numbBytes - 1] == 0x0a || recvBuff[numbBytes - 1] == 0x0d)
+      numbBytes--;
+    if(recvBuff[numbBytes - 1] == 0x0a || recvBuff[numbBytes - 1] == 0x0d)
+      numbBytes--;
 
-  // Entire message sent, includes ctrl chararacters
-  int ret = hcom_comms_send_raw_string_msg(HCOM_HOST_REQUEST_TEXT_TRACE_MSG, 0, (char *) recvBuff,
-          numbBytes, thisFile, __LINE__);
-  if(ret == -EAGAIN)
-    return ret;
-    
+    DEBUGASSERT(numbBytes < HCOM_MAX_HOST_STRING_BUFF_LENGTH);
+
+    // Entire message sent, includes ctrl chararacters
+    int ret = hcom_comms_send_raw_string_msg(HCOM_HOST_REQUEST_TEXT_TRACE_MSG, 0, (char *) recvBuff,
+            numbBytes, thisFile, __LINE__);
+    if(ret == -EAGAIN)
+      return ret;
+  }
+
   return OK;
 }
+
+#if HCOM_TRACE_ROUTE_RAMLOG_TO_SERIAL > 0
+//==========================================================================
+// Forward the message to the uart for transmission
+int hcom_ramlog_trace_send_msg_to_uart(char *sendBuff, size_t numbBytes)
+{
+  ssize_t nbytes = write(_uart_fd, sendBuff, numbBytes);
+  if (nbytes < 0)
+  {
+    hcom_ramlog_trace_err_logger(LOG_ERR, "%s@%d-uart failed to write to %s, errno %d\n",
+             thisFile, __LINE__, HCOM_TRACE_RAMLOG_SERIAL_NAME, errno);
+    return nbytes;
+  }
+  return OK;
+}
+#endif
 
 //==========================================================================
 // There's really isn't a good way to handle errors with ramlog because errors
@@ -459,7 +524,7 @@ int hcom_ramlog_trace_route_trace_text(uint8_t *recvBuff, int numbBytes)
 // the best we can do is sent them to the host, and hope it's listening.
 void hcom_ramlog_trace_err_logger(int priority, FAR const IPTR char *fmt, ...)
 {
-  if(!_trace_ramlog_requested)
+  if(!_trace_ramlog_to_host)
     return;
   
   va_list args;
@@ -470,7 +535,7 @@ void hcom_ramlog_trace_err_logger(int priority, FAR const IPTR char *fmt, ...)
 
 #endif    // #if defined (CONFIG_RAMLOG_SYSLOG)
 
-// These 2 functions are always built and used by ramlog and syslog
+// These 4 functions are always built and used by ramlog and syslog
 //======================================================================================
 // Called from Meadow.CLI to enable tracing.
 void hcom_trace_send_trace_to_host(uint32_t userData)
@@ -486,7 +551,7 @@ void hcom_trace_send_trace_to_host(uint32_t userData)
   hcom_ramlog_trace_lazy_initialization();
 
   // Turn on ramlogs to host
-  _trace_ramlog_requested = true;
+  _trace_ramlog_to_host = true;
 #endif
 
   char *sendMsgToHost = "Trace logs to be sent to CLI";
@@ -504,10 +569,51 @@ void hcom_trace_do_not_send_trace_to_host(uint32_t userData)
 
 #if defined (CONFIG_RAMLOG_SYSLOG)
   // Turn off ramlogs to host
-  _trace_ramlog_requested = false;
+  _trace_ramlog_to_host = false;
 #endif
 
   char *sendMsgToHost = "Trace logs no longer sent to CLI";
+  hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0,
+          sendMsgToHost, thisFile, __LINE__);
+}
+
+//======================================================================================
+// Called from Meadow.CLI to enable tracing.
+void hcom_trace_send_trace_to_uart(uint32_t userData)
+{
+  // Set the persisted trace to allow host messages
+  hcom_utils_bbreg_set_bit(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
+          HCOM_BBREG_TRACE_MSG_TO_UART_BIT_FLAG);
+
+  // If ramlog configured, need to init ramlog now. This insures
+  // that Meadow.CLI is listening
+#if defined (CONFIG_RAMLOG_SYSLOG)
+  // The only way to undo this initialization is restart Meadow
+  hcom_ramlog_trace_lazy_initialization();
+
+  // Turn on ramlogs to uart
+  _trace_ramlog_to_uart = true;
+#endif
+
+  char *sendMsgToHost = "Trace logs to be sent to UART";
+  hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0,
+          sendMsgToHost, thisFile, __LINE__);
+}
+
+//======================================================================================
+// Called from Meadow.CLI for both ramlog and syslog
+void hcom_trace_do_not_send_trace_to_uart(uint32_t userData)
+{
+  // Clear
+  hcom_utils_bbreg_clear_bit(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
+          HCOM_BBREG_TRACE_MSG_TO_UART_BIT_FLAG);
+
+#if defined (CONFIG_RAMLOG_SYSLOG)
+  // Turn off ramlogs to uart
+  _trace_ramlog_to_uart = false;
+#endif
+
+  char *sendMsgToHost = "Trace logs no longer sent to UART";
   hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0,
           sendMsgToHost, thisFile, __LINE__);
 }

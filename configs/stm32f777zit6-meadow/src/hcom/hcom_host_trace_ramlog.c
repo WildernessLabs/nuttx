@@ -549,7 +549,7 @@ int hcom_ramlog_trace_send_msg_to_uart1(char *sendBuff, size_t numbBytes)
 void hcom_ramlog_trace_err_logger(int priority, FAR const IPTR char *fmt, ...)
 {
     if(!(_trace_ramlog_to_uart || _trace_ramlog_to_host))
-    return
+    return;
 
   va_list args;
   va_start(args, fmt);

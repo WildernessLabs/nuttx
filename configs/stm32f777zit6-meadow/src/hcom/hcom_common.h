@@ -250,8 +250,8 @@ enum hcom_current_data_packet_activity
 #define HCOM_BBREG_RESTART_CONCLUDED_BIT_FLAG 0x00000001
 // This bit indicates if we are to send trace messages to the host PC
 #define HCOM_BBREG_TRACE_MSG_TO_HOST_BIT_FLAG 0x00000002
-// This bit indicates if we are to send trace messages to the uart
-#define HCOM_BBREG_TRACE_MSG_TO_UART_BIT_FLAG 0x00000004
+// This bit indicates if we are to send trace messages to the uart1
+#define HCOM_BBREG_TRACE_MSG_TO_UART1_BIT_FLAG 0x00000004
 
 //--------------------------------------------------------------------
 // HCOM protocol
@@ -603,8 +603,8 @@ extern "C"
 #endif
   void hcom_trace_send_trace_to_host(uint32_t userData);
   void hcom_trace_do_not_send_trace_to_host(uint32_t userData);
-  void hcom_trace_send_trace_to_uart(uint32_t userData);
-  void hcom_trace_do_not_send_trace_to_uart(uint32_t userData);
+  void hcom_trace_send_trace_to_uart1(uint32_t userData);
+  void hcom_trace_do_not_send_trace_to_uart1(uint32_t userData);
 
   // Testing utilities
   int hcom_exec_rqst_testing_setup(FAR struct mtd_dev_s *mtd);

@@ -85,7 +85,6 @@
 espcp_ip_information_t *espcp_start_wifi(char *network_name, char *password)
 {
   espcp_ip_information_t *result = NULL;
-  // espcp_configuration_t *configuration = espcp_get_configuration();
 
   espcp_wi_fi_credentials_t *credentials = (espcp_wi_fi_credentials_t *) malloc(sizeof(espcp_wi_fi_credentials_t));
   if (credentials == NULL)
@@ -114,7 +113,7 @@ espcp_ip_information_t *espcp_start_wifi(char *network_name, char *password)
       return(NULL);
   }
 
-  if (espcp_queue_message_and_wait(message) == espcp_status_codes_completed_ok)
+  if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
   {
     result = (espcp_ip_information_t *) malloc(sizeof(espcp_ip_information_t));
     if (result != NULL)

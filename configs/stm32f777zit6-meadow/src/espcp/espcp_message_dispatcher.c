@@ -373,8 +373,6 @@ espcp_message_t *espcp_get_message_body(espcp_configuration_t *configuration, es
  * Input Parameters:
  *  configuration - pointer to the ESP32 coprocessor configuration.
  *  sent - pointer to the message that was previously sent to the ESP32.
- *  received - pointer a message pointer object.  This will be set to
- *             point to a result (ACK or NAK) message received from the ESP32.
  *
  * Returned Value:
  *  0 if successful, -1 or an error code if a problem arises.
@@ -383,7 +381,7 @@ espcp_message_t *espcp_get_message_body(espcp_configuration_t *configuration, es
  *  None
  *
  ****************************************************************************/
-int espcp_get_message_header_acknowledgement(espcp_configuration_t *configuration, espcp_message_t *sent, espcp_message_t **received)
+int espcp_get_message_header_acknowledgement(espcp_configuration_t *configuration, espcp_message_t *sent)
 {
   int result = espcp_status_codes_completed_ok;
   uint8_t *encoded_message = (uint8_t *) malloc(configuration->header_only_buffer_size);
@@ -398,41 +396,17 @@ int espcp_get_message_header_acknowledgement(espcp_configuration_t *configuratio
     }
     else
     {
-      switch (acknowledgement->message_type)
+      result = acknowledgement->status_code;
+      if ((acknowledgement->interface != sent->interface) || (acknowledgement->message_id != sent->message_id))
       {
-        case espcp_message_types_ack:
-          if ((acknowledgement->interface != sent->interface) || (acknowledgement->message_id != sent->message_id))
-          {
-              result =  espcp_status_codes_unexpected_data;
-          }
-          else
-          {
-            *received = acknowledgement;
-          }
-          break;
-        case espcp_message_types_transport:
-          //
-          //  TODO: Need to process the transport messages.
-          //
-          break;
-        case espcp_message_types_nak:
-          //
-          //  TODO: Process a NAK.  Probably just requeue the original message.
-          //
-          break;
-        default:
-          result = espcp_status_codes_unexpected_data;
-          break;
+          result =  espcp_status_codes_unexpected_data;
       }
+      free(acknowledgement);
     }
   }
   else
   {
     result = espcp_status_codes_failure;
-  }
-  if (result != espcp_status_codes_completed_ok)
-  {
-    *received = NULL;
   }
   
   free(encoded_message);
@@ -678,10 +652,18 @@ int espcp_send_message(espcp_configuration_t *configuration, espcp_message_t *me
       //
       return(result);
     }
-    espcp_message_t *acknowledgement;
-    result = espcp_get_message_header_acknowledgement(configuration, message, &acknowledgement);
+    result = espcp_get_message_header_acknowledgement(configuration, message);
     if (result != espcp_status_codes_completed_ok)
     {
+      if (result == espcp_status_codes_no_messages_waiting)
+      {
+        //
+        //  This should only happen for the transport message "send response"
+        //  and this message is a globally reused message therefore we should
+        //  free the message.
+        //
+        return(espcp_status_codes_completed_ok);
+      }
       //
       //  TODO: Work out how to requeue the message.
       //

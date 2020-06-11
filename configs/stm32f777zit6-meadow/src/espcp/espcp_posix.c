@@ -269,7 +269,7 @@ int32_t espcp_getaddrinfo(const char *node, const char *service, const struct ad
   }
 
   *res = NULL;
-  if (espcp_queue_message_and_wait(message) == espcp_status_codes_completed_ok)
+  if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
   {
     espcp_get_addr_info_response_t *response = espcp_extract_get_addr_info_response(message->payload);
     result = response->addr_info_response_errno;
@@ -372,7 +372,7 @@ int32_t espcp_socket(int domain, int type, int protocol)
         espcp_wi_fi_function_socket, espcp_status_codes_completed_ok,
         espcp_get_next_message_id(), payload, payload_length);
 
-  if (espcp_queue_message_and_wait(message) == espcp_status_codes_completed_ok)
+  if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
   {
     espcp_integer_response_t *response = espcp_extract_integer_response(message->payload);
     result = response->result;
@@ -433,7 +433,7 @@ int32_t espcp_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen
             espcp_wi_fi_function_connect, espcp_status_codes_completed_ok,
             espcp_get_next_message_id(), payload, payload_length);
 
-    if (espcp_queue_message_and_wait(message) == espcp_status_codes_completed_ok)
+    if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
     {
         espcp_integer_response_t *response = espcp_extract_integer_response(message->payload);
         result = response->result;
@@ -493,7 +493,7 @@ void espcp_freeaddrinfo(struct addrinfo *ai)
               espcp_wi_fi_function_free_addr_info, espcp_status_codes_completed_ok,
               espcp_get_next_message_id(), payload, payload_length);
 
-      espcp_queue_message_and_wait(message);
+      espcp_queue_message(message, true);
     }
 
     espcp_delete_message_and_payload(message);
@@ -592,7 +592,7 @@ int32_t espcp_setsockopt(int socket_handle, int level, int option_name, const vo
             espcp_wi_fi_function_set_sock_opt, espcp_status_codes_completed_ok,
             espcp_get_next_message_id(), payload, payload_length);
 
-    if (espcp_queue_message_and_wait(message) == espcp_status_codes_completed_ok)
+    if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
     {
       espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
       errno = response->response_errno;
@@ -660,7 +660,7 @@ int32_t espcp_write(int socket_handle, const void *buffer, size_t count)
             espcp_wi_fi_function_write, espcp_status_codes_completed_ok,
             espcp_get_next_message_id(), payload, payload_length);
 
-    if (espcp_queue_message_and_wait(message) == espcp_status_codes_completed_ok)
+    if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
     {
       espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
       errno = response->response_errno;
@@ -727,7 +727,7 @@ int32_t espcp_read(int socket_handle, const void *buffer, size_t count)
             espcp_wi_fi_function_read, espcp_status_codes_completed_ok,
             espcp_get_next_message_id(), payload, payload_length);
 
-    if (espcp_queue_message_and_wait(message) == espcp_status_codes_completed_ok)
+    if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
     {
       espcp_read_response_t *response = espcp_extract_read_response(message->payload);
       if (response->buffer_length > 0)
@@ -789,7 +789,7 @@ int32_t espcp_close(int socket_handle)
             espcp_wi_fi_function_close, espcp_status_codes_completed_ok,
             espcp_get_next_message_id(), payload, payload_length);
 
-    if (espcp_queue_message_and_wait(message) == espcp_status_codes_completed_ok)
+    if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
     {
         espcp_integer_response_t *response = espcp_extract_integer_response(message->payload);
         result = response->result;

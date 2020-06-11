@@ -169,18 +169,25 @@ int espcp_spi_setup(xcpt_t queue_send_response_message_function)
   /*
    *  Two output pins are used, on for the STM32 SPI CS pin and one to allow the ESP32 to be reset.
    */
+#ifdef CONFIG_MEADOW_ESPCP_RESET_ESP32_AT_STARTUP
   result = stm32_configgpio(ESP32CP_SPI_RESET_PIN_OUTPUT);
   if (result < 0)
   {
-    hcom_utils_f7syslog(LOG_CRIT, "%s@%d-Config GPIO failed result:%d\n", _thisFile, __LINE__, result);
+    syslog(LOG_CRIT, "%s@%d-Config GPIO failed result:%d\n", _thisFile, __LINE__, result);
     return -1;
   }
   stm32_gpiowrite(ESP32CP_SPI_RESET_PIN_OUTPUT, false);  /* Set the pin low to prevent the ESp32 from running. */
+#else
+  /*
+   *  Logging is critical level to ensure message is output to the serial console.
+   */
+  syslog(LOG_CRIT, "%s@%d ESP32 reset is disabled.\n", _thisFile, __LINE__);
+#endif
 
   result = stm32_configgpio(ESP32CP_SPI_CS_PIN_OUTPUT);
   if (result < 0)
   {
-    hcom_utils_f7syslog(LOG_CRIT, "%s@%d-Config GPIO failed result:%d\n", _thisFile, __LINE__, result);
+    syslog(LOG_CRIT, "%s@%d-Config GPIO failed result:%d\n", _thisFile, __LINE__, result);
     return -1;
   }
   stm32_gpiowrite(ESP32CP_SPI_CS_PIN_OUTPUT, true);    // SPI CS is active low so deselect SPI.
@@ -193,21 +200,21 @@ int espcp_spi_setup(xcpt_t queue_send_response_message_function)
   result = stm32_configgpio(ESP32CP_SPI_READY_PIN_INPUT);
   if(result < 0)
   {
-    hcom_utils_f7syslog(LOG_CRIT, "%s@%d-Config GPIO failed result:%d\n", _thisFile, __LINE__, result);
+    syslog(LOG_CRIT, "%s@%d-Config GPIO failed result:%d\n", _thisFile, __LINE__, result);
     return -1;
   }
 
   result = stm32_configgpio(ESP32CP_SPI_MESSAGE_WAITING_PIN_INPUT);
   if(result < 0)
   {
-    hcom_utils_f7syslog(LOG_CRIT, "%s@%d-Config GPIO failed result:%d\n", _thisFile, __LINE__, result);
+    syslog(LOG_CRIT, "%s@%d-Config GPIO failed result:%d\n", _thisFile, __LINE__, result);
     return -1;
   }
 
   g_esp_spi_dev = stm32_spibus_initialize(ESP32CP_SPI_COMMS_PORT);
   if (g_esp_spi_dev == 0)
   {
-    hcom_utils_f7syslog(LOG_CRIT, "%s@%d-Error:Failed init esp32 SPI port %d\n", _thisFile, __LINE__, result);
+    syslog(LOG_CRIT, "%s@%d-Error:Failed init esp32 SPI port %d\n", _thisFile, __LINE__, result);
     return -1;
   }
 
@@ -220,8 +227,10 @@ int espcp_spi_setup(xcpt_t queue_send_response_message_function)
    *  so set the reset line to high and then release it as it is no longer
    *  needed.
    */
+#ifdef CONFIG_MEADOW_ESPCP_RESET_ESP32_AT_STARTUP
   stm32_gpiowrite(ESP32CP_SPI_RESET_PIN_OUTPUT, true);
   stm32_unconfiggpio(ESP32CP_SPI_RESET_PIN_OUTPUT);
+#endif
 
   /*
    *  We must wait until both the ESP SPI ready and the message waiting
@@ -383,7 +392,6 @@ int espcp_init(void)
   g_espcp_configuration = espcp_get_default_configuration();
   if (g_espcp_configuration != NULL)
   {
-    espcp_spi_setup(espcp_queue_send_response_message);
     /*
     *  The message queue must be created before the message handler thread as the
     *  message processor will wait on the message queue looking for messages.
@@ -391,8 +399,10 @@ int espcp_init(void)
     g_espcp_configuration->request_queue = espcp_create_message_queue(ESPCP_MESSAGE_QUEUE_NAME);
     if (g_espcp_configuration->request_queue < 0)
     {
+      syslog(LOG_CRIT, "%s@%d Error creating ESP32 message queue result: %d\n", _thisFile, __LINE__, g_espcp_configuration->request_queue);
       return(-1);
     }
+    espcp_spi_setup(espcp_queue_send_response_message);
     espcp_setup_message_dispatcher();
     espcp_posix_network_init();
 

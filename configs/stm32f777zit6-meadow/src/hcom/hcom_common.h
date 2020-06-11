@@ -330,7 +330,7 @@ enum hcom_current_data_packet_activity
     // partition id), 4-byte file size, 4-byte checksum, 4-byte destination address
     // and variable length destination file name. Note: The  4-byte destination address
     // is currently only used for the STM32F7 to ESP32 downloads.
-      HCOM_PROTOCOL_HEADER_TYPE_FILE_START = 0x0200,
+    HCOM_PROTOCOL_HEADER_TYPE_FILE_START = 0x0200,
 
     // Simple text. The text will fit in the header extension
     HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT = 0x0300,

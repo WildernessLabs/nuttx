@@ -561,7 +561,7 @@ void hcom_ramlog_trace_err_logger(int priority, FAR const IPTR char *fmt, ...)
 
 // The following functions are always built and used by ramlog and syslog
 //======================================================================================
-// Called from Meadow.CLI to enable tracing.
+// Called from Meadow.CLI to enable tracing to host.
 void hcom_trace_send_trace_to_host(uint32_t userData)
 {
   hcom_utils_bbreg_set_bit(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,
@@ -598,7 +598,7 @@ void hcom_trace_do_not_send_trace_to_host(uint32_t userData)
 }
 
 //======================================================================================
-// Called from Meadow.CLI to enable tracing.
+// Called from Meadow.CLI to enable tracing to uart1.
 void hcom_trace_send_trace_to_uart1(uint32_t userData)
 {
   hcom_utils_bbreg_set_bit(HCOM_BATTERY_BACKED_REG_BIT_FLAGS,

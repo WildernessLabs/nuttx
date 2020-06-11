@@ -345,9 +345,9 @@ FAR void *hcom_comms_recv_worker_pthread(FAR void *arg)
 
   char *traceCombo[] = {
     "none",
-    "host",
-    "uart1",
-    "host+uart1"};
+    "Host",
+    "UART1",
+    "Host+UART1"};
   // Assumes host and uart1 are bits 1 & 2
   uint32_t value = hcom_utils_bbreg_read(HCOM_BATTERY_BACKED_REG_BIT_FLAGS);
   value >>= 1;

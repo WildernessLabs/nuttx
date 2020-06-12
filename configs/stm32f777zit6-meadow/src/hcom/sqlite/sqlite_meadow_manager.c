@@ -53,15 +53,13 @@
 
 #define VIRTUAL_FILE_SYS_NAME "demo"
 
-//sqlite3_vfs *sqlite3_demovfs(void);
-//static int execute_sqlite_database(void);
+sqlite3_vfs *sqlite3_demovfs(void);
+static int execute_sqlite_database(void);
 
 //==============================================================
-int hcom_sqlite_startup()
+int hcom_sqlite_setup()
 {
-  stm32_gpiowrite(MEADOW_DIAG_GPIO_02_OUTPUT, false);
   syslog(1, "SQLite test:Entered hcom_sqlite_startup()\n");
-  stm32_gpiowrite(MEADOW_DIAG_GPIO_03_OUTPUT, false);
   return OK;
 }
 
@@ -69,18 +67,18 @@ int hcom_sqlite_startup()
 void hcom_exec_rqst_testing_developer_1(uint32_t userData)
 {
   syslog(1, "SQLite test:Entered hcom_exec_rqst_testing_developer_1 switch\n");
-  // switch(userData)
-  // {
-  //   case 1:
-  //   execute_sqlite_database();
-  //   break;
+  switch(userData)
+  {
+    case 1:
+    execute_sqlite_database();
+    break;
     
-  //   case 2:
-  //   break;
+    case 2:
+    break;
 
-  //   default:
-  //   break;
-  // }
+    default:
+    break;
+  }
 }
 
 void hcom_exec_rqst_testing_developer_2(uint32_t userData)

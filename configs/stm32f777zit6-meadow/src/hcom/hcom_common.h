@@ -603,6 +603,8 @@ extern "C"
   void hcom_trace_send_trace_to_uart1(uint32_t userData);
   void hcom_trace_do_not_send_trace_to_uart1(uint32_t userData);
 
+  int hcom_sqlite_setup(void);
+
   // Testing utilities
   int hcom_exec_rqst_testing_setup(FAR struct mtd_dev_s *mtd);
   void hcom_exec_rqst_testing_flash_qspi_init(uint32_t userData);

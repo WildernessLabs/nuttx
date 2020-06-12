@@ -243,6 +243,13 @@ int hcom_manager_setup(FAR struct mtd_dev_s *mtd)
   }
 #endif
 
+  ret = hcom_sqlite_setup();
+  if (ret < 0)
+  {
+    hcom_utils_f7syslog(LOG_CRIT, "%s@%d-setup sqlite %d\n", thisFile, __LINE__, ret);
+    return ret;
+  }
+
 #if defined(CONFIG_HCOM_MONO_OUTPUT_PIPE)
   // Creates a named pipe (fifo) and creates a receiving thread.
   ret = hcom_mono_pipe_setup();

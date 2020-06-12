@@ -465,7 +465,6 @@ void hcom_execute_host_command_type(const uint8_t *recvOrigData, const size_t re
       hcom_remote_dbg_recv_host_send_to_mono(recvPayload, recvPayloadSize, userData);
       break;
 
-#if defined(CONFIG_HCOM_MTD_STRESS_TEST)
     case HCOM_MDOW_REQUEST_DEVELOPER_1:
       hcom_comms_send_header_msg(HCOM_HOST_REQUEST_TEXT_ACCEPTED, 0, thisFile, __LINE__);
       hcom_exec_rqst_testing_developer_1(userData);
@@ -490,6 +489,7 @@ void hcom_execute_host_command_type(const uint8_t *recvOrigData, const size_t re
       hcom_comms_send_header_msg(HCOM_HOST_REQUEST_TEXT_CONCLUDED, 0, thisFile, __LINE__);
       break;
 
+#if defined(CONFIG_HCOM_MTD_STRESS_TEST)
     case HCOM_MDOW_REQUEST_S25FL_QSPI_INIT:
       hcom_comms_send_header_msg(HCOM_HOST_REQUEST_TEXT_ACCEPTED, 0, thisFile, __LINE__);
       hcom_exec_rqst_testing_flash_qspi_init(userData);

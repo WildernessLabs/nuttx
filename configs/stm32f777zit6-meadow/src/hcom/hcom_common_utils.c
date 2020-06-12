@@ -67,8 +67,11 @@ static char *_f7syslogTextBuf;
  * Private Function Prototypes
  ****************************************************************************/
 
-#if HCOM_COMMON_UTILS_GPIO_TEST_PROBE > 0
-static void hcom_utils_dbg_gpio_init(void);
+#if HCOM_COMMON_UTILS_GPIO_D0_D8_DOUT > 0
+static void hcom_utils_dbg_gpio_init_d0_d8(void);
+#endif
+#if HCOM_COMMON_UTILS_GPIO_A0_MISO_DOUT > 0
+static void hcom_utils_dbg_gpio_init_a0_miso(void);
 #endif
 
 /****************************************************************************
@@ -78,6 +81,14 @@ int hcom_utils_setup()
 {
   _f7syslogTextBuf = malloc(HCOM_PROTOCOL_REQUEST_MAX_SIMPLE_DATA_LEN);
   sem_init(&_f7syslogSem, 0, 1);
+
+#if HCOM_COMMON_UTILS_GPIO_D0_D8_DOUT > 0
+  hcom_utils_dbg_gpio_init_d0_d8();
+#endif
+#if HCOM_COMMON_UTILS_GPIO_A0_MISO_DOUT > 0
+  hcom_utils_dbg_gpio_init_a0_miso();
+#endif
+
   return OK;
 }
 
@@ -466,27 +477,36 @@ void hcom_utils_safe_ramlog(int priority, FAR const IPTR char *fmt,
 }
 #endif
 
-#if HCOM_COMMON_UTILS_GPIO_TEST_PROBE > 0
+#if HCOM_COMMON_UTILS_GPIO_A0_MISO_DOUT > 0
 //=================================================================
-// This for testing only
-#define HCOM_MEADOW_GPIO_D00_OUTPUT  (GPIO_OUTPUT | GPIO_PORTI | GPIO_PIN9 | GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
-#define HCOM_MEADOW_GPIO_D01_OUTPUT  (GPIO_OUTPUT | GPIO_PORTH | GPIO_PIN13| GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
-#define HCOM_MEADOW_GPIO_D02_OUTPUT  (GPIO_OUTPUT | GPIO_PORTC | GPIO_PIN6 | GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
-#define HCOM_MEADOW_GPIO_D03_OUTPUT  (GPIO_OUTPUT | GPIO_PORTB | GPIO_PIN8 | GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
-#define HCOM_MEADOW_GPIO_D04_OUTPUT  (GPIO_OUTPUT | GPIO_PORTB | GPIO_PIN9 | GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
-#define HCOM_MEADOW_GPIO_D05_OUTPUT  (GPIO_OUTPUT | GPIO_PORTC | GPIO_PIN7 | GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
-#define HCOM_MEADOW_GPIO_D06_OUTPUT  (GPIO_OUTPUT | GPIO_PORTB | GPIO_PIN0 | GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
-#define HCOM_MEADOW_GPIO_D07_OUTPUT  (GPIO_OUTPUT | GPIO_PORTB | GPIO_PIN7 | GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
-#define HCOM_MEADOW_GPIO_D08_OUTPUT  (GPIO_OUTPUT | GPIO_PORTB | GPIO_PIN6 | GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
-
-//=================================================================
-void hcom_utils_dbg_gpio_init()
+void hcom_utils_dbg_gpio_init_a0_miso()
 {
-  static bool is_dbg_gpio_initialized = false;
+  stm32_configgpio(MEADOW_DIAG_GPIO_01_OUTPUT);
+  stm32_configgpio(MEADOW_DIAG_GPIO_02_OUTPUT);
+  stm32_configgpio(MEADOW_DIAG_GPIO_03_OUTPUT);
+  stm32_configgpio(MEADOW_DIAG_GPIO_04_OUTPUT);
+  stm32_configgpio(MEADOW_DIAG_GPIO_05_OUTPUT);
+  stm32_configgpio(MEADOW_DIAG_GPIO_06_OUTPUT);
+  stm32_configgpio(MEADOW_DIAG_GPIO_07_OUTPUT);
+  stm32_configgpio(MEADOW_DIAG_GPIO_08_OUTPUT);
+  stm32_configgpio(MEADOW_DIAG_GPIO_09_OUTPUT);
+  usleep(100 * 1000);
+  stm32_gpiowrite(MEADOW_DIAG_GPIO_01_OUTPUT, false);
+  stm32_gpiowrite(MEADOW_DIAG_GPIO_02_OUTPUT, false);
+  stm32_gpiowrite(MEADOW_DIAG_GPIO_03_OUTPUT, false);
+  stm32_gpiowrite(MEADOW_DIAG_GPIO_04_OUTPUT, false);
+  stm32_gpiowrite(MEADOW_DIAG_GPIO_05_OUTPUT, false);
+  stm32_gpiowrite(MEADOW_DIAG_GPIO_06_OUTPUT, false);
+  stm32_gpiowrite(MEADOW_DIAG_GPIO_07_OUTPUT, false);
+  stm32_gpiowrite(MEADOW_DIAG_GPIO_08_OUTPUT, false);
+  stm32_gpiowrite(MEADOW_DIAG_GPIO_09_OUTPUT, false);
+}
+#endif
 
-  if(is_dbg_gpio_initialized)
-    return;
-  
+#if HCOM_COMMON_UTILS_GPIO_D0_D8_DOUT > 0
+//=================================================================
+void hcom_utils_dbg_gpio_init_d0_d8()
+{
   stm32_configgpio(HCOM_MEADOW_GPIO_D00_OUTPUT);
   stm32_configgpio(HCOM_MEADOW_GPIO_D01_OUTPUT);
   stm32_configgpio(HCOM_MEADOW_GPIO_D02_OUTPUT);
@@ -496,11 +516,8 @@ void hcom_utils_dbg_gpio_init()
   stm32_configgpio(HCOM_MEADOW_GPIO_D06_OUTPUT);
   stm32_configgpio(HCOM_MEADOW_GPIO_D07_OUTPUT);
   stm32_configgpio(HCOM_MEADOW_GPIO_D08_OUTPUT);
-  
-  usleep(100 * 1000);   // allow chip to recover
-  is_dbg_gpio_initialized = true;
+  usleep(100 * 1000);
 }
-
 //=================================================================
 // Assumes gpio (D8 on meadow) can output as binary
 void hcom_utils_dbg_gpio_1led_update(bool ledOn)
@@ -512,9 +529,7 @@ void hcom_utils_dbg_gpio_1led_update(bool ledOn)
 //=================================================================
 // Assumes gpio (D0-D7 on meadow) can output 8-bit as binary
 void hcom_utils_dbg_gpio_8bit_update(uint8_t newValue, bool ledOn)
-{
-  hcom_utils_dbg_gpio_init();
-  
+{  
   // Note: Low (false) turns led on for an open drain
   stm32_gpiowrite(HCOM_MEADOW_GPIO_D00_OUTPUT, (newValue & 0x01) > 0 ?  false : true);
   stm32_gpiowrite(HCOM_MEADOW_GPIO_D01_OUTPUT, (newValue & 0x02) > 0 ?  false : true);

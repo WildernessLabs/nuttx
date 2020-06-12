@@ -527,9 +527,9 @@ void hcom_exec_rqst_testing_flash_qspi_read(uint32_t userData)
   // syslog(0, "%s() - dbgTask exited ret = %d\n", __func__, ret);
 
 
-void hcom_exec_rqst_testing_developer_1(uint32_t userData)
-{
-  hcom_utils_f7syslog(LOG_WARNING, "%s not implemented\n", __func__);
+// void hcom_exec_rqst_testing_developer_1(uint32_t userData)
+// {
+//   hcom_utils_f7syslog(LOG_WARNING, "%s not implemented\n", __func__);
 
   // // This code call using 'hcom thread'
   // int ret;
@@ -588,7 +588,7 @@ void hcom_exec_rqst_testing_developer_1(uint32_t userData)
 // // This may never return
 //   int ret = (*USERSPACE->us_entrypoint)((int)argc, argv);
 //   syslog(0, "%s() - TestStdoutBefore exited ret = %d\n", __func__, ret);=
-}
+// }
 
 // //=============================================================
 // // This is all related to developer_2
@@ -614,9 +614,9 @@ void hcom_exec_rqst_testing_developer_1(uint32_t userData)
 //   return 0;
 // }
 // //---------------
-void hcom_exec_rqst_testing_developer_2(uint32_t userData)
-{
-  hcom_utils_f7syslog(LOG_WARNING, "%s not implemented\n", __func__);
+// void hcom_exec_rqst_testing_developer_2(uint32_t userData)
+// {
+//   hcom_utils_f7syslog(LOG_WARNING, "%s not implemented\n", __func__);
 
   //free(memTest);
   
@@ -637,13 +637,13 @@ void hcom_exec_rqst_testing_developer_2(uint32_t userData)
 //     syslog(0, "%s() - thread create failed = %d\n", __func__, pid);
 //     return;
 //   }
-}
+// }
 
 //=============================================================
-void hcom_exec_rqst_testing_developer_3(uint32_t userData)
-{
-  // int ret;
-  int i;
+// void hcom_exec_rqst_testing_developer_3(uint32_t userData)
+// {
+//   // int ret;
+//   int i;
 
 // NOT NEEDED
   // for(i = 1; i <= userData; i++)
@@ -665,9 +665,9 @@ void hcom_exec_rqst_testing_developer_3(uint32_t userData)
 }
 
 //=============================================================
-void hcom_exec_rqst_testing_developer_4(uint32_t userData)
-{
-  hcom_utils_f7syslog(LOG_WARNING, "%s not implemented\n", __func__);
+// void hcom_exec_rqst_testing_developer_4(uint32_t userData)
+// {
+//   hcom_utils_f7syslog(LOG_WARNING, "%s not implemented\n", __func__);
 
 // int ret;
   
@@ -680,4 +680,4 @@ void hcom_exec_rqst_testing_developer_4(uint32_t userData)
 //   int ret = (*USERSPACE->us_entrypoint)((int)argc, argv);
 //   syslog(0, "%s() - TestStdoutAfter exited ret = %d\n", __func__, ret);
 
-}
+// }

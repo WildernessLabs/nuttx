@@ -90,7 +90,10 @@ HCOM_SRCS = hcom/hcom_startup_manager.c \
  hcom/hcom_common_utils.c \
  hcom/hcom_mono_pipe_interface.c \
  hcom/hcom_remote_debugging.c \
- hcom/hcom_host_trace_ramlog.c
+ hcom/hcom_host_trace_ramlog.c \
+ hcom/sqlite/sqlite_meadow_vfs.c \
+ hcom/sqlite/sqlite_meadow_manager.c \
+ hcom/sqlite/sqlite_meadow_builder.c
  
 ifeq ($(CONFIG_HCOM_ESP32_COMMS),y)
  HCOM_SRCS += hcom/esp32/hcom_esp32_uart_comms.c \

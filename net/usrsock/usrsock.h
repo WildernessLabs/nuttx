@@ -150,7 +150,7 @@ extern "C"
 #  define EXTERN extern
 #endif
 
-EXTERN const struct sock_intf_s g_usrsock_sockif;
+EXTERN const struct sock_intf_s *g_usrsock_sockif;
 
 /****************************************************************************
  * Public Function Prototypes
@@ -684,7 +684,7 @@ int usrsock_ioctl(FAR struct socket *psock, int cmd, FAR void *arg, size_t argle
  *
  ****************************************************************************/
 
-void usrsock_register_sockif(FAR struct sock_intf_s* sockif);
+void usrsock_register_sockif(FAR const struct sock_intf_s* sockif);
 
 #undef EXTERN
 #ifdef __cplusplus

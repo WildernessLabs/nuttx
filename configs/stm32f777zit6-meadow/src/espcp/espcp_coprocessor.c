@@ -379,7 +379,7 @@ espcp_configuration_t *espcp_get_configuration(void)
  *  None
  *
  * returned Value:
- *  Result of starting the thread or -1 if there is an error.
+ *  Result of starting the thread or -ENETDOWN if there is an error.
  *
  * Assumptions/Limitations:
  *  None
@@ -413,7 +413,7 @@ int espcp_init(void)
   }
   else
   {
-    result = -1;
+    result = -ENETDOWN;
   }
 
   return result;

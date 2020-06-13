@@ -62,6 +62,8 @@
 #include "stm32_mpuinit.h"
 #include "stm32_pwr.h"
 
+#include "espcp/espcp_usrsock.h"
+
 #include "mpu.h"
 
 #ifdef CONFIG_STM32F7_QUADSPI
@@ -296,6 +298,7 @@ void board_late_initialize(void)
     syslog(LOG_EMERG, "ERROR: ESP32 initialization failed!\n");
     PANIC();
   }
+  usrsock_register_sockif(&g_usrsock_sockif_esp32);
 #endif
 }
 

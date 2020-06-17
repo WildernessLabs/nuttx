@@ -361,15 +361,15 @@ FAR void *hcom_comms_recv_worker_pthread(FAR void *arg)
   char *traceDest = traceCombo[value & 0x00000003];
 
   // Provide some information that may be useful
-  hcom_utils_f7syslog(LOG_INFO, "Meadow %s (%s@%s) %s, Mono:%s, Trace level:0x%02x(was 0x%02x), to:%s, type:%s\n",
-        HCOM_DEVICE_INFO_MEADOW_OS_VERSION, __DATE__, __TIME__, 
+  hcom_utils_f7syslog(LOG_INFO, "Meadow %s|%s@%s, %s, Mono:%s, Trace:0x%02x(was 0x%02x), to:%s, %s:%d\n",
+        HCOM_DEVICE_INFO_MEADOW_OS_VERSION, __DATE__, __TIME__,
         _power_on_restart ? "power-on restart" :"rebooted",
-        hcom_utils_is_mono_disabled() ? "Disabled" : "Enabled",
+        hcom_utils_is_mono_disabled() ? "Disable" : "Enable",
         _syslog_mask, _syslog_mask_old, traceDest,
 #if defined CONFIG_RAMLOG_SYSLOG
-        "ramlog");
+        "ramlog", CONFIG_RAMLOG_BUFSIZE);
 #else
-        "syslog");
+        "syslog", 0);
 #endif
 
   //-------------------------------------------------------

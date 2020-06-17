@@ -42,6 +42,12 @@
 #define HAVE_USLEEP 1
 #define SQLITE_THREADSAFE 0
 
+// Temporary files. The user must configure SQLite to use in-memory
+// temp files when using this VFS. The easiest way to do this is to
+// compile with:
+#define SQLITE_TEMP_STORE 3
+
+
 // Below is all the defines that are not defined and therefore
 // cause compiler warnings.
 //

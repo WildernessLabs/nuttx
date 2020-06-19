@@ -39,8 +39,9 @@
  * Included Files
  ****************************************************************************/
 #define SQLITE_OS_OTHER 1
-#define HAVE_USLEEP 1
+#define HAVE_USLEEP 0       // fix this later
 #define SQLITE_THREADSAFE 0
+#define SQLITE_OMIT_WAL 1
 
 // Temporary files. The user must configure SQLite to use in-memory
 // temp files when using this VFS. The easiest way to do this is to

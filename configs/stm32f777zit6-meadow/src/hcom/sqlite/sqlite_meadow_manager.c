@@ -54,7 +54,7 @@
 #define VIRTUAL_FILE_SYS_NAME "demo"
 
 sqlite3_vfs *sqlite3_demovfs(void);
-static int execute_sqlite_database(void);
+static int execute_sqlite_database_experiment(void);
 
 //==============================================================
 int hcom_sqlite_setup()
@@ -63,6 +63,7 @@ int hcom_sqlite_setup()
   return OK;
 }
 
+//==============================================================
 // Callable from CLI
 void hcom_exec_rqst_testing_developer_1(uint32_t userData)
 {
@@ -71,7 +72,7 @@ void hcom_exec_rqst_testing_developer_1(uint32_t userData)
   switch(userData)
   {
     case 1:
-    execute_sqlite_database();
+    execute_sqlite_database_experiment();
     break;
     
     case 2:
@@ -97,27 +98,23 @@ void hcom_exec_rqst_testing_developer_4(uint32_t userData)
   return;
 }
 
-/****************************************************
-Get first and last names from a tab-delimited file.
-Then insert them into SQLlite database.
-****************************************************/
-
-#define DATABASE_NAME "/meadow0/Test1.db"
-#define FILE_OF_NAMES "meadow0/TabDelimited200Names.txt"
-#define CREATE_TABLE "CREATE TABLE IF NOT EXISTS names (nameid integer, first_name text not null, last_name text not null)"
+//=========================================================
 #define BUFFER_SIZE 256
 
 // Called from cli for testing
-int execute_sqlite_database()
+int execute_sqlite_database_experiment()
 {
   sqlite3 *_sqlite_db;
   int ret;
+  char *errMsg;
     
   syslog(1, "MGR-SQLite test:Started\n");
 
   // Must register the vfs since we cannot use one of the built-in ones
   // To do this we ask the vfs for a pointer that represents itself.
 
+  syslog(1, "MGR-SQLite test:Step #1-register vfs\n");
+  usleep(10 * 1000);
   // For now we'll try to use the demo vfs (at least it builds)
   sqlite3_vfs *pVfs = sqlite3_demovfs();
   if(pVfs == NULL)
@@ -126,7 +123,9 @@ int execute_sqlite_database()
           sqlite3_extended_errcode(_sqlite_db), sqlite3_errmsg(_sqlite_db));
     return -1;
   }
-  syslog(1, "MGR-SQLite test:Step #1-register vfs\n");
+  syslog(1, "MGR-SQLite test:Step #1-register vfs - success\n");
+  syslog(1, "MGR-SQLite test:Step #2-find just registered self\n");
+  usleep(10 * 1000);
 
   // Then we register the vfs with sqlite
   ret = sqlite3_vfs_register(pVfs, 1);
@@ -137,7 +136,9 @@ int execute_sqlite_database()
           sqlite3_errmsg(_sqlite_db));
     return -1;
   }
-  syslog(1, "MGR-SQLite test:Step #2-find just registered vfs\n");
+  syslog(1, "MGR-SQLite test:Step #1-register vfs - success\n");
+  syslog(1, "MGR-SQLite test:Step #2-find just registered self\n");
+  usleep(10 * 1000);
 
   // Next we attempt to find it...
   // This is really not needed because we already have what we
@@ -150,35 +151,15 @@ int execute_sqlite_database()
           sqlite3_errmsg(_sqlite_db));
     return -1;
   }
+  syslog(1, "MGR-SQLite test:Step #2-find self registered - success\n");
   syslog(1, "MGR-SQLite test:Step #3-open database\n");
+  usleep(10 * 1000);
 
-  // Now we open the database connection and supply the VFS name
-  // so it can be foound internally
-// ** These bit values are intended for use in the
-// ** 3rd parameter to the [sqlite3_open_v2()] interface and
-// ** in the 4th parameter to the [sqlite3_vfs.xOpen] method.
-// */
-// #define SQLITE_OPEN_READONLY         0x00000001  /* Ok for sqlite3_open_v2() */
-// #define SQLITE_OPEN_READWRITE        0x00000002  /* Ok for sqlite3_open_v2() */
-// #define SQLITE_OPEN_CREATE           0x00000004  /* Ok for sqlite3_open_v2() */
-// #define SQLITE_OPEN_DELETEONCLOSE    0x00000008  /* VFS only */
-// #define SQLITE_OPEN_EXCLUSIVE        0x00000010  /* VFS only */
-// #define SQLITE_OPEN_AUTOPROXY        0x00000020  /* VFS only */
-// #define SQLITE_OPEN_URI              0x00000040  /* Ok for sqlite3_open_v2() */
-// #define SQLITE_OPEN_MEMORY           0x00000080  /* Ok for sqlite3_open_v2() */
-// #define SQLITE_OPEN_MAIN_DB          0x00000100  /* VFS only */
-// #define SQLITE_OPEN_TEMP_DB          0x00000200  /* VFS only */
-// #define SQLITE_OPEN_TRANSIENT_DB     0x00000400  /* VFS only */
-// #define SQLITE_OPEN_MAIN_JOURNAL     0x00000800  /* VFS only */
-// #define SQLITE_OPEN_TEMP_JOURNAL     0x00001000  /* VFS only */
-// #define SQLITE_OPEN_SUBJOURNAL       0x00002000  /* VFS only */
-// #define SQLITE_OPEN_MASTER_JOURNAL   0x00004000  /* VFS only */
-// #define SQLITE_OPEN_NOMUTEX          0x00008000  /* Ok for sqlite3_open_v2() */
-// #define SQLITE_OPEN_FULLMUTEX        0x00010000  /* Ok for sqlite3_open_v2() */
-// #define SQLITE_OPEN_SHAREDCACHE      0x00020000  /* Ok for sqlite3_open_v2() */
-// #define SQLITE_OPEN_PRIVATECACHE     0x00040000  /* Ok for sqlite3_open_v2() */
-// #define SQLITE_OPEN_WAL              0x00080000  /* VFS only */
-// #define SQLITE_OPEN_NOFOLLOW         0x01000000  /* Ok for sqlite3_open_v2() */
+
+#define DATABASE_NAME "/meadow0/Test1.db"
+#define FILE_OF_NAMES "/meadow0/TabDelimited10Names.txt"
+#define CREATE_TEST_SQL_TABLE "CREATE TABLE IF NOT EXISTS names (nameid integer,\
+ first_name text not null, last_name text not null)"
 
   // https://sqlite.org/c3ref/open.html
   ret = sqlite3_open_v2(DATABASE_NAME,
@@ -193,10 +174,26 @@ int execute_sqlite_database()
     return -1;
   }
 
-  syslog(1, "MGR-SQLite test:Step #4-create database ('%s')\n", CREATE_TABLE);
+  syslog(1, "MGR-SQLite test:Step #3-open database-success\n");
+//   syslog(1, "MGR-SQLite test:Step #4-turn off journal\n");
+
+// // Turn off journal, at least for now
+// #define TEST_SQL_TABLE_NO_JOURNAL "PRAGMA journal_mode=OFF"
+//   ret = sqlite3_exec(_sqlite_db, TEST_SQL_TABLE_NO_JOURNAL, NULL, NULL, &errMsg);
+//   if( ret != SQLITE_OK )
+//   {
+//     syslog(1, "MGR-SQLite ERROR:Step #4-Turn off Journal\n");
+//     return -1;
+//   }
+//   syslog(1, "MGR-SQLite test:Step #4-turn off journal - success\n");
+
+  // ------------------------------------
+  // This step doesn't work
+  // ------------------------------------
+  syslog(1, "MGR-SQLite test:Step #5-create database ('%s')\n", CREATE_TEST_SQL_TABLE);
+  usleep(10 * 1000);
   
-  char *errMsg;
-  ret = sqlite3_exec(_sqlite_db, CREATE_TABLE, NULL, NULL, &errMsg);
+  ret = sqlite3_exec(_sqlite_db, CREATE_TEST_SQL_TABLE, NULL, NULL, &errMsg);
   if(ret)
   {
     syslog(1, "MGR-SQLite ERROR:sqlite3_exec:'%s', errMsg:%s, error:%d (%s)\n",
@@ -205,18 +202,21 @@ int execute_sqlite_database()
     return -1;
   }
 
-  syslog(1, "MGR-SQLite test:Step #5-open names file\n");
+  syslog(1, "MGR-SQLite test:Step #5-create database - success\n");
+  syslog(1, "MGR-SQLite test:Step #6-open names file\n");
+  usleep(10 * 1000);
 
+  // Get first and last names from a tab-delimited file.
   FILE *pFile = fopen (FILE_OF_NAMES, "r");
   if((void *)pFile == NULL)
   {
-    syslog(1, "MGR-SQLite ERROR:fopen:'%s', errMsg:%s, error:%d (%s)\n",
-          DATABASE_NAME, errMsg, sqlite3_extended_errcode(_sqlite_db),
-           sqlite3_errmsg(_sqlite_db));
+    syslog(1, "MGR-SQLite ERROR:fopen:'%s', errno:%d\n",
+          FILE_OF_NAMES, errno);
     return -1;
   }
 
-  syslog(1, "MGR-SQLite test:Step #6 - fill database table with names\n");
+  syslog(1, "MGR-SQLite test:Step #6-open names file - success\n");
+  usleep(10 * 1000);
 
   int nameId;
   char sInputBuf[BUFFER_SIZE];
@@ -225,6 +225,9 @@ int execute_sqlite_database()
   char sSQL[256];
   char *pChar;
 
+  syslog(1, "MGR-SQLite test:Step #7 - fill database table with names\n");
+  usleep(10 * 1000);
+  // Insert names into SQLlite database.
   while (!feof(pFile))
   {
     // Read line
@@ -241,7 +244,7 @@ int execute_sqlite_database()
     // Insert statment
     sprintf(sSQL, "INSERT INTO Names VALUES (NULL, '%s', '%s')", sFirstName, sLastName);
 
-    syslog(1, "MGR-SQLite test:Step #7 - %d Insert statement '%s'\n", nameId, sSQL);
+    syslog(1, "MGR-SQLite test:Step #8 - %d Insert statement '%s'\n", nameId, sSQL);
     
     ret = sqlite3_exec(_sqlite_db, sSQL, NULL, NULL, &errMsg);
     if(ret)
@@ -254,11 +257,11 @@ int execute_sqlite_database()
     nameId++;
   }
 
-  syslog(1, "MGR-SQLite test:Step #8 - closing file and database\n");
+  syslog(1, "MGR-SQLite test:Step #9 - closing file and database\n");
 
   fclose (pFile);
   sqlite3_close(_sqlite_db);
-  syslog(1, "MGR-SQLite test:Step #9 - SQLite test exit\n");
+  syslog(1, "MGR-SQLite test:Step #10 - SQLite test exit\n");
 
   return OK;
 }

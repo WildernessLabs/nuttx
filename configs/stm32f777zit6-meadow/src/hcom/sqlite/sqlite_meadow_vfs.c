@@ -158,7 +158,7 @@ static int demoDirectWrite(
   sqlite_int64 iOfst              /* File offset to write to */
 )
 {
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
   off_t ofst;                     /* Return value from lseek() */
   size_t nWrite;                  /* Return value from write() */
 
@@ -181,7 +181,7 @@ static int demoDirectWrite(
 ** a journal file) or if the buffer is currently empty.
 */
 static int demoFlushBuffer(DemoFile *p){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
   int rc = SQLITE_OK;
   if( p->nBuffer ){
     rc = demoDirectWrite(p, p->aBuffer, p->nBuffer, p->iBufferOfst);
@@ -194,7 +194,7 @@ static int demoFlushBuffer(DemoFile *p){
 ** Close a file.
 */
 static int demoClose(sqlite3_file *pFile){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
   int rc;
   DemoFile *p = (DemoFile*)pFile;
   rc = demoFlushBuffer(p);
@@ -212,7 +212,7 @@ static int demoRead(
   int iAmt, 
   sqlite_int64 iOfst
 ){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
   DemoFile *p = (DemoFile*)pFile;
   off_t ofst;                     /* Return value from lseek() */
   int nRead;                      /* Return value from read() */
@@ -256,7 +256,7 @@ static int demoWrite(
   int iAmt, 
   sqlite_int64 iOfst
 ){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
   DemoFile *p = (DemoFile*)pFile;
   
   if( p->aBuffer ){
@@ -304,7 +304,7 @@ static int demoWrite(
 ** the top of the file).
 */
 static int demoTruncate(sqlite3_file *pFile, sqlite_int64 size){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
 #if 0
   if( ftruncate(((DemoFile *)pFile)->fd, size) ) return SQLITE_IOERR_TRUNCATE;
 #endif
@@ -315,7 +315,7 @@ static int demoTruncate(sqlite3_file *pFile, sqlite_int64 size){
 ** Sync the contents of the file to the persistent media.
 */
 static int demoSync(sqlite3_file *pFile, int flags){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
   DemoFile *p = (DemoFile*)pFile;
   int rc;
 
@@ -331,13 +331,12 @@ static int demoSync(sqlite3_file *pFile, int flags){
 /*
 ** Write the size of the file in bytes to *pSize.
 */
-static int demoFileSize(sqlite3_file *pFile, sqlite_int64 *pSize){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+static int demoFileSize(sqlite3_file *pFile, sqlite_int64 *pSize)
+{
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
   DemoFile *p = (DemoFile*)pFile;
   int rc;                         /* Return code from fstat() call */
-  // ! nuttx struct stat sStat;              /* Output of fstat() call */
-  struct stat fileStatus;
-
+  struct stat sStat;              /* Output of fstat() call */
 
   /* Flush the contents of the buffer to disk. As with the flush in the
   ** demoRead() method, it would be possible to avoid this and save a write
@@ -345,15 +344,16 @@ static int demoFileSize(sqlite3_file *pFile, sqlite_int64 *pSize){
   ** not worth the trouble.
   */
   rc = demoFlushBuffer(p);
-  if( rc!=SQLITE_OK ){
+  if( rc!=SQLITE_OK )
+  {
     return rc;
   }
 
   // ! nuttx rc = fstat(p->fd, &sStat);
   // ! nuttx *pSize = sStat.st_size;
-  rc = fstat(p->fd, &fileStatus);
+  rc = fstat(p->fd, &sStat);
   if( rc!=0 ) return SQLITE_IOERR_FSTAT;
-  *pSize = fileStatus.st_size;
+  *pSize = sStat.st_size;
   return SQLITE_OK;
 }
 
@@ -364,15 +364,15 @@ static int demoFileSize(sqlite3_file *pFile, sqlite_int64 *pSize){
 ** file is found in the file-system it is rolled back.
 */
 static int demoLock(sqlite3_file *pFile, int eLock){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
   return SQLITE_OK;
 }
 static int demoUnlock(sqlite3_file *pFile, int eLock){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
   return SQLITE_OK;
 }
 static int demoCheckReservedLock(sqlite3_file *pFile, int *pResOut){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
   *pResOut = 0;
   return SQLITE_OK;
 }
@@ -381,7 +381,7 @@ static int demoCheckReservedLock(sqlite3_file *pFile, int *pResOut){
 ** No xFileControl() verbs are implemented by this VFS.
 */
 static int demoFileControl(sqlite3_file *pFile, int op, void *pArg){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
   return SQLITE_NOTFOUND;
 }
 
@@ -391,11 +391,11 @@ static int demoFileControl(sqlite3_file *pFile, int op, void *pArg){
 ** access to some extent. But it is also safe to simply return 0.
 */
 static int demoSectorSize(sqlite3_file *pFile){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
   return 0;
 }
 static int demoDeviceCharacteristics(sqlite3_file *pFile){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
   return 0;
 }
 
@@ -409,10 +409,10 @@ static int demoOpen(
   int flags,                      /* Input SQLITE_OPEN_XXX flags */
   int *pOutFlags)                 /* Output SQLITE_OPEN_XXX flags (or NULL) */
 {
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
   static const sqlite3_io_methods demoio = 
   {
-    3,                            /* iVersion */
+    1,                            /* iVersion */
     demoClose,                    /* xClose */
     demoRead,                     /* xRead */
     demoWrite,                    /* xWrite */
@@ -449,93 +449,36 @@ static int demoOpen(
     }
   }
 
-  // syslog(1, "VFS-demoOpen@%d SQLITE_OPEN_READONLY-->%s\n",
-  //       __LINE__, flags&SQLITE_OPEN_READONLY ? "true" : "false");
-  // syslog(1, "VFS-demoOpen@%d SQLITE_OPEN_READWRITE-->%s\n",
-  //       __LINE__, flags&SQLITE_OPEN_READWRITE ? "true" : "false");
-  // syslog(1, "VFS-demoOpen@%d SQLITE_OPEN_CREATE-->%s\n",
-  //       __LINE__, flags&SQLITE_OPEN_CREATE ? "true" : "false");
-  // syslog(1, "VFS-demoOpen@%d SQLITE_OPEN_DELETEONCLOSE-->%s\n",
-  //       __LINE__, flags&SQLITE_OPEN_DELETEONCLOSE ? "true" : "false");
-  // syslog(1, "VFS-demoOpen@%d SQLITE_OPEN_EXCLUSIVE-->%s\n",
-  //       __LINE__, flags&SQLITE_OPEN_EXCLUSIVE ? "true" : "false");
-  // syslog(1, "VFS-demoOpen@%d SQLITE_OPEN_AUTOPROXY-->%s\n",
-  //       __LINE__, flags&SQLITE_OPEN_AUTOPROXY ? "true" : "false");
-  // syslog(1, "VFS-demoOpen@%d SQLITE_OPEN_URI-->%s\n",
-  //       __LINE__, flags&SQLITE_OPEN_URI ? "true" : "false");
-  // syslog(1, "VFS-demoOpen@%d SQLITE_OPEN_MEMORY-->%s\n",
-  //       __LINE__, flags&SQLITE_OPEN_MEMORY ? "true" : "false");
-  // syslog(1, "VFS-demoOpen@%d SQLITE_OPEN_MAIN_DB-->%s\n",
-  //       __LINE__, flags&SQLITE_OPEN_MAIN_DB ? "true" : "false");
-  // syslog(1, "VFS-demoOpen@%d SQLITE_OPEN_TEMP_DB-->%s\n",
-  //       __LINE__, flags&SQLITE_OPEN_TEMP_DB ? "true" : "false");
-  // syslog(1, "VFS-demoOpen@%d SQLITE_OPEN_TRANSIENT_DB-->%s\n",
-  //       __LINE__, flags&SQLITE_OPEN_TRANSIENT_DB ? "true" : "false");
-  // syslog(1, "VFS-demoOpen@%d SQLITE_OPEN_MAIN_JOURNAL-->%s\n",
-  //       __LINE__, flags&SQLITE_OPEN_MAIN_JOURNAL ? "true" : "false");
-  // syslog(1, "VFS-demoOpen@%d SQLITE_OPEN_TEMP_JOURNAL-->%s\n",
-  //       __LINE__, flags&SQLITE_OPEN_TEMP_JOURNAL ? "true" : "false");
-  // syslog(1, "VFS-demoOpen@%d SQLITE_OPEN_SUBJOURNAL-->%s\n",
-  //       __LINE__, flags&SQLITE_OPEN_SUBJOURNAL ? "true" : "false");
-  // syslog(1, "VFS-demoOpen@%d SQLITE_OPEN_MASTER_JOURNAL-->%s\n",
-  //       __LINE__, flags&SQLITE_OPEN_MASTER_JOURNAL ? "true" : "false");
-  // syslog(1, "VFS-demoOpen@%d SQLITE_OPEN_NOMUTEX-->%s\n",
-  //       __LINE__, flags&SQLITE_OPEN_NOMUTEX ? "true" : "false");
-  // syslog(1, "VFS-demoOpen@%d SQLITE_OPEN_FULLMUTEX-->%s\n",
-  //       __LINE__, flags&SQLITE_OPEN_FULLMUTEX ? "true" : "false");
-  // syslog(1, "VFS-demoOpen@%d SQLITE_OPEN_SHAREDCACHE-->%s\n",
-  //       __LINE__, flags&SQLITE_OPEN_SHAREDCACHE ? "true" : "false");
-  // syslog(1, "VFS-demoOpen@%d SQLITE_OPEN_PRIVATECACHE-->%s\n",
-  //       __LINE__, flags&SQLITE_OPEN_PRIVATECACHE ? "true" : "false");
-  // syslog(1, "VFS-demoOpen@%d SQLITE_OPEN_WAL-->%s\n",
-  //       __LINE__, flags&SQLITE_OPEN_WAL ? "true" : "false");
-  // syslog(1, "VFS-demoOpen@%d SQLITE_OPEN_NOFOLLOW-->%s\n",
-  //       __LINE__, flags&SQLITE_OPEN_NOFOLLOW ? "true" : "false");
-  // usleep(50 * 1000);
+  // There seems to be a bug in sqlite3 that when SQLITE_OS_OTHER is true.
+  // The function sqlite3PagerSharedLock() requests that journal open be
+  // done readonly. Even if there is no journal file. After seeing this
+  // behavior found:
+  // http://sqlite.1065341.n5.nabble.com/Sqlite-create-table-success-but-insert-fails-td87718.html
+  // https://stackoverflow.com/questions/35738578/sqlite-porting-on-freertos-with-stm32
+  // According to above sites, the behavior is different when SQLITE_OS_UNIX
+  // is true. In this case the open flags are create + readwrite. It may be
+  // that the SQLITE_OS_OTHER mode is not actively maintained?
+  if(flags & SQLITE_OPEN_MAIN_JOURNAL ||
+    flags & SQLITE_OPEN_TEMP_JOURNAL ||
+    flags & SQLITE_OPEN_SUBJOURNAL ||
+    flags & SQLITE_OPEN_MASTER_JOURNAL)
+  {
+    // This should still work if this issue is addressed in sqlite3.c
+    if(!(flags & SQLITE_OPEN_CREATE))
+    {
+      oflags = O_CREAT | O_RDWR;
+    }
+  }
 
-// #define SQLITE_OPEN_READONLY         0x00000001  /* Ok for sqlite3_open_v2() */
-// #define SQLITE_OPEN_READWRITE        0x00000002  /* Ok for sqlite3_open_v2() */
-// #define SQLITE_OPEN_CREATE           0x00000004  /* Ok for sqlite3_open_v2() */
-// #define SQLITE_OPEN_DELETEONCLOSE    0x00000008  /* VFS only */
-// #define SQLITE_OPEN_EXCLUSIVE        0x00000010  /* VFS only */
-// #define SQLITE_OPEN_AUTOPROXY        0x00000020  /* VFS only */
-// #define SQLITE_OPEN_URI              0x00000040  /* Ok for sqlite3_open_v2() */
-// #define SQLITE_OPEN_MEMORY           0x00000080  /* Ok for sqlite3_open_v2() */
-// #define SQLITE_OPEN_MAIN_DB          0x00000100  /* VFS only */
-// #define SQLITE_OPEN_TEMP_DB          0x00000200  /* VFS only */
-// #define SQLITE_OPEN_TRANSIENT_DB     0x00000400  /* VFS only */
-// #define SQLITE_OPEN_MAIN_JOURNAL     0x00000800  /* VFS only */
-// #define SQLITE_OPEN_TEMP_JOURNAL     0x00001000  /* VFS only */
-// #define SQLITE_OPEN_SUBJOURNAL       0x00002000  /* VFS only */
-// #define SQLITE_OPEN_MASTER_JOURNAL   0x00004000  /* VFS only */
-// #define SQLITE_OPEN_NOMUTEX          0x00008000  /* Ok for sqlite3_open_v2() */
-// #define SQLITE_OPEN_FULLMUTEX        0x00010000  /* Ok for sqlite3_open_v2() */
-// #define SQLITE_OPEN_SHAREDCACHE      0x00020000  /* Ok for sqlite3_open_v2() */
-// #define SQLITE_OPEN_PRIVATECACHE     0x00040000  /* Ok for sqlite3_open_v2() */
-// #define SQLITE_OPEN_WAL              0x00080000  /* VFS only */
-// #define SQLITE_OPEN_NOFOLLOW         0x01000000  /* Ok for sqlite3_open_v2() */
+  if(oflags == 0)
+  {
+    // Use Nuttx flag values
+    if( flags&SQLITE_OPEN_EXCLUSIVE ) oflags |= O_EXCL;
+    if( flags&SQLITE_OPEN_CREATE )    oflags |= O_CREAT;
+    if( flags&SQLITE_OPEN_READONLY )  oflags |= O_RDONLY;
+    if( flags&SQLITE_OPEN_READWRITE ) oflags |= O_RDWR;
+  }
 
-// Nuttx
-// #define O_RDONLY    (1 << 0)   1     /* Open for read access (only) */
-// #define O_WRONLY    (1 << 1)   2     /* Open for write access (only) */
-// #define O_CREAT     (1 << 2)   4     /* Create file/sem/mq object */
-// #define O_EXCL      (1 << 3)   8     /* Name must not exist when opened  */
-// #define O_APPEND    (1 << 4)  16     /* Keep contents, append to end */
-// #define O_TRUNC     (1 << 5)        /* Delete contents */
-// #define O_NONBLOCK  (1 << 6)        /* Don't wait for data */
-// #define O_NDELAY    O_NONBLOCK      /* Synonym for O_NONBLOCK */
-// #define O_SYNC      (1 << 7)        /* Synchronize output on write */
-// #define O_DSYNC     O_SYNC          /* Equivalent to OSYNC in NuttX */
-// #define O_BINARY    (1 << 8)        /* Open the file in binary (untranslated) mode. */
-// #define O_DIRECT    (1 << 9)        /* Avoid caching, write directly to hardware */
-// #define O_RDWR      (O_RDONLY|O_WRONLY)  3 /* Open for both read & write access */
-
-  if( flags&SQLITE_OPEN_EXCLUSIVE ) oflags |= O_EXCL;     // bit 3
-  if( flags&SQLITE_OPEN_CREATE )    oflags |= O_CREAT;    // bit 2
-  if( flags&SQLITE_OPEN_READONLY )  oflags |= O_RDONLY;   // bit 0
-  if( flags&SQLITE_OPEN_READWRITE ) oflags |= O_RDWR;     // bit 0 | bit 1
-
-// p-m IT THINK THE CREATE FLAG SHOULD BE SET
   syslog(1, "VFS-demoOpen@%d, file:'%s', nuttx flags:0x%08x sqlite:0x%08x, Excl:%d, Creat:%d, RO:%d, RDRW:%d\n",
     __LINE__,
     zName,
@@ -551,7 +494,7 @@ static int demoOpen(
   p->fd = open(zName, oflags, 0600);
   if( p->fd<0 )
   {
-    syslog(1, "VFS-demoOpen@%d, fd:%d - SQLITE_CANTOPEN\n", __LINE__, p->fd);
+    syslog(1, "VFS-demoOpen@%d, ERROR:SQLITE_CANTOPEN, fd:%d\n", __LINE__, p->fd);
     usleep(10 * 1000);
     sqlite3_free(aBuf);
     return SQLITE_CANTOPEN;
@@ -575,7 +518,7 @@ static int demoOpen(
 ** file has been synced to disk before returning.
 */
 static int demoDelete(sqlite3_vfs *pVfs, const char *zPath, int dirSync){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
   int rc;                         /* Return code */
 
   rc = unlink(zPath);
@@ -623,8 +566,9 @@ static int demoAccess(
   const char *zPath, 
   int flags, 
   int *pResOut
-){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+)
+{
+  syslog(1, "VFS-%s@%d-Entered - Access file name:'%s'\n", __func__, __LINE__, zPath); usleep(10*1000);
   int rc;                         /* access() return code */
   int eAccess = F_OK;             /* Second argument to access() */
 
@@ -658,12 +602,16 @@ static int demoFullPathname(
   int nPathOut,                   /* Size of output buffer in bytes */
   char *zPathOut                  /* Pointer to output buffer */
 ){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered [file to check/expand '%s']\n", __func__, __LINE__, zPath);
   char zDir[MAXPATHNAME+1];
-  if( zPath[0]=='/' ){
+  if( zPath[0]=='/' )
+  {
     zDir[0] = '\0';
-  }else{
-    if( getcwd(zDir, sizeof(zDir))==0 ) return SQLITE_IOERR;
+  }
+  else
+  {
+    if( getcwd(zDir, sizeof(zDir))==0 )
+      return SQLITE_IOERR;
   }
   zDir[MAXPATHNAME] = '\0';
 
@@ -686,20 +634,20 @@ static int demoFullPathname(
 ** this functionality, so the following functions are no-ops.
 */
 static void *demoDlOpen(sqlite3_vfs *pVfs, const char *zPath){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
   return 0;
 }
 static void demoDlError(sqlite3_vfs *pVfs, int nByte, char *zErrMsg){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
   sqlite3_snprintf(nByte, zErrMsg, "Loadable extensions are not supported");
   zErrMsg[nByte-1] = '\0';
 }
 static void (*demoDlSym(sqlite3_vfs *pVfs, void *pH, const char *z))(void){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
   return 0;
 }
 static void demoDlClose(sqlite3_vfs *pVfs, void *pHandle){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
   return;
 }
 
@@ -708,7 +656,7 @@ static void demoDlClose(sqlite3_vfs *pVfs, void *pHandle){
 ** buffer with pseudo-random data.
 */
 static int demoRandomness(sqlite3_vfs *pVfs, int nByte, char *zByte){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
   return SQLITE_OK;
 }
 
@@ -746,7 +694,7 @@ static int demoCurrentTime(sqlite3_vfs *pVfs, double *pTime){
 **   sqlite3_vfs_register(sqlite3_demovfs(), 0);
 */
 sqlite3_vfs *sqlite3_demovfs(void){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
   static sqlite3_vfs demovfs = {
     1,                            /* iVersion */
     sizeof(DemoFile),             /* szOsFile */
@@ -790,7 +738,7 @@ static int SQLITE_TCLAPI register_demovfs(
   int objc,              /* Number of arguments */
   Tcl_Obj *CONST objv[]  /* Command arguments */
 ){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
   sqlite3_vfs_register(sqlite3_demovfs(), 1);
   return TCL_OK;
 }
@@ -800,7 +748,7 @@ static int SQLITE_TCLAPI unregister_demovfs(
   int objc,              /* Number of arguments */
   Tcl_Obj *CONST objv[]  /* Command arguments */
 ){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
   sqlite3_vfs_unregister(sqlite3_demovfs());
   return TCL_OK;
 }
@@ -809,7 +757,7 @@ static int SQLITE_TCLAPI unregister_demovfs(
 ** Register commands with the TCL interpreter.
 */
 int Sqlitetest_demovfs_Init(Tcl_Interp *interp){
-  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__);
+  syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10*1000);
   Tcl_CreateObjCommand(interp, "register_demovfs", register_demovfs, 0, 0);
   Tcl_CreateObjCommand(interp, "unregister_demovfs", unregister_demovfs, 0, 0);
   return TCL_OK;

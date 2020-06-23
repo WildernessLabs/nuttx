@@ -327,7 +327,7 @@ int hcom_file_commands_delete_by_name(const uint32_t partitionId, const char *mo
 
 //==================================================================
 // This call will calculate the crc32 checksum for the active file
-uint32_t hcom_file_commands_calc_crc_for_file(char *completeFilePath)
+uint32_t hcom_file_commands_calc_crc_for_file(char *completeFilePath, off_t *fileSize, uint32_t *blockSizeKB)
 {
   uint32_t crc32Checksum = 0;
   uint8_t *crcReadBuff;
@@ -358,19 +358,26 @@ uint32_t hcom_file_commands_calc_crc_for_file(char *completeFilePath)
   }
 
   hcom_comms_dbg(LOG_DEBUG, "Opened %s for CRC\n", completeFilePath);
+  // from nuttx stat.h
   // struct stat
   // {
-  //     _dev_t         st_dev;
-  //     _ino_t         st_ino;
-  //     unsigned short st_mode;
-  //     short          st_nlink;
-  //     short          st_uid;
-  //     short          st_gid;
-  //     _dev_t         st_rdev;
-  //     _off_t         st_size;
-  //     time_t         st_atime;
-  //     time_t         st_mtime;
-  //     time_t         st_ctime;
+  //   /* Required, standard fields */
+
+  //   mode_t    st_mode;    /* File type, attributes, and access mode bits */
+  //   off_t     st_size;    /* Size of file/directory, in bytes */
+  //   blksize_t st_blksize; /* Block size used for filesystem I/O */
+  //   blkcnt_t  st_blocks;  /* Number of blocks allocated */
+  //   time_t    st_atime;   /* Time of last access */
+  //   time_t    st_mtime;   /* Time of last modification */
+  //   time_t    st_ctime;   /* Time of last status change */
+
+  //   /* Internal fields.  These are part this specific implementation and
+  //   * should not referenced by application code for portability reasons.
+  //   */
+
+  // #ifdef CONFIG_PSEUDOFS_SOFTLINKS
+  //   uint8_t   st_count;   /* Used internally to limit traversal of links */
+  // #endif
   // };
 
   ret = fstat(fd, &fileStatus);
@@ -381,6 +388,9 @@ uint32_t hcom_file_commands_calc_crc_for_file(char *completeFilePath)
     return -errno;
   }
 
+  *fileSize = fileStatus.st_size;
+  *blockSizeKB = (fileStatus.st_blksize * fileStatus.st_blocks) / 1024;
+   
   // Seek to beginning
   off_t offset = lseek(fd, 0, SEEK_SET);
   if (offset == (off_t)-1)

@@ -215,6 +215,18 @@ void hcom_utils_diag_print_buffer(const uint8_t buffer[], const int bufLen, uint
 #define HCOM_UTIL_ASCII_OFFSET (57 + HCOM_UTIL_LEADING_SPACES)
 #define HCOM_UTIL_DISPLAY_LENGTH (HCOM_UTIL_ASCII_OFFSET + HCOM_UTIL_BYTES_PER_LINE + 3)
 
+  if(bufLen <= 0)
+  {
+    hcom_utils_f7syslog(msgPriority, "hcom_utils_diag_print_buffer() called with 'bufLen:%d'\n", bufLen);
+    return;
+  }
+
+  if(buffer == NULL)
+  {
+    hcom_utils_f7syslog(msgPriority, "hcom_utils_diag_print_buffer() called with 'buffer == NULL'\n");
+    return;
+  }
+
   if ((g_syslog_mask & LOG_MASK(msgPriority)) == 0)
     return;
 

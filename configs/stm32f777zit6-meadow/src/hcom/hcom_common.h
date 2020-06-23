@@ -517,7 +517,7 @@ extern "C"
   int hcom_file_commands_open_active_file(const uint32_t partitionId, const char *mountPoint, const char *fileName);
   int hcom_file_commands_write_to_active_file(const uint8_t *fileWriteData, const size_t fileWriteSize);
   int hcom_file_commands_close_active_file(void);
-  uint32_t hcom_file_commands_calc_crc_for_file(char *completeFilePath);
+  uint32_t hcom_file_commands_calc_crc_for_file(char *completeFilePath, off_t *fileSize, uint32_t *blockSizeblockSizeKB);
   int hcom_file_commands_delete_by_name(const uint32_t partitionId, const char *mountPoint, const char *fileName);
 
   // File system helper
@@ -617,7 +617,7 @@ extern "C"
 
 // Diagnostic aids
 #define HCOM_TASK_SHOW_CREATED_TASK_PID_NAME  0
-#define HCOM_COMMON_UTILS_DIAG_PRINT_BUFFER   0
+#define HCOM_COMMON_UTILS_DIAG_PRINT_BUFFER   1
 #define HCOM_COMMON_UTILS_GPIO_D0_D8_DOUT     0
 #define HCOM_COMMON_UTILS_GPIO_A0_MISO_DOUT   1
 

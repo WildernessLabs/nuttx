@@ -402,6 +402,9 @@ int hcom_fs_get_list_files_in_partition_and_crc(uint32_t partitionId)
     return -1;
   }
 
+  off_t totalSizeOfFiles = 0;
+  uint32_t totalFlashSizeKB = 0;
+
   while((direntry = readdir(dirp)) != NULL)
   {
     if(DIRENT_ISFILE(direntry->d_type))
@@ -411,7 +414,11 @@ int hcom_fs_get_list_files_in_partition_and_crc(uint32_t partitionId)
       DEBUGASSERT(stringLen < HCOM_MAX_PATH_AND_FILE_BUFF_LENGTH);
       
       // Find the CRC checksum
-      uint32_t crcChecksum = hcom_file_commands_calc_crc_for_file(completeNameBuf);
+      off_t fileSize;
+      uint32_t blockSizeKB;
+      uint32_t crcChecksum = hcom_file_commands_calc_crc_for_file(completeNameBuf, &fileSize, &blockSizeKB);
+      totalSizeOfFiles += fileSize;
+      totalFlashSizeKB += blockSizeKB;
 
 #ifdef CONFIG_MTD_PARTITION
       hcom_utils_f7syslog(LOG_INFO, "'%s' in part %d checksum 0x%08x\n", direntry->d_name, partitionId, crcChecksum);
@@ -421,8 +428,8 @@ int hcom_fs_get_list_files_in_partition_and_crc(uint32_t partitionId)
 
       // Add this file to the csv list 
       int fileNameLen = 0;
-      fileNameLen = snprintf(singleFileFound, HCOM_MAX_PATH_AND_FILE_BUFF_LENGTH, "%s/%s [0x%08x]",
-            fullMountPtName, direntry->d_name, crcChecksum);
+      fileNameLen = snprintf(singleFileFound, HCOM_MAX_PATH_AND_FILE_BUFF_LENGTH, "%s/%s [0x%08x] %d KB (%u bytes)",
+            fullMountPtName, direntry->d_name, crcChecksum, blockSizeKB, fileSize);
 
       DEBUGASSERT(fileNameLen < HCOM_MAX_PATH_AND_FILE_BUFF_LENGTH);
       hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_CRC_MEMBER, 0,
@@ -434,6 +441,17 @@ int hcom_fs_get_list_files_in_partition_and_crc(uint32_t partitionId)
   {
     hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_CRC_MEMBER, 0,
                   "No files found", thisFile, __LINE__);
+  }
+  else
+  {
+    // Need comma separators for file size? I tried %'d and this didn't work. Here are some DIY ideas:
+    // https://stackoverflow.com/questions/1449805/how-to-format-a-number-from-1123456789-to-1-123-456-789-in-c/24795133#24795133
+    int fileNameLen = snprintf(singleFileFound, HCOM_MAX_PATH_AND_FILE_BUFF_LENGTH,
+          "Total of %d files using %d KB (%u bytes)", fileCount, totalFlashSizeKB, totalSizeOfFiles);
+
+    DEBUGASSERT(fileNameLen < HCOM_MAX_PATH_AND_FILE_BUFF_LENGTH);
+    hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_CRC_MEMBER, 0,
+                  singleFileFound, thisFile, __LINE__);
   }
 
   closedir(dirp);

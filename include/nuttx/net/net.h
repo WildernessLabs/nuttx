@@ -186,6 +186,11 @@ struct sock_intf_s
   CODE int        (*si_ioctl)(FAR struct socket *psock, int cmd,
                     FAR void *arg, size_t arglen);
 #endif
+#ifdef CONFIG_MEADOW_ESPCP_MANAGER
+  CODE int        (*si_setsockopt)(FAR struct socket *psock, int level, int option, 
+                    FAR const void *value, socklen_t value_len);
+
+#endif
 };
 
 /* This is the internal representation of a socket reference by a file

@@ -94,7 +94,12 @@ const struct sock_intf_s g_usrsock_sockif_esp32 =
 #endif
   espcp_usrsock_recvfrom,           /* si_recvfrom */
   espcp_usrsock_sockif_close,       /* si_close */
-  espcp_usrsock_ioctl               /* si_ioctl */
+  espcp_usrsock_ioctl,              /* si_ioctl */
+  /*
+   *  All of the above are from the generic usrsock project.
+   *  The methods below are specific to the Meadow F7 project.
+   */
+  espcp_usrsock_setsockopt          /* si_setsockopt */
 };
 
 /****************************************************************************
@@ -128,7 +133,7 @@ static char *_thisFile = __FILE__;
 static int espcp_usrsock_sockif_setup(FAR struct socket *psock, int protocol)
 {
   int domain = psock->s_domain;
-  int type = psock->s_type;
+  // int type = psock->s_type;
   // int ret;
 
   syslog(LOG_CRIT, "%s@%d espcp_usrsock_sockif_setup called.\n", _thisFile, __LINE__);
@@ -685,7 +690,7 @@ ssize_t espcp_usrsock_sendto(FAR struct socket *psock, FAR const void *buf,
  *   value_len The length of the argument value
  *
  ****************************************************************************/
-int espcp_usrsock_setsockopt(FAR struct usrsock_conn_s *conn, int level, int option,
+int espcp_usrsock_setsockopt(FAR struct socket *psock, int level, int option,
                        FAR const void *value, FAR socklen_t value_len)
 {
   syslog(LOG_CRIT, "%s@%d espcp_usrsock_setsockopt called.\n", _thisFile, __LINE__);
@@ -736,3 +741,4 @@ int espcp_usrsock_socket(int domain, int type, int protocol,
   syslog(LOG_CRIT, "%s@%d espcp_usrsock_socket called.\n", _thisFile, __LINE__);
   return(-1);
 }
+

@@ -543,7 +543,7 @@ int espcp_usrsock_getsockopt(FAR struct usrsock_conn_s *conn, int level, int opt
  *
  ****************************************************************************/
 
-int espcp_usrsock_setsockopt(FAR struct usrsock_conn_s *conn, int level, int option,
+int espcp_usrsock_setsockopt(FAR struct socket *psock, int level, int option,
                        FAR const void *value, FAR socklen_t value_len);
 
 /****************************************************************************

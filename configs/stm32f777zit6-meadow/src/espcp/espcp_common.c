@@ -126,4 +126,5 @@ uint32_t espcp_queue_message(espcp_message_t *message, bool block)
  ****************************************************************************/
 uint32_t espcp_create_and_send_message(uint8_t message_type, uint8_t interface, uint32_t function, uint8_t *payload, uint32_t payload_length, bool block)
 {
+  return(0);
 }

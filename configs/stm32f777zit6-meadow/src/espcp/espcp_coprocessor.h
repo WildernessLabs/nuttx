@@ -179,7 +179,31 @@
 /*
  *  Type definition for the function that will send data to the ESP32.
  */
-typedef void (*espcp_send_data_function_t)(void *, void *, size_t); 
+typedef void (*espcp_send_data_function_t)(void *, void *, size_t);
+
+struct espcp_wifi_configuration_s
+{
+  /*
+   *  IP address of the WiFi adapter.
+   */
+  uint8_t ip[4];
+
+  /*
+   *  Subnet mask of the WiFi adapter.
+   */
+  uint8_t subnet[4];
+
+  /*
+   *  Gateway address of the WiFi adapter.
+   */
+  uint8_t gateway[4];
+
+  /*
+   *  Name of the network.
+   */
+  char *ssid;
+};
+typedef struct espcp_wifi_configuration_s espcp_wifi_configuration_t;
 
 /*
  *  Configuration information for the ESP32 coprocessor.
@@ -229,6 +253,11 @@ struct espcp_configuration_s
    *  Pointer to a buffer that can take a header (and only a header) worth of data.
    */
   uint8_t *header;
+
+  /*
+   *  Configuration of the ESP32 WiFi adapter.
+   */
+  espcp_wifi_configuration_t *wifi_configuration;
 };
 typedef struct espcp_configuration_s espcp_configuration_t;
 

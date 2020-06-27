@@ -140,6 +140,7 @@ espcp_configuration_t *espcp_get_default_configuration(void)
       free(config);
       config = NULL;
     }
+    config->wifi_configuration = NULL;
   }
   return(config);
 }
@@ -228,6 +229,8 @@ int espcp_spi_setup(xcpt_t queue_send_response_message_function)
    *  needed.
    */
 #ifdef CONFIG_MEADOW_ESPCP_RESET_ESP32_AT_STARTUP
+  //  TODO: Need to investgate the power on cycle for the ESP32 as it can sometimes appear to take a while to reset.
+  usleep(10000);
   stm32_gpiowrite(ESP32CP_SPI_RESET_PIN_OUTPUT, true);
   stm32_unconfiggpio(ESP32CP_SPI_RESET_PIN_OUTPUT);
 #endif

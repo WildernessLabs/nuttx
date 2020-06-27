@@ -407,7 +407,7 @@ int32_t espcp_socket(int domain, int type, int protocol)
  *  None
  *
  ****************************************************************************/
-int32_t espcp_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
+int espcp_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
   int32_t result = -1;
   espcp_message_t *message = NULL;

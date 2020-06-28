@@ -142,6 +142,9 @@ struct espcp_message_s
      */
     uint32_t payload_length;
 
+    /*
+     *  Semaphore used to make method calls into blocking calls.
+     */
     sem_t *semaphore;
 };
 typedef struct espcp_message_s espcp_message_t;

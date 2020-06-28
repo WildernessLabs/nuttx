@@ -99,7 +99,8 @@ const struct sock_intf_s g_usrsock_sockif_esp32 =
    *  All of the above are from the generic usrsock project.
    *  The methods below are specific to the Meadow F7 project.
    */
-  espcp_usrsock_setsockopt          /* si_setsockopt */
+  espcp_usrsock_setsockopt,          /* si_setsockopt */
+  espcp_usrsock_getsockopt           /* si_getsockopt */
 };
 
 /****************************************************************************
@@ -133,46 +134,7 @@ static char *_thisFile = __FILE__;
 static int espcp_usrsock_sockif_setup(FAR struct socket *psock, int protocol)
 {
   int domain = psock->s_domain;
-  // int type = psock->s_type;
-  // int ret;
-
-  syslog(LOG_CRIT, "%s@%d espcp_usrsock_sockif_setup called.\n", _thisFile, __LINE__);
-
-#ifdef CONFIG_NET_USRSOCK_NO_INET
-  if (domain == PF_INET)
-    {
-      return -ENETDOWN;
-    }
-#endif
-
-#ifdef CONFIG_NET_USRSOCK_NO_INET6
-  if (domain == PF_INET6)
-    {
-      return -ENETDOWN;
-    }
-#endif
-
-  if (domain == PF_INET || domain == PF_INET6)
-    {
-#ifndef CONFIG_NET_USRSOCK_UDP
-      if (type == SOCK_DGRAM)
-        {
-          return -ENETDOWN;
-        }
-#endif
-#ifndef CONFIG_NET_USRSOCK_TCP
-      if (type == SOCK_STREAM)
-        {
-          return -ENETDOWN;
-        }
-#endif
-    }
-  else
-    {
-#ifndef CONFIG_NET_USRSOCK_OTHER
-      return -ENETDOWN;
-#endif
-    }
+  int type = psock->s_type;
 
   psock->s_type = PF_UNSPEC;
   psock->s_conn = NULL;
@@ -186,11 +148,11 @@ static int espcp_usrsock_sockif_setup(FAR struct socket *psock, int protocol)
    * to open socket with kernel networking stack in this case.
    */
 
-  // ret = espcp_usrsock_socket(domain, type, protocol, psock);
-  // if (ret == -ENETDOWN)
-  //   {
-  //     nwarn("WARNING: usrsock daemon is not running\n");
-  //   }
+  int ret = espcp_usrsock_socket(domain, type, protocol, psock);
+  if (ret == -ENETDOWN)
+    {
+      nwarn("WARNING: usrsock daemon is not running\n");
+    }
 
   return OK;
 }
@@ -534,7 +496,7 @@ int espcp_usrsock_getsockname(FAR struct socket *psock,
  *   value_len The length of the argument value
  *
  ****************************************************************************/
-int espcp_usrsock_getsockopt(FAR struct usrsock_conn_s *conn, int level, int option,
+int espcp_usrsock_getsockopt(FAR struct socket *psock, int level, int option,
                        FAR void *value, FAR socklen_t *value_len)
 {
   syslog(LOG_CRIT, "%s@%d espcp_usrsock_getsockopt called.\n", _thisFile, __LINE__);
@@ -557,7 +519,7 @@ int espcp_usrsock_ioctl(FAR struct socket *psock, int cmd, FAR void *arg,
                   size_t arglen)
 {
   syslog(LOG_CRIT, "%s@%d espcp_usrsock_ioctl called.\n", _thisFile, __LINE__);
-  return(-1);
+  return(0);
 }
 
 /****************************************************************************
@@ -741,4 +703,3 @@ int espcp_usrsock_socket(int domain, int type, int protocol,
   syslog(LOG_CRIT, "%s@%d espcp_usrsock_socket called.\n", _thisFile, __LINE__);
   return(-1);
 }
-

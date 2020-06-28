@@ -53,6 +53,8 @@
 // #include <nuttx/net/devif/devif.h>
 #include <sys/socket.h>
 
+#include "espcp_posix.c"
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
@@ -518,7 +520,7 @@ ssize_t espcp_usrsock_recvfrom(FAR struct socket *psock, FAR void *buf, size_t l
  *
  ****************************************************************************/
 
-int espcp_usrsock_getsockopt(FAR struct usrsock_conn_s *conn, int level, int option,
+int espcp_usrsock_getsockopt(FAR struct socket *psock, int level, int option,
                        FAR void *value, FAR socklen_t *value_len);
 
 /****************************************************************************
@@ -622,7 +624,7 @@ int espcp_usrsock_ioctl(FAR struct socket *psock, int cmd, FAR void *arg, size_t
  *
  ****************************************************************************/
 
-void usrsock_register_sockif(FAR struct sock_intf_s* sockif);
+void usrsock_register_sockif(FAR const struct sock_intf_s* sockif);
 
 #undef EXTERN
 #ifdef __cplusplus

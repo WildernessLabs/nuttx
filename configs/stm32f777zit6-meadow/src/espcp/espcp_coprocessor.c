@@ -140,7 +140,6 @@ espcp_configuration_t *espcp_get_default_configuration(void)
       free(config);
       config = NULL;
     }
-    config->wifi_configuration = NULL;
   }
   return(config);
 }

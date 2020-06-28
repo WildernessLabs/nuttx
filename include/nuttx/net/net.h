@@ -189,7 +189,8 @@ struct sock_intf_s
 #ifdef CONFIG_MEADOW_ESPCP_MANAGER
   CODE int        (*si_setsockopt)(FAR struct socket *psock, int level, int option, 
                     FAR const void *value, socklen_t value_len);
-
+  CODE int        (*si_getsockopt)(FAR struct socket *psock, int level, int option, 
+                    FAR const void *value, socklen_t value_len);
 #endif
 };
 

@@ -53,7 +53,7 @@
 // #include <nuttx/net/devif/devif.h>
 #include <sys/socket.h>
 
-#include "espcp_posix.c"
+#include "espcp_posix.h"
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -288,7 +288,7 @@ int espcp_usrsock_socket(int domain, int type, int protocol, FAR struct socket *
  *
  ****************************************************************************/
 
-int espcp_usrsock_close(FAR struct usrsock_conn_s *conn);
+int espcp_usrsock_close(FAR struct socket *psock);
 
 /****************************************************************************
  * Name: usrsock_bind

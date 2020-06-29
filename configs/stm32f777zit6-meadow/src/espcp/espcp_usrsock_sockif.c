@@ -51,6 +51,7 @@
 #include "espcp_usrsock.h"
 #include <sys/socket.h>
 
+#include "espcp_common.h"
 #include "espcp_coprocessor.h"
 
 /****************************************************************************
@@ -385,11 +386,39 @@ int espcp_usrsock_bind(FAR struct socket *psock,
  * Description:
  *
  ****************************************************************************/
-int espcp_usrsock_close(FAR struct usrsock_conn_s *conn)
+int espcp_usrsock_close(FAR struct socket *psock)
 {
-  syslog(LOG_CRIT, "%s@%d espcp_usrsock_close called.\n", _thisFile, __LINE__);
-  return(-1);
-}
+  int32_t result = -1;
+  espcp_message_t *message = NULL;
+
+  espcp_close_request_t *request = (espcp_close_request_t *) malloc(sizeof(espcp_close_request_t));
+  request->socket_handle = psock->s_esp32_sockfd;
+
+  int payload_length = espcp_close_request_buffer_size(request);
+  uint8_t *payload = (uint8_t *) malloc(payload_length);
+  if (payload == NULL)
+  {
+    free(request);
+  }
+  else
+  {
+    espcp_encode_close_request(request, payload);
+    free(request);
+
+    message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi, 
+            espcp_wi_fi_function_close, espcp_status_codes_completed_ok,
+            espcp_get_next_message_id(), payload, payload_length);
+
+    if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+    {
+        espcp_integer_response_t *response = espcp_extract_integer_response(message->payload);
+        result = response->result;
+        free(response);
+    }
+  }
+  
+  espcp_delete_message_and_payload(message);
+  return(result);}
 
 /****************************************************************************
  * Name: espcp_usrsock_connect
@@ -411,8 +440,40 @@ int espcp_usrsock_close(FAR struct usrsock_conn_s *conn)
 int espcp_usrsock_connect(FAR struct socket *psock,
                     FAR const struct sockaddr *addr, socklen_t addrlen)
 {
-  syslog(LOG_CRIT, "%s@%d espcp_usrsock_connect called.\n", _thisFile, __LINE__);
-  return(-1);
+  int32_t result = -1;
+  espcp_message_t *message = NULL;
+
+  espcp_connect_request_t *request = (espcp_connect_request_t *) malloc(sizeof(espcp_connect_request_t));
+  request->socket_handle = psock->s_esp32_sockfd;
+  request->addr = (uint8_t *) addr;
+  request->addr_length = sizeof(struct sockaddr);
+  request->addr_len = addrlen;
+
+  int payload_length = espcp_connect_request_buffer_size(request);
+  uint8_t *payload = (uint8_t *) malloc(payload_length);
+  if (payload == NULL)
+  {
+    free(request);
+  }
+  else
+  {
+    espcp_encode_connect_request(request, payload);
+    free(request);
+
+    message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi, 
+            espcp_wi_fi_function_connect, espcp_status_codes_completed_ok,
+            espcp_get_next_message_id(), payload, payload_length);
+
+    if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+    {
+        espcp_integer_response_t *response = espcp_extract_integer_response(message->payload);
+        result = response->result;
+        free(response);
+    }
+  }
+  
+  espcp_delete_message_and_payload(message);
+  return(result);
 }
 
 /****************************************************************************
@@ -643,6 +704,18 @@ ssize_t espcp_usrsock_sendto(FAR struct socket *psock, FAR const void *buf,
  *   options at the socket level, specify the level argument as SOL_SOCKET.
  *
  *   See <sys/socket.h> a complete list of values for the 'option' argument.
+ * 
+ *   According to the ESP32 documentation, the following socket option types
+ *   are NOT supported:
+ *      - SoDebug
+ *      - SoDontRoute
+ *      - SoUseLoopBack
+ *      - SoOobInline
+ *      - SoReusePort
+ *      - SoSndBuf
+ *      - SoSndLoWat
+ *      - SoRcvLoWat
+ * 
  *
  * Input Parameters:
  *   conn      usrsock socket connection structure
@@ -655,8 +728,83 @@ ssize_t espcp_usrsock_sendto(FAR struct socket *psock, FAR const void *buf,
 int espcp_usrsock_setsockopt(FAR struct socket *psock, int level, int option,
                        FAR const void *value, FAR socklen_t value_len)
 {
-  syslog(LOG_CRIT, "%s@%d espcp_usrsock_setsockopt called.\n", _thisFile, __LINE__);
-  return(-1);
+  int32_t result = -1;
+  espcp_message_t *message = NULL;
+
+  espcp_set_sock_opt_request_t *request = (espcp_set_sock_opt_request_t *) malloc(sizeof(espcp_set_sock_opt_request_t));
+  memset(request, 0, sizeof(espcp_set_sock_opt_request_t));
+  espcp_time_val_t *tv;
+  switch (option)
+  {
+    case SO_RCVTIMEO:
+      tv = (espcp_time_val_t *) malloc(sizeof(espcp_time_val_t));
+      memset(tv, 0, sizeof(espcp_time_val_t));
+      struct timeval *ov = (struct timeval *) value;
+      tv->tv_sec = ov->tv_sec;
+      tv->tv_usec = ov->tv_usec;
+      request->option_value_length = espcp_time_val_buffer_size(tv);
+      request->option_value = (uint8_t *) malloc(request->option_value_length);
+      if (request->option_value != NULL)
+      {
+        espcp_encode_time_val(tv, request->option_value);
+        free(tv);
+        request->option_len = 0;    /* Calculated by the ESP32 code. */
+      }
+      else
+      {
+        free(request);
+        return(-1);
+      }
+      break;
+    case SO_REUSEADDR:
+      request->option_value_length = value_len;
+      request->option_value = (uint8_t *) malloc(value_len);
+      if (request->option_value != NULL)
+      {
+        memcpy(request->option_value, value, value_len);
+      }
+      else
+      {
+        free(request);
+        return(-1);
+      }
+      break;
+    default:
+      return(-1);
+      break;
+  }
+  request->socket_number = psock->s_esp32_sockfd;
+  request->level = level;
+  request->option_name = option;
+
+  int payload_length = espcp_set_sock_opt_request_buffer_size(request);
+  uint8_t *payload = (uint8_t *) malloc(payload_length);
+  if (payload == NULL)
+  {
+    free(request->option_value);
+    free(request);
+  }
+  else
+  {
+    espcp_encode_set_sock_opt_request(request, payload);
+    free(request->option_value);
+    free(request);
+
+    message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi, 
+            espcp_wi_fi_function_set_sock_opt, espcp_status_codes_completed_ok,
+            espcp_get_next_message_id(), payload, payload_length);
+
+    if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+    {
+      espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
+      errno = response->response_errno;
+      result = response->result;
+      free(response);
+    }
+  }
+
+  espcp_delete_message_and_payload(message);
+  return(result);
 }
 
 /****************************************************************************
@@ -700,6 +848,46 @@ int espcp_usrsock_setsockopt(FAR struct socket *psock, int level, int option,
 int espcp_usrsock_socket(int domain, int type, int protocol,
                    FAR struct socket *psock)
 {
-  syslog(LOG_CRIT, "%s@%d espcp_usrsock_socket called.\n", _thisFile, __LINE__);
-  return(-1);
+  int result = -1;
+
+  espcp_socket_request_t *request = (espcp_socket_request_t *) malloc(sizeof(espcp_socket_request_t));
+  if (request == NULL)
+  {
+    return(-ENOMEM);
+  }
+  memset(request, 0, sizeof(espcp_socket_request_t));
+  request->domain = domain;
+  request->type = type;
+  request->protocol = protocol;
+
+  int payload_length = espcp_socket_request_buffer_size(request);
+  uint8_t *payload = (uint8_t *) malloc(payload_length);
+  if (payload == NULL)
+  {
+    free(request);
+    return(-ENOMEM);
+  }
+  espcp_encode_socket_request(request, payload);
+  free(request);
+
+  espcp_message_t *message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi, 
+        espcp_wi_fi_function_socket, espcp_status_codes_completed_ok,
+        espcp_get_next_message_id(), payload, payload_length);
+  if (message == NULL)
+  {
+    return(-ENOMEM);
+  }
+
+  if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+  {
+    espcp_integer_response_t *response = espcp_extract_integer_response(message->payload);
+    result = response->result;
+    free(response);
+  }
+
+  espcp_delete_message_and_payload(message);
+  psock->s_domain = domain;
+  psock->s_type = type;
+  psock->s_esp32_sockfd = result;
+  return(result);
 }

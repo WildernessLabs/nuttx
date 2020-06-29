@@ -229,6 +229,9 @@ struct socket
 
   FAR struct devif_callback_s *s_sndcb;
 #endif
+#ifdef CONFIG_MEADOW_ESPCP_MANAGER
+  int32_t       s_esp32_sockfd;
+#endif
 };
 
 /* This defines a list of sockets indexed by the socket descriptor */

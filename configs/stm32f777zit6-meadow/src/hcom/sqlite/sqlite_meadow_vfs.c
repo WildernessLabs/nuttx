@@ -353,8 +353,6 @@ static int demoFileSize(sqlite3_file *pFile, sqlite_int64 *pSize)
     return rc;
   }
 
-  // ! nuttx rc = fstat(p->fd, &sStat);
-  // ! nuttx *pSize = sStat.st_size;
   rc = fstat(p->fd, &sStat);
   if( rc!=0 ) return SQLITE_IOERR_FSTAT;
   *pSize = sStat.st_size;
@@ -497,8 +495,7 @@ static int demoOpen(
   p->fd = open(zName, oflags, 0600);
   if( p->fd<0 )
   {
-    // syslog(1, "VFS-demoOpen@%d, ERROR:SQLITE_CANTOPEN, fd:%d\n", __LINE__, p->fd);
-    usleep(10 * 1000);
+    // syslog(1, "VFS-demoOpen@%d, ERROR:SQLITE_CANTOPEN, fd:%d\n", __LINE__, p->fd); usleep(10 * 1000);
     sqlite3_free(aBuf);
     return SQLITE_CANTOPEN;
   }

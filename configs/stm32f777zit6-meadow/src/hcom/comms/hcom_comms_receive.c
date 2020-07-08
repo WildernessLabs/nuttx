@@ -279,7 +279,7 @@ bool hcom_comms_receive_data()
       if (readResult == -ENOTCONN || readResult == -ENOTSOCK || readResult == -ENETDOWN)
       {
         // Host dropped connection - calling read will only repeat the error
-        hcom_utils_f7syslog(LOG_NOTICE, "%s@%d-USB connection dropped.\n", thisFile, __LINE__);
+        hcom_utils_f7syslog(LOG_NOTICE, "%s@%d-USB connection dropped, error:%d\n", thisFile, __LINE__, readResult);
         delayBeforeRetry = true;    // Delay retry
       }
       else

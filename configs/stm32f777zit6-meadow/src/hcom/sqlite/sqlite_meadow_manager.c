@@ -52,7 +52,7 @@
 
 sqlite3_vfs *sqlite3_demovfs(void);
 
-static int execute_sqlite_database_experiment(void);
+static int execute_sqlite_populate_database(void);
 static int execute_sqlite_query1_experiment(void);
 static int execute_sqlite_query2_experiment(void);
 
@@ -72,7 +72,7 @@ void hcom_exec_rqst_testing_developer_1(uint32_t userData)
   switch(userData)
   {
     case 1:
-    execute_sqlite_database_experiment();
+    execute_sqlite_populate_database();
     break;
     
     case 2:
@@ -178,7 +178,7 @@ static sqlite3 * hcom_sqlite_register_vfs_and_open(const char *databaseName)
 
 //=========================================================
 // Called from cli for testing
-int execute_sqlite_database_experiment()
+int execute_sqlite_populate_database()
 {
   sqlite3 *sqlite_db;
   int ret;
@@ -255,6 +255,7 @@ int execute_sqlite_database_experiment()
   char sLastName[64];
   char sSQL[256];
 
+  // Begin transaction
   ret = sqlite3_exec(sqlite_db, "BEGIN TRANSACTION", NULL, NULL, &errMsg);
   if(ret < 0)
   {
@@ -265,25 +266,24 @@ int execute_sqlite_database_experiment()
   }
 
   syslog(1, "MGR-SQLite test:Step #7 - fill database table with names\n");
+
   //--------------------------------------------------
   // Insert names into SQLlite database.
   while(true)
   {
-    nameId++;
-
     // Read a line
     ret = fscanf(pFile, "%s%c%s", sFirstName, sTab, sLastName);
     if(ret != 3)
     {
-      break;
+      break;    // exit after last entry
     }
+    nameId++;
 
     // Insert statement
     sprintf(sSQL, "INSERT INTO Names VALUES (%d, '%s','%s')", nameId, sFirstName, sLastName);
     // syslog(1, "--------------------------------------\n");
-    syslog(1, "MGR-SQLite test:Step #8 (%d)-Insert statement '%s'\n", nameId, sSQL);
+    // syslog(1, "MGR-SQLite test:Step #8 (%d)-Insert statement '%s'\n", nameId, sSQL);
 
-    // Could speed up by using prepare etc.
     ret = sqlite3_exec(sqlite_db, sSQL, NULL, NULL, &errMsg);
     if(ret)
     {
@@ -350,6 +350,8 @@ int execute_sqlite_query1_experiment()
   }
 
   int counter = 1;
+
+  // Step through each result
   while((ret = sqlite3_step(stmt)) == SQLITE_ROW)
   {
     // show the data
@@ -357,6 +359,7 @@ int execute_sqlite_query1_experiment()
     const unsigned char *firstName = sqlite3_column_text (stmt, 1);
     const unsigned char *lastName = sqlite3_column_text (stmt, 2);
 
+    // Just show via syslog
     syslog(1, "#%d-Row:%d, First:%s Name:%s\n", counter, id, firstName, lastName);
     counter++;
   }

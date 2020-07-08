@@ -1,4 +1,5 @@
 // Copied from https://www.sqlite.org/src/doc/trunk/src/test_demovfs.c
+// June 2020
 /*
 ** 2010 April 7
 **
@@ -116,6 +117,8 @@
 
 #if !defined(SQLITE_TEST) || SQLITE_OS_UNIX
 
+// see https://sqlite.org/custombuild.html for more information
+
 #include "../hcom_common.h"
 #include <sys/stat.h>
 
@@ -156,8 +159,7 @@ static int demoDirectWrite(
   const void *zBuf,               /* Buffer containing data to write */
   int iAmt,                       /* Size of data to write in bytes */
   sqlite_int64 iOfst              /* File offset to write to */
-)
-{
+){
   //// syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10);
   off_t ofst;                     /* Return value from lseek() */
   size_t nWrite;                  /* Return value from write() */
@@ -182,8 +184,7 @@ static int demoDirectWrite(
 ** no-op if this particular file does not have a buffer (i.e. it is not
 ** a journal file) or if the buffer is currently empty.
 */
-static int demoFlushBuffer(DemoFile *p)
-{
+static int demoFlushBuffer(DemoFile *p){
   // // syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10);
   int rc = SQLITE_OK;
   if( p->nBuffer ){
@@ -196,8 +197,7 @@ static int demoFlushBuffer(DemoFile *p)
 /*
 ** Close a file.
 */
-static int demoClose(sqlite3_file *pFile)
-{
+static int demoClose(sqlite3_file *pFile){
   // syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10);
   int rc;
   DemoFile *p = (DemoFile*)pFile;
@@ -348,8 +348,7 @@ static int demoFileSize(sqlite3_file *pFile, sqlite_int64 *pSize)
   ** not worth the trouble.
   */
   rc = demoFlushBuffer(p);
-  if( rc!=SQLITE_OK )
-  {
+  if( rc!=SQLITE_OK ){
     return rc;
   }
 
@@ -409,11 +408,10 @@ static int demoOpen(
   const char *zName,              /* File to open, or 0 for a temp file */
   sqlite3_file *pFile,            /* Pointer to DemoFile struct to populate */
   int flags,                      /* Input SQLITE_OPEN_XXX flags */
-  int *pOutFlags)                 /* Output SQLITE_OPEN_XXX flags (or NULL) */
-{
+  int *pOutFlags                  /* Output SQLITE_OPEN_XXX flags (or NULL) */
+){
   // syslog(1, "VFS-%s@%d-Entered\n", __func__, __LINE__); usleep(10);
-  static const sqlite3_io_methods demoio = 
-  {
+  static const sqlite3_io_methods demoio = {
     1,                            /* iVersion */
     demoClose,                    /* xClose */
     demoRead,                     /* xRead */
@@ -433,18 +431,15 @@ static int demoOpen(
   int oflags = 0;                 /* flags to pass to open() call */
   char *aBuf = 0;
 
-  if( zName==0 )
-  {
+  if( zName==0 ){
     // syslog(1, "VFS-demoOpen@%d\n", __LINE__); usleep(10);
     return SQLITE_IOERR;
   }
   // syslog(1, "VFS-demoOpen@%d\n", __LINE__); usleep(10);
 
-  if( flags&SQLITE_OPEN_MAIN_JOURNAL )
-  {
+  if( flags&SQLITE_OPEN_MAIN_JOURNAL ){
     aBuf = (char *)sqlite3_malloc(SQLITE_DEMOVFS_BUFFERSZ);
-    if( !aBuf )
-    {
+    if( !aBuf ){
       return SQLITE_NOMEM;
       // syslog(1, "VFS-demoOpen@%d ERROR:SQLITE_NOMEM\n", __LINE__); usleep(10);
     }
@@ -462,17 +457,14 @@ static int demoOpen(
   if(flags & SQLITE_OPEN_MAIN_JOURNAL ||
     flags & SQLITE_OPEN_TEMP_JOURNAL ||
     flags & SQLITE_OPEN_SUBJOURNAL ||
-    flags & SQLITE_OPEN_MASTER_JOURNAL)
-  {
+    flags & SQLITE_OPEN_MASTER_JOURNAL){
     // This should still work if this issue is addressed in sqlite3.c
-    if(!(flags & SQLITE_OPEN_CREATE))
-    {
+    if(!(flags & SQLITE_OPEN_CREATE)){
       oflags = O_CREAT | O_RDWR;
     }
   }
 
-  if(oflags == 0)
-  {
+  if(oflags == 0){
     // Use Nuttx flag values
     if( flags&SQLITE_OPEN_EXCLUSIVE ) oflags |= O_EXCL;
     if( flags&SQLITE_OPEN_CREATE )    oflags |= O_CREAT;
@@ -493,16 +485,14 @@ static int demoOpen(
 
   memset(p, 0, sizeof(DemoFile));
   p->fd = open(zName, oflags, 0600);
-  if( p->fd<0 )
-  {
+  if( p->fd<0 ){
     // syslog(1, "VFS-demoOpen@%d, ERROR:SQLITE_CANTOPEN, fd:%d\n", __LINE__, p->fd); usleep(10 * 1000);
     sqlite3_free(aBuf);
     return SQLITE_CANTOPEN;
   }
   p->aBuffer = aBuf;
 
-  if( pOutFlags )
-  {
+  if( pOutFlags ){
     // Return SQLITE_OPEN_XXXXX flags to caller
     *pOutFlags = flags;
   }
@@ -566,8 +556,7 @@ static int demoAccess(
   const char *zPath, 
   int flags, 
   int *pResOut
-)
-{
+){
   // syslog(1, "VFS-%s@%d-Entered - Access file name:'%s'\n", __func__, __LINE__, zPath); usleep(10);
   int rc;                         /* access() return code */
   int eAccess = F_OK;             /* Second argument to access() */
@@ -604,12 +593,9 @@ static int demoFullPathname(
 ){
   // syslog(1, "VFS-%s@%d-Entered [file to check/expand '%s']\n", __func__, __LINE__, zPath);
   char zDir[MAXPATHNAME+1];
-  if( zPath[0]=='/' )
-  {
+  if( zPath[0]=='/' ){
     zDir[0] = '\0';
-  }
-  else
-  {
+  }else{
     if( getcwd(zDir, sizeof(zDir))==0 )
       return SQLITE_IOERR;
   }

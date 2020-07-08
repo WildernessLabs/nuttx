@@ -39,30 +39,42 @@
  * Included Files
  ****************************************************************************/
 #define SQLITE_OS_OTHER 1
-#define HAVE_USLEEP 0       // fix this later
+
+// Nuttx has a usleep function with millsec resolution
+#define HAVE_USLEEP 1       
+
+// 0 = single threaded, 1 = serialized, 2 = Multi-threaded
+// The setting of 0 is an initial value to get things initially
+// working. see https://sqlite.org/threadsafe.html for details
 #define SQLITE_THREADSAFE 0
+
+// Omit write-ahead log (optional to using journal files)
+// If defined as 0 sqlite3.c will not compile. When not defined or set
+// to 1 sqlite3.c will compile. Decided to make it explicit by defining
+// as 1. I did not explore the root cause of why it wouldn't build. 
+// Probably a number of settings need to agree.
+// see https://sqlite.org/wal.html
 #define SQLITE_OMIT_WAL 1
 
 // Temporary files. The user must configure SQLite to use in-memory
-// temp files when using this VFS. The easiest way to do this is to
+// temp files when the Meadow VFS. The easiest way to do this is to
 // compile with:
 #define SQLITE_TEMP_STORE 3
 
-
 // Below is all the defines that are not defined and therefore
-// cause compiler warnings.
+// cause compiler warnings. An attempt was made to define this
+// but this seemed to be a rabbit hole. 
 //
-// This are to be utilized to control the sqlite build
 // #define SQLITE_32BIT_ROWID 0
 // #define SQLITE_4_BYTE_ALIGNED_MALLOC 0
 // #define SQLITE_64BIT_STATS 0
-// #define SQLITE_ALLOW_COVERING_INDEX_SCAN 0
+// #define SQLITE_ALLOW_COVERING_INDEX_SCAN 1 // 0 is deprecated
 // #define SQLITE_ALLOW_URI_AUTHORITY 0
 // #define SQLITE_BUG_COMPATIBLE_20160819 0
 // #define SQLITE_CASE_SENSITIVE_LIKE 0
 // #define SQLITE_CHECK_PAGES 0
 // #define SQLITE_COVERAGE_TEST 0
-// #define SQLITE_DEBUG 0
+// //#define SQLITE_DEBUG 0    // Do not define
 // #define SQLITE_DEFAULT_AUTOMATIC_INDEX 0
 // #define SQLITE_DEFAULT_AUTOVACUUM 0
 // #define SQLITE_DEFAULT_CKPTFULLFSYNC 0
@@ -97,7 +109,7 @@
 // #define SQLITE_ENABLE_FTS5 0
 // #define SQLITE_ENABLE_GEOPOLY 0
 // #define SQLITE_ENABLE_HIDDEN_COLUMNS 0
-// #define SQLITE_ENABLE_ICU 0
+// // #define SQLITE_ENABLE_ICU 0  Do not define it create errors on line 193568
 // #define SQLITE_ENABLE_IOTRACE 0
 // #define SQLITE_ENABLE_JSON1 0
 // #define SQLITE_ENABLE_LOAD_EXTENSION 0
@@ -107,6 +119,8 @@
 // #define SQLITE_ENABLE_MULTIPLEX 0
 // #define SQLITE_ENABLE_NORMALIZE 0
 // #define SQLITE_ENABLE_NULL_TRIM 0
+// Got as far as this and gave up trying to define
+
 // #define SQLITE_ENABLE_OVERSIZE_CELL_CHECK 0
 // #define SQLITE_ENABLE_PREUPDATE_HOOK 0
 // #define SQLITE_ENABLE_QPSG 0
@@ -206,7 +220,6 @@
 // #define SQLITE_OMIT_VACUUM 0
 // #define SQLITE_OMIT_VIEW 0
 // #define SQLITE_OMIT_VIRTUALTABLE 0
-// #define SQLITE_OMIT_WAL 0
 // #define SQLITE_OMIT_WSD 0
 // #define SQLITE_OMIT_XFER_OPT 0
 // #define SQLITE_PCACHE_SEPARATE_HEADER 0
@@ -233,16 +246,13 @@
 // #define SQLITE_WIN32_MALLOC 0
 // #define SQLITE_ZERO_MALLOC 0
 // #define SQLITE_ENABLE_HIDDEN_COLUMNS 0
-// #define SQLITE_DEBUG 0
 // #define HAVE_MALLOC_H 0 && HAVE_MALLOC_USABLE_SIZE
 // #define HAVE_STRCHRNUL 0
-// #define SQLITE_OMIT_WAL 0
 // #define SQLITE_ENABLE_STAT4 0
 // #define SQLITE_OMIT_SUBQUERY 0
 // #define SQLITE_USER_AUTHENTICATION 0
 // #define SQLITE_ENABLE_HIDDEN_COLUMNS 0
 // #define SQLITE_USER_AUTHENTICATION 0
-// #define SQLITE_DEBUG 0
 // #define WHERETRACE_ENABLED 0 /* 0x20800 */
 // #define WHERETRACE_ENABLED 0
 // #define WHERETRACE_ENABLED 0 /* 0x8 */
@@ -250,5 +260,13 @@
 // #define SQLITE_DEFAULT_CKPTFULLFSYNC 0
 // #define SQLITE_ENABLE_API_ARMOR 0
 
+// https://sqlite.org/testing.html section 11
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wuninitialized"
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wundef"
+
 // Compile sqlite
 #include "sqlite3.c"
+
+#pragma GCC diagnostic pop

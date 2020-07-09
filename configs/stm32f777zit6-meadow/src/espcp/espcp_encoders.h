@@ -208,6 +208,40 @@ struct espcp_get_battery_charge_level_response_s
 };
 typedef struct espcp_get_battery_charge_level_response_s espcp_get_battery_charge_level_response_t;
 
+struct espcp_send_to_request_s
+{
+    int32_t socket_handle;
+    uint32_t buffer_length;
+    uint8_t *buffer;
+    int32_t length;
+    int32_t flags;
+    uint32_t destination_address_length;
+    uint8_t *destination_address;
+    int32_t destination_address_len;
+};
+typedef struct espcp_send_to_request_s espcp_send_to_request_t;
+
+struct espcp_recv_from_request_s
+{
+    int32_t socket_handle;
+    int32_t length;
+    int32_t flags;
+    int32_t get_source_address;
+};
+typedef struct espcp_recv_from_request_s espcp_recv_from_request_t;
+
+struct espcp_recv_from_response_s
+{
+    uint32_t buffer_length;
+    uint8_t *buffer;
+    int32_t result;
+    int32_t response_errno;
+    uint32_t source_address_length;
+    uint8_t *source_address;
+    uint32_t source_address_len;
+};
+typedef struct espcp_recv_from_response_s espcp_recv_from_response_t;
+
 
 /*
  *      Encoding methods for the ESP32 SPI communications layer.
@@ -315,6 +349,15 @@ espcp_close_request_t *espcp_extract_close_request(uint8_t *);
 void espcp_encode_get_battery_charge_level_response(espcp_get_battery_charge_level_response_t *, uint8_t *);
 int espcp_get_battery_charge_level_response_buffer_size(espcp_get_battery_charge_level_response_t *);
 espcp_get_battery_charge_level_response_t *espcp_extract_get_battery_charge_level_response(uint8_t *);
+void espcp_encode_send_to_request(espcp_send_to_request_t *, uint8_t *);
+int espcp_send_to_request_buffer_size(espcp_send_to_request_t *);
+espcp_send_to_request_t *espcp_extract_send_to_request(uint8_t *);
+void espcp_encode_recv_from_request(espcp_recv_from_request_t *, uint8_t *);
+int espcp_recv_from_request_buffer_size(espcp_recv_from_request_t *);
+espcp_recv_from_request_t *espcp_extract_recv_from_request(uint8_t *);
+void espcp_encode_recv_from_response(espcp_recv_from_response_t *, uint8_t *);
+int espcp_recv_from_response_buffer_size(espcp_recv_from_response_t *);
+espcp_recv_from_response_t *espcp_extract_recv_from_response(uint8_t *);
 
 
 #endif /* _ESPCP_ENCODERS_H */

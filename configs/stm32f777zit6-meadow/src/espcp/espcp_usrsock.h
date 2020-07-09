@@ -374,7 +374,7 @@ int espcp_usrsock_connect(FAR struct socket *psock,
 int espcp_usrsock_listen(FAR struct socket *psock, int backlog);
 
 /****************************************************************************
- * Name: usrsock_accept
+ * Name: espcp_usrsock_accept
  *
  * Description:
  *   The usrsock_sockif_accept function is used with connection-based socket
@@ -625,6 +625,42 @@ int espcp_usrsock_ioctl(FAR struct socket *psock, int cmd, FAR void *arg, size_t
  ****************************************************************************/
 
 void usrsock_register_sockif(FAR const struct sock_intf_s* sockif);
+
+/****************************************************************************
+ * Name: espcp_usrsock_read
+ *
+ * Description:
+ *  Read the specified number of bytes from the socket and place them in the
+ *  buffer.
+ * 
+ *  This method instructs the ESP32 to call the read method which will in
+ *  turn call the equivalent LWIP method.
+ * 
+ * See:
+ *  http://www.nongnu.org/lwip/2_0_x/group__socket.html#ga822040573319cf87bfe6758d511be57f
+ * 
+ * Input Parameters:
+ * 
+ *  psock - Pointer to the socket structure to read from
+ *  buffer - Buffer to hold the results of the read
+ *  count - Size of the buffer.
+ *
+ * Returned Value:
+ *  If successful, the number of bytes read from the socket, -1 otherwise.
+ *
+ * Assumptions/Limitations:
+ *  None
+ *
+ ****************************************************************************/
+int32_t espcp_usrsock_read(FAR struct socket *psock, const void *buffer, size_t count);
+
+int espcp_usrsock_dup2(FAR struct socket *old_psock, FAR struct socket *new_psock);
+size_t espcp_usrsock_sendmsg(FAR struct socket *psock, const struct msghdr *msg, int flags);
+int espcp_usrsock_shutdown(FAR struct socket *psock, int how);
+size_t espcp_usrsock_recvmsg(FAR struct socket *psock, struct msghdr *msg, int flags);
+int espcp_usrsock_getaddrinfo(FAR const char *hostname, FAR const char *servname,
+                FAR const struct addrinfo *hint, FAR struct addrinfo **res);
+void espcp_usrsock_not_implemented(const char *source);
 
 #undef EXTERN
 #ifdef __cplusplus

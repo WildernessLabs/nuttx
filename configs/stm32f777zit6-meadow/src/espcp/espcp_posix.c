@@ -43,6 +43,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <nuttx/net/netdev.h>
 #include <netdb.h>
 
 #include <nuttx/semaphore.h>
@@ -92,7 +93,19 @@ typedef struct espcp_address_table_entry_s espcp_address_table_entry_t;
  * Private Data / Variables
  ****************************************************************************/
 
+/*
+ *  Static pointer to the name of the file being compiled.  This is used for
+ *  logging and making it a static variable ensure that one one instance exists.
+ */
+static char *_thisFile = __FILE__;
+
+
 static gl_linked_list_t *g_addrinfo_mappings = NULL;
+
+lib_external_handlers_t _libc_netdev_handlers = 
+{
+  espcp_getaddrinfo       /* getaddrinfo */
+};
 
 /****************************************************************************
  * Function Implementation
@@ -118,6 +131,7 @@ static gl_linked_list_t *g_addrinfo_mappings = NULL;
 void espcp_posix_network_init(void)
 {
     g_addrinfo_mappings = gl_create_empty_linked_list();
+    netdev_register_external_handler(&_libc_netdev_handlers);
 }
 
 /****************************************************************************
@@ -208,8 +222,10 @@ static bool espcp_check_esp_address(uint32_t address, void *list_item)
  *  None
  *
  ****************************************************************************/
-int32_t espcp_getaddrinfo(const char *node, const char *service, const struct addrinfo *hints, struct addrinfo **res)
+int espcp_getaddrinfo(const char *node, const char *service, const struct addrinfo *hints, struct addrinfo **res)
 {
+
+  hcom_utils_f7syslog(LOG_CRIT, "%s@%d %s called.\n", _thisFile, __LINE__, __func__);
   int32_t result = 0;
   
   espcp_get_addr_info_request_t *request = (espcp_get_addr_info_request_t *) malloc(sizeof(espcp_get_addr_info_request_t));
@@ -448,74 +464,3 @@ int32_t espcp_write(int socket_handle, const void *buffer, size_t count)
   return(result);
 }
 
-/****************************************************************************
- * Name: espcp_read
- *
- * Description:
- *  Read the specified number of bytes from the socket and place them in the
- *  buffer.
- * 
- *  This method instructs the ESP32 to call the read method which will in
- *  turn call the equivalent LWIP method.
- * 
- * See:
- *  http://www.nongnu.org/lwip/2_0_x/group__socket.html#ga822040573319cf87bfe6758d511be57f
- * 
- * Input Parameters:
- *  socket_handle - ESP32 handle for the socket to read from.
- *  buffer - Buffer to hold the results of the read
- *  count - Size of the buffer.
- *
- * Returned Value:
- *  If successful, the number of bytes read from the socket, -1 otherwise.
- *
- * Assumptions/Limitations:
- *  None
- *
- ****************************************************************************/
-int32_t espcp_read(int socket_handle, const void *buffer, size_t count)
-{
-  int32_t result = -1;
-  espcp_message_t *message = NULL;
-
-  if ((buffer == NULL) || (count > MAXIMUM_READ_WRITE_BUFFER_SIZE))
-  {
-    return(-1);
-  }
-
-  espcp_read_request_t *request = (espcp_read_request_t *) malloc(sizeof(espcp_read_request_t));
-  request->socket_handle = socket_handle;
-  request->count = count;
-
-  int payload_length = espcp_read_request_buffer_size(request);
-  uint8_t *payload = (uint8_t *) malloc(payload_length);
-  if (payload == NULL)
-  {
-    free(request);
-  }
-  else
-  {
-    espcp_encode_read_request(request, payload);
-    free(request);
-
-    message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi, 
-            espcp_wi_fi_function_read, espcp_status_codes_completed_ok,
-            espcp_get_next_message_id(), payload, payload_length);
-
-    if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
-    {
-      espcp_read_response_t *response = espcp_extract_read_response(message->payload);
-      if (response->buffer_length > 0)
-      {
-        memcpy((void *) buffer, response->buffer, response->buffer_length);
-        free(response->buffer);
-      }
-      errno = response->read_response_errno;
-      result = response->read_response_result;
-      free(response);
-    }
-  }
-
-  espcp_delete_message_and_payload(message);
-  return(result);
-}

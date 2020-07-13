@@ -1044,11 +1044,17 @@ espcp_access_point_list_t *espcp_extract_access_point_list(uint8_t *buffer)
 ****************************************************************************/
 void espcp_encode_sock_addr(espcp_sock_addr_t *sock_addr, uint8_t *buffer)
 {
-    *buffer = sock_addr->length;
-    buffer += 1;
     *buffer = sock_addr->family;
     buffer += 1;
-    memcpy((void *) buffer, (void *) sock_addr->data, 14);
+    espcp_encode_uint16(sock_addr->port, buffer);
+    buffer += 2;
+    espcp_encode_uint32(sock_addr->ip4_address, buffer);
+    buffer += 4;
+    espcp_encode_uint32(sock_addr->flow_info, buffer);
+    buffer += 4;
+    memcpy((void *) buffer, (void *) sock_addr->ip6_address, 16);
+    buffer += 16;
+    espcp_encode_uint32(sock_addr->scope_i_d, buffer);
 }
 
 /****************************************************************************
@@ -1070,7 +1076,7 @@ void espcp_encode_sock_addr(espcp_sock_addr_t *sock_addr, uint8_t *buffer)
 ****************************************************************************/
 int espcp_sock_addr_buffer_size(espcp_sock_addr_t *sock_addr)
 {
-    return(16);
+    return(31);
 }
 
 /****************************************************************************
@@ -1098,11 +1104,17 @@ espcp_sock_addr_t *espcp_extract_sock_addr(uint8_t *buffer)
 {
     espcp_sock_addr_t *sock_addr = (espcp_sock_addr_t *) malloc(sizeof(espcp_sock_addr_t));
 
-    sock_addr->length = *buffer;
-    buffer += 1;
     sock_addr->family = *buffer;
     buffer += 1;
-    memcpy((void *) sock_addr->data, (void *) buffer, 14);
+    sock_addr->port = espcp_extract_uint16(buffer);
+    buffer += 2;
+    sock_addr->ip4_address = espcp_extract_uint32(buffer);
+    buffer += 4;
+    sock_addr->flow_info = espcp_extract_uint32(buffer);
+    buffer += 4;
+    memcpy((void *) sock_addr->ip6_address, (void *) buffer, 16);
+    buffer += 16;
+    sock_addr->scope_i_d = espcp_extract_uint32(buffer);
     return(sock_addr);
 }
 
@@ -1706,9 +1718,7 @@ void espcp_encode_connect_request(espcp_connect_request_t *connect_request, uint
     if (connect_request->addr_length > 0)
     {
         memcpy((void *) buffer, (void *) connect_request->addr, connect_request->addr_length);
-        buffer += connect_request->addr_length;
     }
-    espcp_encode_int32(connect_request->addr_len, buffer);
 }
 
 /****************************************************************************
@@ -1732,7 +1742,7 @@ int espcp_connect_request_buffer_size(espcp_connect_request_t *connect_request)
 {
     int result = 0;
     result += connect_request->addr_length;
-    return(result + 12);
+    return(result + 8);
 }
 
 /****************************************************************************
@@ -1774,7 +1784,6 @@ espcp_connect_request_t *espcp_extract_connect_request(uint8_t *buffer)
     {
         connect_request->addr = NULL;
     }
-    connect_request->addr_len = espcp_extract_int32(buffer);
     return(connect_request);
 }
 
@@ -2567,9 +2576,7 @@ void espcp_encode_send_to_request(espcp_send_to_request_t *send_to_request, uint
     if (send_to_request->destination_address_length > 0)
     {
         memcpy((void *) buffer, (void *) send_to_request->destination_address, send_to_request->destination_address_length);
-        buffer += send_to_request->destination_address_length;
     }
-    espcp_encode_int32(send_to_request->destination_address_len, buffer);
 }
 
 /****************************************************************************
@@ -2594,7 +2601,7 @@ int espcp_send_to_request_buffer_size(espcp_send_to_request_t *send_to_request)
     int result = 0;
     result += send_to_request->buffer_length;
     result += send_to_request->destination_address_length;
-    return(result + 24);
+    return(result + 20);
 }
 
 /****************************************************************************
@@ -2652,7 +2659,6 @@ espcp_send_to_request_t *espcp_extract_send_to_request(uint8_t *buffer)
     {
         send_to_request->destination_address = NULL;
     }
-    send_to_request->destination_address_len = espcp_extract_int32(buffer);
     return(send_to_request);
 }
 
@@ -2861,6 +2867,172 @@ espcp_recv_from_response_t *espcp_extract_recv_from_response(uint8_t *buffer)
     }
     recv_from_response->source_address_len = espcp_extract_uint32(buffer);
     return(recv_from_response);
+}
+
+/****************************************************************************
+* Name: espcp_encode_poll_request
+*
+* Description:
+*  Convert the espcp_poll_request_t object into a byte stream that can 
+*  be sent to the ESP32.
+*
+* Input Parameters:
+*  poll_request - object to be encoded.
+*
+* Returned Value:
+*  None
+*
+* Assumptions/Limitations:
+*  None
+*
+****************************************************************************/
+void espcp_encode_poll_request(espcp_poll_request_t *poll_request, uint8_t *buffer)
+{
+    espcp_encode_int32(poll_request->socket_handle, buffer);
+    buffer += 4;
+    espcp_encode_uint16(poll_request->events, buffer);
+    buffer += 2;
+    espcp_encode_uint16(poll_request->returned_events, buffer);
+    buffer += 2;
+    espcp_encode_int32(poll_request->timeout, buffer);
+}
+
+/****************************************************************************
+* Name: espcp_encoded_espcp_poll_request_t_buffer_size
+*
+* Description:
+*  Calculate the amount of memory needed to store and encoded version of an
+*  espcp_espcp_poll_request_t_t object.
+*
+* Input Parameters:
+*  espcp_poll_request_t - espcp_espcp_poll_request_t_t object to be encoded.
+*
+* Returned Value:
+*  Number of bytes required to hold the encoded espcp_espcp_poll_request_t_t object.
+*
+* Assumptions/Limitations:
+*  None
+*
+****************************************************************************/
+int espcp_poll_request_buffer_size(espcp_poll_request_t *poll_request)
+{
+    return(12);
+}
+
+/****************************************************************************
+* Name: espcp_extract_poll_request
+ *  
+* Description:
+*  Extract the espcp_poll_request_ object that is
+*  encoded in the given buffer.
+*  
+*  Note that the returned pointer points to a block of memory on the heap and
+*  this should eventually be released calling free(...).
+*  
+* Input Parameters:
+*  poll_request - pointer to the buffer containing the encoded
+*  espcp_poll_request_t object.
+*
+* Returned Value:
+*  Pointer to the extracted espcp_poll_request_t object.
+*
+* Assumptions/Limitations:
+*  None
+*
+****************************************************************************/
+espcp_poll_request_t *espcp_extract_poll_request(uint8_t *buffer)
+{
+    espcp_poll_request_t *poll_request = (espcp_poll_request_t *) malloc(sizeof(espcp_poll_request_t));
+
+    poll_request->socket_handle = espcp_extract_int32(buffer);
+    buffer += 4;
+    poll_request->events = espcp_extract_uint16(buffer);
+    buffer += 2;
+    poll_request->returned_events = espcp_extract_uint16(buffer);
+    buffer += 2;
+    poll_request->timeout = espcp_extract_int32(buffer);
+    return(poll_request);
+}
+
+/****************************************************************************
+* Name: espcp_encode_poll_response
+*
+* Description:
+*  Convert the espcp_poll_response_t object into a byte stream that can 
+*  be sent to the ESP32.
+*
+* Input Parameters:
+*  poll_response - object to be encoded.
+*
+* Returned Value:
+*  None
+*
+* Assumptions/Limitations:
+*  None
+*
+****************************************************************************/
+void espcp_encode_poll_response(espcp_poll_response_t *poll_response, uint8_t *buffer)
+{
+    espcp_encode_uint16(poll_response->returned_events, buffer);
+    buffer += 2;
+    espcp_encode_int32(poll_response->result, buffer);
+    buffer += 4;
+    espcp_encode_int32(poll_response->response_errno, buffer);
+}
+
+/****************************************************************************
+* Name: espcp_encoded_espcp_poll_response_t_buffer_size
+*
+* Description:
+*  Calculate the amount of memory needed to store and encoded version of an
+*  espcp_espcp_poll_response_t_t object.
+*
+* Input Parameters:
+*  espcp_poll_response_t - espcp_espcp_poll_response_t_t object to be encoded.
+*
+* Returned Value:
+*  Number of bytes required to hold the encoded espcp_espcp_poll_response_t_t object.
+*
+* Assumptions/Limitations:
+*  None
+*
+****************************************************************************/
+int espcp_poll_response_buffer_size(espcp_poll_response_t *poll_response)
+{
+    return(10);
+}
+
+/****************************************************************************
+* Name: espcp_extract_poll_response
+ *  
+* Description:
+*  Extract the espcp_poll_response_ object that is
+*  encoded in the given buffer.
+*  
+*  Note that the returned pointer points to a block of memory on the heap and
+*  this should eventually be released calling free(...).
+*  
+* Input Parameters:
+*  poll_response - pointer to the buffer containing the encoded
+*  espcp_poll_response_t object.
+*
+* Returned Value:
+*  Pointer to the extracted espcp_poll_response_t object.
+*
+* Assumptions/Limitations:
+*  None
+*
+****************************************************************************/
+espcp_poll_response_t *espcp_extract_poll_response(uint8_t *buffer)
+{
+    espcp_poll_response_t *poll_response = (espcp_poll_response_t *) malloc(sizeof(espcp_poll_response_t));
+
+    poll_response->returned_events = espcp_extract_uint16(buffer);
+    buffer += 2;
+    poll_response->result = espcp_extract_int32(buffer);
+    buffer += 4;
+    poll_response->response_errno = espcp_extract_int32(buffer);
+    return(poll_response);
 }
 
 

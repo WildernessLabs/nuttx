@@ -89,7 +89,8 @@ enum espcp_wi_fi_function
     espcp_wi_fi_function_read = 15,
     espcp_wi_fi_function_close = 16,
     espcp_wi_fi_function_send_to = 17,
-    espcp_wi_fi_function_recv_from = 18
+    espcp_wi_fi_function_recv_from = 18,
+    espcp_wi_fi_function_poll = 19
 };
 typedef enum espcp_wi_fi_function espcp_wi_fi_function_t;
 

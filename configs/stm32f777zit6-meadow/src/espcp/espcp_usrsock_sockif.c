@@ -50,6 +50,7 @@
 
 #include "espcp_usrsock.h"
 #include <sys/socket.h>
+#include <poll.h>
 
 #include "espcp_common.h"
 #include "espcp_coprocessor.h"
@@ -454,12 +455,21 @@ int espcp_usrsock_connect(FAR struct socket *psock,
 {
     int32_t result = -1;
     espcp_message_t *message = NULL;
+    struct sockaddr_in *sin = (struct sockaddr_in *) addr;
+
+    espcp_sock_addr_t *sockAddr = (espcp_sock_addr_t *) malloc(sizeof(espcp_sock_addr_t));
+    sockAddr->family = sin->sin_family;
+    sockAddr->port = sin->sin_port;
+    memcpy(&sockAddr->ip4_address, &sin->sin_addr, sizeof(sin->sin_addr));
+    int encodedSockAddrSize = espcp_sock_addr_buffer_size(sockAddr);
+    uint8_t *encodedSockAddr = (uint8_t *) malloc(encodedSockAddrSize);
+    espcp_encode_sock_addr(sockAddr, encodedSockAddr);
+    free(sockAddr);
 
     espcp_connect_request_t *request = (espcp_connect_request_t *) malloc(sizeof(espcp_connect_request_t));
     request->socket_handle = psock->s_esp32_sockfd;
-    request->addr = (uint8_t *) addr;
-    request->addr_length = sizeof(struct sockaddr);
-    request->addr_len = addrlen;
+    request->addr = encodedSockAddr;
+    request->addr_length = encodedSockAddrSize;
 
     int payload_length = espcp_connect_request_buffer_size(request);
     uint8_t *payload = (uint8_t *) malloc(payload_length);
@@ -478,8 +488,9 @@ int espcp_usrsock_connect(FAR struct socket *psock,
 
         if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
         {
-            espcp_integer_response_t *response = espcp_extract_integer_response(message->payload);
+            espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
             result = response->result;
+            errno = response->response_errno;
             free(response);
         }
     }
@@ -643,8 +654,54 @@ int espcp_usrsock_listen(FAR struct socket *psock, int backlog)
  ****************************************************************************/
 int espcp_usrsock_poll(FAR struct socket *psock, FAR struct pollfd *fds, bool setup)
 {
-    espcp_usrsock_not_implemented(__func__);
-    return (-1);
+    int result = -1;
+    if (setup)
+    {
+        espcp_poll_request_t *request = (espcp_poll_request_t *) malloc(sizeof(espcp_poll_request_t));
+        if (request == NULL)
+        {
+            return (-ENOMEM);
+        }
+        memset(request, 0, sizeof(espcp_poll_request_t));
+        request->socket_handle = psock->s_esp32_sockfd;
+        request->events = fds->events;
+        request->returned_events = fds->revents;
+        request->timeout = -1;
+
+        int payload_length = espcp_poll_request_buffer_size(request);
+        uint8_t *payload = (uint8_t *) malloc(payload_length);
+        if (payload == NULL)
+        {
+            free(request);
+            return (-ENOMEM);
+        }
+        espcp_encode_poll_request(request, payload);
+        free(request);
+
+        espcp_message_t *message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi,
+                                                                espcp_wi_fi_function_poll,
+                                                                espcp_status_codes_completed_ok,
+                                                                espcp_get_next_message_id(), payload, payload_length);
+        if (message == NULL)
+        {
+            return (-ENOMEM);
+        }
+
+        if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+        {
+            espcp_poll_response_t *response = espcp_extract_poll_response(message->payload);
+            fds->revents = response->returned_events;
+            result = response->result;
+            free(response);
+        }
+
+        espcp_delete_message_and_payload(message);
+    }
+    else
+    {
+        result = 0;
+    }
+    return (result);
 }
 
 /****************************************************************************
@@ -711,17 +768,21 @@ ssize_t espcp_usrsock_recvfrom(FAR struct socket *psock, FAR void *buffer, size_
                 if (from != NULL)
                 {
                     espcp_sock_addr_t *sa = espcp_extract_sock_addr(response->source_address);
-                    from->sa_family = sa->family;
-                    if (*fromlen > sa->length)
-                    {
-                        amount = sa->length;
+                    struct sockaddr_in sin;
+                    sin.sin_family = sa->family;
+                    sin.sin_port = sa->port;
+                    memcpy(&sin.sin_addr, &sa->ip4_address, sizeof(sin.sin_addr));
+                    if (*fromlen > (sizeof(struct sockaddr_in)))
+                    {                                                
+                        amount = sizeof(struct sockaddr);
                     }
                     else
                     {
                         amount = *fromlen;
                     }
-                    memcpy(from->sa_data, sa->data, amount);
-                    *fromlen = sa->length;
+                    *fromlen = amount;
+                    memcpy(from, &sin, amount);
+                    free(sa);
                 }
                 if (len > response->result)
                 {
@@ -732,6 +793,7 @@ ssize_t espcp_usrsock_recvfrom(FAR struct socket *psock, FAR void *buffer, size_
                     amount = len;
                 }
                 memcpy(buffer, response->buffer, amount);
+                free(response->buffer);
             }
             free(response);
         }
@@ -771,9 +833,10 @@ ssize_t espcp_usrsock_sendto(FAR struct socket *psock, FAR const void *buffer,
     {
         return(-1);
     }
-    sa->family = to->sa_family;
-    sa->length = tolen;
-    memcpy(sa->data, to->sa_data, 14);
+    struct sockaddr_in *sin = (struct sockaddr_in *) to;
+    sa->family = sin->sin_family;
+    sa->port = sin->sin_port;
+    memcpy(&sa->ip4_address, &sin->sin_addr, sizeof(sin->sin_addr));
     uint8_t *encodedSockAddr = (uint8_t *) malloc(espcp_sock_addr_buffer_size(sa));
     if (encodedSockAddr == NULL)
     {
@@ -796,7 +859,6 @@ ssize_t espcp_usrsock_sendto(FAR struct socket *psock, FAR const void *buffer,
     request->flags = flags;
     request->destination_address_length = espcp_sock_addr_buffer_size(sa);
     request->destination_address = encodedSockAddr;
-    request->destination_address_len = tolen;
 
     int payload_length = espcp_send_to_request_buffer_size(request);
     uint8_t *payload = (uint8_t *) malloc(payload_length);

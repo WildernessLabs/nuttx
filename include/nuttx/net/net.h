@@ -50,6 +50,10 @@
 #include <stdarg.h>
 #include <semaphore.h>
 
+#ifdef CONFIG_MEADOW_ESPCP_MANAGER
+#include <netdb.h>
+#endif
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
@@ -190,7 +194,12 @@ struct sock_intf_s
   CODE int        (*si_setsockopt)(FAR struct socket *psock, int level, int option, 
                     FAR const void *value, socklen_t value_len);
   CODE int        (*si_getsockopt)(FAR struct socket *psock, int level, int option, 
-                    FAR const void *value, socklen_t value_len);
+                    FAR void *value, socklen_t *value_len);
+  CODE int        (*si_read)(FAR struct socket *psock, FAR const void *buffer, size_t count);
+  CODE int        (*si_dup2)(FAR struct socket *old_psock, FAR struct socket *new_psock);
+  CODE size_t     (*si_sendmsg)(FAR struct socket *psock, const struct msghdr *msg, int flags);
+  CODE int        (*si_shutdown)(FAR struct socket *psock, int how);
+  CODE size_t     (*si_recvmsg)(FAR struct socket *psock, struct msghdr *msg, int flags);
 #endif
 };
 
@@ -1514,7 +1523,6 @@ int netdev_register(FAR struct net_driver_s *dev, enum net_lltype_e lltype);
  ****************************************************************************/
 
 int netdev_unregister(FAR struct net_driver_s *dev);
-
 #undef EXTERN
 #ifdef __cplusplus
 }

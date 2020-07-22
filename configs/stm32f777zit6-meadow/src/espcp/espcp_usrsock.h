@@ -661,6 +661,7 @@ size_t espcp_usrsock_recvmsg(FAR struct socket *psock, struct msghdr *msg, int f
 int espcp_usrsock_getaddrinfo(FAR const char *hostname, FAR const char *servname,
                 FAR const struct addrinfo *hint, FAR struct addrinfo **res);
 void espcp_usrsock_not_implemented(const char *source);
+void espcp_usrsock_init(void);
 
 #undef EXTERN
 #ifdef __cplusplus

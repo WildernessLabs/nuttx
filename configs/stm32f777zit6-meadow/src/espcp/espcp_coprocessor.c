@@ -61,6 +61,7 @@
 #include "espcp_thread.h"
 #include "espcp_encoders.h"
 #include "espcp_posix.h"
+#include "espcp_usrsock.h"
 
 #ifdef CONFIG_MEADOW_ESPCP_USE_EXTERNAL_ESP32_BOARD
 
@@ -406,6 +407,7 @@ int espcp_init(void)
     }
     espcp_spi_setup(espcp_queue_send_response_message);
     espcp_setup_message_dispatcher();
+    espcp_usrsock_init();
     espcp_posix_network_init();
 
     /*

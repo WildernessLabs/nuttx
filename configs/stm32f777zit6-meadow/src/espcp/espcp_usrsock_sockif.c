@@ -54,9 +54,12 @@
 
 #include "espcp_common.h"
 #include "espcp_coprocessor.h"
+#include "generic_list.h"
+#include "espcp_interrupt_handler.h"
+#include "espcp_message_dispatcher.h"
 
 /****************************************************************************
- * Private Function Prototypes
+ * Definitions.
  ****************************************************************************/
 
 /*
@@ -64,6 +67,20 @@
  *  define a smaller buffer to account for overhead.
  */
 #define MAXIMUM_READ_WRITE_BUFFER_SIZE 4000
+
+/****************************************************************************
+ * Local data structures.
+ ****************************************************************************/
+
+/*
+ *  Hold information about a poll request that is active on the ESP32.
+ */
+struct espcp_poll_request_list_item_s
+{
+    struct pollfd *fd;      /* Pointer to the pollfd structure of the original request. */
+    uint32_t request_id;    /* ID of the message sent to the ESP32. */
+};
+typedef struct espcp_poll_request_list_item_s espcp_poll_request_list_item_t;
 
 /****************************************************************************
  * Private Function Prototypes
@@ -78,6 +95,11 @@ static void espcp_usrsock_sockif_addref(FAR struct socket *psock);
 static ssize_t espcp_usrsock_sockif_send(FAR struct socket *psock, FAR const void *buf, size_t len, int flags);
 
 static int espcp_usrsock_sockif_close(FAR struct socket *psock);
+
+/**
+ *  Interrupt handlers.
+ */
+static void espcp_usrsock_poll_interrupt_handler(espcp_message_t *);
 
 /****************************************************************************
  * Public Data
@@ -131,6 +153,90 @@ const struct sock_intf_s g_usrsock_sockif_esp32 =
  */
 static char *_thisFile = __FILE__;
 
+/*
+ *  Linked list holding the list of poll requests that are in progress
+ *  on the ESP32.
+ */
+static gl_linked_list_t *_espcp_poll_requests = NULL;
+
+/*
+ *  Mutex used to control access to the poll request linked list.
+ */
+static sem_t _espcp_poll_requests_mutex;
+
+/**
+ *  Table of interrupt handlers for the WiFi and socket handlers.
+ */
+static espcp_interrupt_handlers_t _wifi_handlers[] = 
+{
+    { espcp_wi_fi_function_interrupt_poll_response, espcp_usrsock_poll_interrupt_handler },
+    { (int) NULL, NULL }
+};
+
+/****************************************************************************
+ * Methods
+ ****************************************************************************/
+
+/****************************************************************************
+ * Name: espcp_usrsock_poll_request_compare_message_id
+ *
+ * Description:
+ *   Compare the specified key with the request ID in the item.
+ *
+ * Input Parameters:
+ *  key    - Message ID to look for.
+ *  item   - Poll request item being looked for.
+ *
+ * Returned Value:
+ *  true if the key matches the request ID, false otherwise.
+ *
+ ****************************************************************************/
+static bool espcp_usrsock_poll_request_compare_message_id(uint32_t key, void *item)
+{
+    return(key == ((espcp_poll_request_list_item_t *) item)->request_id);
+}
+
+/****************************************************************************
+ * Name: espcp_usrsock_poll_request_compare_fd_pointer
+ *
+ * Description:
+ *   Compare the specified key with the request ID in the item.
+ *
+ * Input Parameters:
+ *  key    - Pointer to the fd structure being looked for.
+ *  item   - Poll request item being looked for.
+ *
+ * Returned Value:
+ *  true if the key matches the request ID, false otherwise.
+ *
+ ****************************************************************************/
+static bool espcp_usrsock_poll_request_compare_fd_pointer(uint32_t key, void *item)
+{
+    return((struct pollfd *) key == ((espcp_poll_request_list_item_t *) item)->fd);
+}
+
+/****************************************************************************
+ * Name: espcp_usrsock_init
+ *
+ * Description:
+ *   Perform system wide usrsock initialisation for the ESP32 usrsock layer.
+ *
+ ****************************************************************************/
+void espcp_usrsock_init()
+{
+    /*
+     *  Initialise the poll request linked list and the semaphore (mutex) used to
+     *  restrict access to the list.
+     */
+    if (_espcp_poll_requests == NULL)
+    {
+        _espcp_poll_requests = gl_create_empty_linked_list();
+        sem_init(&_espcp_poll_requests_mutex, 0, 1);
+        sem_setprotocol(&_espcp_poll_requests_mutex, SEM_PRIO_NONE);
+    }
+    espcp_register_interrupt_handlers(espcp_esp32_interfaces_wi_fi, _wifi_handlers);
+}
+
 /****************************************************************************
  * Name: espcp_usrsock_sockif_setup
  *
@@ -171,7 +277,6 @@ static int espcp_usrsock_sockif_setup(FAR struct socket *psock, int protocol)
     {
         nwarn("WARNING: usrsock daemon is not running\n");
     }
-
     return OK;
 }
 
@@ -241,13 +346,50 @@ static void espcp_usrsock_sockif_addref(FAR struct socket *psock)
  *
  ****************************************************************************/
 static ssize_t espcp_usrsock_sockif_send(FAR struct socket *psock,
-                                         FAR const void *buf,
+                                         FAR const void *buffer,
                                          size_t len, int flags)
 {
-    espcp_usrsock_not_implemented(__func__);
-    return (-1);
+    int32_t result = -1;
+    espcp_message_t *message = NULL;
 
-    // return espcp_usrsock_sendto(psock, buf, len, flags, NULL, 0);
+    espcp_send_request_t *request = (espcp_send_request_t *) malloc(sizeof(espcp_send_request_t));
+    if (request == NULL)
+    {
+        return(-1);
+    }
+    request->socket_handle = psock->s_esp32_sockfd;
+    request->buffer = (uint8_t *) buffer;
+    request->buffer_length = len;
+    request->length = len;
+    request->flags = flags;
+
+    int payload_length = espcp_send_request_buffer_size(request);
+    uint8_t *payload = (uint8_t *) malloc(payload_length);
+    if (payload == NULL)
+    {
+        free(request);
+        return(-1);
+    }
+    else
+    {
+        espcp_encode_send_request(request, payload);
+        free(request);
+
+        message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi,
+                                               espcp_wi_fi_function_send, espcp_status_codes_completed_ok,
+                                               espcp_get_next_message_id(), payload, payload_length);
+
+        if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+        {
+            espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
+            errno = response->response_errno;
+            result = response->result;
+            free(response);
+        }
+    }
+
+    espcp_delete_message_and_payload(message);
+    return (result);
 }
 
 /****************************************************************************
@@ -637,6 +779,190 @@ int espcp_usrsock_listen(FAR struct socket *psock, int backlog)
 }
 
 /****************************************************************************
+ * Name: espcp_usrsock_poll_setup
+ *
+ * Description:
+ *   Setup a poll request passing the request information to the ESP32.
+ *   to this function.
+ *
+ * Input Parameters:
+ *   psock - An instance of the internal socket structure.
+ *   fds   - The structure describing the events to be monitored.
+ *
+ * Returned Value:
+ *  0: Success; Negated errno on failure
+ *
+ ****************************************************************************/
+static int espcp_usrsock_poll_setup(FAR struct socket *psock, FAR struct pollfd *fds)
+{
+    int result = 0;
+
+    espcp_poll_request_t *request = (espcp_poll_request_t *) malloc(sizeof(espcp_poll_request_t));
+    if (request == NULL)
+    {
+        return (-ENOMEM);
+    }
+    memset(request, 0, sizeof(espcp_poll_request_t));
+    request->socket_handle = psock->s_esp32_sockfd;
+    request->events = fds->events;
+    request->timeout = -1;
+    request->setup = 1;
+
+    int payload_length = espcp_poll_request_buffer_size(request);
+    uint8_t *payload = (uint8_t *) malloc(payload_length);
+    if (payload == NULL)
+    {
+        free(request);
+        return (-ENOMEM);
+    }
+    espcp_encode_poll_request(request, payload);
+    free(request);
+
+    espcp_message_t *message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi,
+                                                            espcp_wi_fi_function_poll,
+                                                            espcp_status_codes_completed_ok,
+                                                            espcp_get_next_message_id(), payload, payload_length);       
+    if (message == NULL)
+    {
+        return (-ENOMEM);
+    }
+
+    espcp_poll_request_list_item_t *pr = (espcp_poll_request_list_item_t *) malloc(sizeof(espcp_poll_request_t));
+    pr->fd = fds;
+    pr->request_id = message->message_id;
+    sem_wait(&_espcp_poll_requests_mutex);
+    gl_add_item_to_head(_espcp_poll_requests, pr);
+    sem_post(&_espcp_poll_requests_mutex);
+
+    if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+    {
+        espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
+        result = response->result;
+        if (result < 0)
+        {
+            errno = response->response_errno;
+        }
+        free(response);
+    }
+    else
+    {
+        sem_wait(&_espcp_poll_requests_mutex);
+        gl_remove_item(_espcp_poll_requests, message->message_id, espcp_usrsock_poll_request_compare_message_id);
+        sem_post(&_espcp_poll_requests_mutex);
+        result = -EFAULT;
+    }
+
+    espcp_delete_message_and_payload(message);
+    return(result);
+}
+
+/****************************************************************************
+ * Name: espcp_usrsock_poll_teardown
+ *
+ * Description:
+ *  Teardown a a poll request setup with a previous call to
+ *  espcp_usrsock_poll_setup
+ *
+ * Input Parameters:
+ *   psock - An instance of the internal socket structure.
+ *   fds   - The structure describing the events to be monitored.
+ *
+ * Returned Value:
+ *  0: Success; Negated errno on failure
+ 
+ ****************************************************************************/
+static int espcp_usrsock_poll_teardown(FAR struct socket *psock, FAR struct pollfd *fds)
+{
+    int result = 0;
+
+    sem_wait(&_espcp_poll_requests_mutex);
+    espcp_poll_request_list_item_t *pr = (espcp_poll_request_list_item_t *) gl_remove_item(_espcp_poll_requests, 
+                                                (uint32_t) fds, espcp_usrsock_poll_request_compare_fd_pointer);
+    sem_post(&_espcp_poll_requests_mutex);
+    if (pr == NULL)
+    {
+        result = -EFAULT;
+    }
+    else
+    {
+        espcp_poll_request_t *request = (espcp_poll_request_t *) malloc(sizeof(espcp_poll_request_t));
+        if (request == NULL)
+        {
+            return (-ENOMEM);
+        }
+        memset(request, 0, sizeof(espcp_poll_request_t));
+        request->socket_handle = psock->s_esp32_sockfd;
+        request->setup = 0;
+        request->setup_message_id = pr->request_id;
+        free(pr);
+
+        int payload_length = espcp_poll_request_buffer_size(request);
+        uint8_t *payload = (uint8_t *) malloc(payload_length);
+        if (payload == NULL)
+        {
+            free(request);
+            return (-ENOMEM);
+        }
+        espcp_encode_poll_request(request, payload);
+        free(request);
+
+        espcp_message_t *message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi,
+                                                                espcp_wi_fi_function_poll,
+                                                                espcp_status_codes_completed_ok,
+                                                                espcp_get_next_message_id(), payload, payload_length);       
+        if (message == NULL)
+        {
+            return (-ENOMEM);
+        }
+
+        if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+        {
+            espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
+            result = response->result;
+            if (result < 0)
+            {
+                errno = response->response_errno;
+            }
+            free(response);
+        }
+
+        espcp_delete_message_and_payload(message);
+    }
+
+    return(result);
+}
+
+/****************************************************************************
+ * Name: espcp_usrsock_poll_interrupt_handler
+ *
+ * Description:
+ *   This interrupt handler will be called when the poll request on the ESP32
+ *   has a return value.
+ *
+ * Input Parameters:
+ *   message - Message from the ESP32 with the result of the poll request.
+ *
+ ****************************************************************************/
+static void espcp_usrsock_poll_interrupt_handler(espcp_message_t *message)
+{
+    espcp_interrupt_poll_response_t *ipr = espcp_extract_interrupt_poll_response(message->payload);
+
+    sem_wait(&_espcp_poll_requests_mutex);
+    espcp_poll_request_list_item_t *pr = (espcp_poll_request_list_item_t *) gl_remove_item(_espcp_poll_requests, 
+                                                ipr->setup_message_id, espcp_usrsock_poll_request_compare_message_id);
+    sem_post(&_espcp_poll_requests_mutex);
+    if (pr != NULL)
+    {
+        pr->fd->revents = ipr->returned_events;
+        nxsem_post(pr->fd->sem);
+    }
+    free(ipr);
+    free(pr);
+    free(message->payload);
+    free(message);
+}
+
+/****************************************************************************
  * Name: espcp_usrsock_poll
  *
  * Description:
@@ -654,52 +980,15 @@ int espcp_usrsock_listen(FAR struct socket *psock, int backlog)
  ****************************************************************************/
 int espcp_usrsock_poll(FAR struct socket *psock, FAR struct pollfd *fds, bool setup)
 {
-    int result = -1;
+    int result = 0;
+
     if (setup)
     {
-        espcp_poll_request_t *request = (espcp_poll_request_t *) malloc(sizeof(espcp_poll_request_t));
-        if (request == NULL)
-        {
-            return (-ENOMEM);
-        }
-        memset(request, 0, sizeof(espcp_poll_request_t));
-        request->socket_handle = psock->s_esp32_sockfd;
-        request->events = fds->events;
-        request->returned_events = fds->revents;
-        request->timeout = -1;
-
-        int payload_length = espcp_poll_request_buffer_size(request);
-        uint8_t *payload = (uint8_t *) malloc(payload_length);
-        if (payload == NULL)
-        {
-            free(request);
-            return (-ENOMEM);
-        }
-        espcp_encode_poll_request(request, payload);
-        free(request);
-
-        espcp_message_t *message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi,
-                                                                espcp_wi_fi_function_poll,
-                                                                espcp_status_codes_completed_ok,
-                                                                espcp_get_next_message_id(), payload, payload_length);
-        if (message == NULL)
-        {
-            return (-ENOMEM);
-        }
-
-        if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
-        {
-            espcp_poll_response_t *response = espcp_extract_poll_response(message->payload);
-            fds->revents = response->returned_events;
-            result = response->result;
-            free(response);
-        }
-
-        espcp_delete_message_and_payload(message);
+        result = espcp_usrsock_poll_setup(psock, fds);
     }
     else
     {
-        result = 0;
+        result = espcp_usrsock_poll_teardown(psock, fds);
     }
     return (result);
 }
@@ -930,12 +1219,13 @@ int espcp_usrsock_setsockopt(FAR struct socket *psock, int level, int option,
     int32_t result = -1;
     espcp_message_t *message = NULL;
 
-    espcp_set_sock_opt_request_t *request = (espcp_set_sock_opt_request_t *) malloc(
-            sizeof(espcp_set_sock_opt_request_t));
+    espcp_set_sock_opt_request_t *request = (espcp_set_sock_opt_request_t *) malloc(sizeof(espcp_set_sock_opt_request_t));
     memset(request, 0, sizeof(espcp_set_sock_opt_request_t));
     espcp_time_val_t *tv;
+    bool processRequest = true;
     switch (option)
     {
+        case SO_SNDTIMEO:
         case SO_RCVTIMEO:
             tv = (espcp_time_val_t *) malloc(sizeof(espcp_time_val_t));
             memset(tv, 0, sizeof(espcp_time_val_t));
@@ -956,7 +1246,13 @@ int espcp_usrsock_setsockopt(FAR struct socket *psock, int level, int option,
                 return (-1);
             }
             break;
-        case SO_REUSEADDR:
+        case SO_OOBINLINE:
+        case SO_SNDBUF:
+        case SO_RCVLOWAT:
+        case SO_SNDLOWAT:
+            processRequest = false;     // Above options are not supported.
+            break;
+        default:
             request->option_value_length = value_len;
             request->option_value = (uint8_t *) malloc(value_len);
             if (request->option_value != NULL)
@@ -969,38 +1265,51 @@ int espcp_usrsock_setsockopt(FAR struct socket *psock, int level, int option,
                 return (-1);
             }
             break;
-        default:
-            return (-1);
-            break;
     }
-    request->socket_number = psock->s_esp32_sockfd;
-    request->level = level;
-    request->option_name = option;
-
-    int payload_length = espcp_set_sock_opt_request_buffer_size(request);
-    uint8_t *payload = (uint8_t *) malloc(payload_length);
-    if (payload == NULL)
+    if (processRequest)
     {
-        free(request->option_value);
-        free(request);
+        request->socket_handle = psock->s_esp32_sockfd;
+        request->level = level;
+        request->option_name = option;
+
+        int payload_length = espcp_set_sock_opt_request_buffer_size(request);
+        uint8_t *payload = (uint8_t *) malloc(payload_length);
+        if (payload == NULL)
+        {
+            free(request->option_value);
+            free(request);
+        }
+        else
+        {
+            espcp_encode_set_sock_opt_request(request, payload);
+            free(request->option_value);
+            free(request);
+
+            message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi,
+                                                espcp_wi_fi_function_set_sock_opt, espcp_status_codes_completed_ok,
+                                                espcp_get_next_message_id(), payload, payload_length);
+
+            if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+            {
+                espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
+                errno = response->response_errno;
+                result = response->result;
+                if (errno == ENOPROTOOPT)
+                {
+                    errno = 0;
+                    result = 0;
+                }
+                free(response);
+            }
+        }
     }
     else
     {
-        espcp_encode_set_sock_opt_request(request, payload);
-        free(request->option_value);
-        free(request);
-
-        message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi,
-                                               espcp_wi_fi_function_set_sock_opt, espcp_status_codes_completed_ok,
-                                               espcp_get_next_message_id(), payload, payload_length);
-
-        if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
-        {
-            espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
-            errno = response->response_errno;
-            result = response->result;
-            free(response);
-        }
+        //
+        //  For non-supported options, pretend we have succeeded.
+        //
+        errno = 0;
+        result = 0;
     }
 
     espcp_delete_message_and_payload(message);

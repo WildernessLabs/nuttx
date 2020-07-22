@@ -48,6 +48,7 @@
 #include "espcp_shared_enums.h"
 #include "espcp_queue.h"
 #include "espcp_encoders.h"
+#include "espcp_interrupt_handler.h"
 
 /****************************************************************************
  * Definitions
@@ -57,32 +58,37 @@
  * Private Data / Variables
  ****************************************************************************/
 
-/*
+/**
  *  Mutex used to ensure exclusive access to the message ID.
  */
 static pthread_mutex_t g_message_id_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-/*
+/**
  *  ID of the last message sent to the ESP32.
  */
 static uint32_t g_last_message_id = 0;
 
-/*
+/**
  *  Linked list containing the messages waiting for a response from the ESP32.
  */
 static gl_linked_list_t *g_messages_waiting_for_a_response = NULL;
 
-/*
+/**
  *  This message is used to request a response from the ESP32.  It is created
  *  as part of the setup process for the message dispatcher.  It should never
  *  be deleted as it is reused each time a response is requested.
  */
 static espcp_message_t *g_request_response_message = NULL;
 
-/*
+/**
  *  ID of the message queue that will receive any messages for processing.
  */
 static mqd_t g_message_queue = 0;
+
+/**
+ *  WiFi interrupt handlers.
+ */
+static espcp_interrupt_handlers_t *g_wifi_handlers = NULL;
 
 /****************************************************************************
  * Public Function Prototypes
@@ -111,6 +117,78 @@ static bool espcp_check_message_id(uint32_t message_id, void *list_item)
   espcp_message_t *message = (espcp_message_t *) list_item;
 
   return(message->message_id == message_id);
+}
+
+/****************************************************************************
+ * Name: espcp_register_interrupt_handlers
+ *
+ * Description:
+ *  Register a group oif interrupt handlers with the message dispatcher.
+ *
+ * Input Parameters:
+ *  interface - Interface the handlers are destined for.
+ *  handlers - List of function / interrupt handlers pairs.
+ *
+ * Assumptions/Limitations:
+ *  None
+ *
+ ****************************************************************************/
+void espcp_register_interrupt_handlers(uint32_t interface, espcp_interrupt_handlers_t *handlers)
+{
+    switch (interface)
+    {
+      case espcp_esp32_interfaces_wi_fi:
+        g_wifi_handlers = handlers;
+        break;
+    }
+}
+
+/****************************************************************************
+ * Name: espcp_check_message_id
+ *
+ * Description:
+ *  Method used by the generic linked list code to perform a comparison of
+ *  an item in the list to see if it matches the required message ID.
+ *
+ * Input Parameters:
+ *  message_id - message ID to look for in the linked list.
+ *  list_item - current list item being examined.
+ *
+ * Returned Value:
+ *  true if the message IDs match, false otherwise.
+ *
+ * Assumptions/Limitations:
+ *  None
+ *
+ ****************************************************************************/
+static void espcp_dispatch_interrupt(espcp_message_t *message)
+{
+  if (message != NULL)
+  {
+    espcp_interrupt_handlers_t *handler = NULL;
+    switch (message->interface)
+    {
+      case espcp_esp32_interfaces_wi_fi:
+        handler = g_wifi_handlers;
+        break;
+    }
+    bool processing = (handler != NULL);
+    while (processing)
+    {
+      if ((((void *) handler->function) != NULL) && (handler->interrupt_handler != NULL))
+      {
+        if (handler->function == message->function)
+        {
+          handler->interrupt_handler(message);
+          processing = false;
+        }
+      }
+      else
+      {
+        processing = false;
+      }
+    }
+  }
 }
 
 /****************************************************************************
@@ -413,7 +491,6 @@ int espcp_get_message_header_acknowledgement(espcp_configuration_t *configuratio
   return(result);
 }
 
-
 /****************************************************************************
  * Name: espcp_get_response_from_esp32
  *
@@ -455,7 +532,11 @@ int espcp_get_response_from_esp32(espcp_configuration_t *configuration)
     if (message != NULL)
     {
       result = espcp_status_codes_completed_ok;
-      if (g_messages_waiting_for_a_response != NULL)
+      if (message->message_type == espcp_message_types_interrupt)
+      {
+        espcp_dispatch_interrupt(message);
+      }
+      else
       {
         espcp_message_t *waiting_message = (espcp_message_t *) 
                 gl_remove_item(g_messages_waiting_for_a_response, message->message_id, espcp_check_message_id);
@@ -465,11 +546,10 @@ int espcp_get_response_from_esp32(espcp_configuration_t *configuration)
           waiting_message->payload = message->payload;
           waiting_message->status_code = message->status_code;
           free(message);
-          sem_post(waiting_message->semaphore);
-        }
-        else
-        {
-          result = espcp_status_codes_failure;
+          if (waiting_message->semaphore != NULL)
+          {
+            sem_post(waiting_message->semaphore);
+          }
         }
       }
     }

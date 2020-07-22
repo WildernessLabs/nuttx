@@ -1956,7 +1956,7 @@ espcp_time_val_t *espcp_extract_time_val(uint8_t *buffer)
 ****************************************************************************/
 void espcp_encode_set_sock_opt_request(espcp_set_sock_opt_request_t *set_sock_opt_request, uint8_t *buffer)
 {
-    espcp_encode_int32(set_sock_opt_request->socket_number, buffer);
+    espcp_encode_int32(set_sock_opt_request->socket_handle, buffer);
     buffer += 4;
     espcp_encode_int32(set_sock_opt_request->level, buffer);
     buffer += 4;
@@ -2021,7 +2021,7 @@ espcp_set_sock_opt_request_t *espcp_extract_set_sock_opt_request(uint8_t *buffer
 {
     espcp_set_sock_opt_request_t *set_sock_opt_request = (espcp_set_sock_opt_request_t *) malloc(sizeof(espcp_set_sock_opt_request_t));
 
-    set_sock_opt_request->socket_number = espcp_extract_int32(buffer);
+    set_sock_opt_request->socket_handle = espcp_extract_int32(buffer);
     buffer += 4;
     set_sock_opt_request->level = espcp_extract_int32(buffer);
     buffer += 4;
@@ -2540,6 +2540,108 @@ espcp_get_battery_charge_level_response_t *espcp_extract_get_battery_charge_leve
 }
 
 /****************************************************************************
+* Name: espcp_encode_send_request
+*
+* Description:
+*  Convert the espcp_send_request_t object into a byte stream that can 
+*  be sent to the ESP32.
+*
+* Input Parameters:
+*  send_request - object to be encoded.
+*
+* Returned Value:
+*  None
+*
+* Assumptions/Limitations:
+*  None
+*
+****************************************************************************/
+void espcp_encode_send_request(espcp_send_request_t *send_request, uint8_t *buffer)
+{
+    espcp_encode_int32(send_request->socket_handle, buffer);
+    buffer += 4;
+    espcp_encode_uint32(send_request->buffer_length, buffer);
+    buffer += 4;
+    if (send_request->buffer_length > 0)
+    {
+        memcpy((void *) buffer, (void *) send_request->buffer, send_request->buffer_length);
+        buffer += send_request->buffer_length;
+    }
+    espcp_encode_int32(send_request->length, buffer);
+    buffer += 4;
+    espcp_encode_int32(send_request->flags, buffer);
+}
+
+/****************************************************************************
+* Name: espcp_encoded_espcp_send_request_t_buffer_size
+*
+* Description:
+*  Calculate the amount of memory needed to store and encoded version of an
+*  espcp_espcp_send_request_t_t object.
+*
+* Input Parameters:
+*  espcp_send_request_t - espcp_espcp_send_request_t_t object to be encoded.
+*
+* Returned Value:
+*  Number of bytes required to hold the encoded espcp_espcp_send_request_t_t object.
+*
+* Assumptions/Limitations:
+*  None
+*
+****************************************************************************/
+int espcp_send_request_buffer_size(espcp_send_request_t *send_request)
+{
+    int result = 0;
+    result += send_request->buffer_length;
+    return(result + 16);
+}
+
+/****************************************************************************
+* Name: espcp_extract_send_request
+ *  
+* Description:
+*  Extract the espcp_send_request_ object that is
+*  encoded in the given buffer.
+*  
+*  Note that the returned pointer points to a block of memory on the heap and
+*  this should eventually be released calling free(...).
+*  
+* Input Parameters:
+*  send_request - pointer to the buffer containing the encoded
+*  espcp_send_request_t object.
+*
+* Returned Value:
+*  Pointer to the extracted espcp_send_request_t object.
+*
+* Assumptions/Limitations:
+*  None
+*
+****************************************************************************/
+espcp_send_request_t *espcp_extract_send_request(uint8_t *buffer)
+{
+    espcp_send_request_t *send_request = (espcp_send_request_t *) malloc(sizeof(espcp_send_request_t));
+
+    send_request->socket_handle = espcp_extract_int32(buffer);
+    buffer += 4;
+    send_request->buffer_length = espcp_extract_uint32(buffer);
+    buffer += 4;
+    if (send_request->buffer_length > 0)
+    {
+        send_request->buffer = (uint8_t *) malloc(send_request->buffer_length);
+        memcpy(send_request->buffer, buffer, send_request->buffer_length);
+        buffer += send_request->buffer_length;
+    }
+    else
+    {
+        send_request->buffer = NULL;
+    }
+    send_request->length = espcp_extract_int32(buffer);
+    buffer += 4;
+    send_request->flags = espcp_extract_int32(buffer);
+    return(send_request);
+}
+
+/****************************************************************************
 * Name: espcp_encode_send_to_request
 *
 * Description:
@@ -2892,9 +2994,11 @@ void espcp_encode_poll_request(espcp_poll_request_t *poll_request, uint8_t *buff
     buffer += 4;
     espcp_encode_uint16(poll_request->events, buffer);
     buffer += 2;
-    espcp_encode_uint16(poll_request->returned_events, buffer);
-    buffer += 2;
     espcp_encode_int32(poll_request->timeout, buffer);
+    buffer += 4;
+    espcp_encode_int32(poll_request->setup, buffer);
+    buffer += 4;
+    espcp_encode_uint32(poll_request->setup_message_id, buffer);
 }
 
 /****************************************************************************
@@ -2916,7 +3020,7 @@ void espcp_encode_poll_request(espcp_poll_request_t *poll_request, uint8_t *buff
 ****************************************************************************/
 int espcp_poll_request_buffer_size(espcp_poll_request_t *poll_request)
 {
-    return(12);
+    return(18);
 }
 
 /****************************************************************************
@@ -2948,21 +3052,23 @@ espcp_poll_request_t *espcp_extract_poll_request(uint8_t *buffer)
     buffer += 4;
     poll_request->events = espcp_extract_uint16(buffer);
     buffer += 2;
-    poll_request->returned_events = espcp_extract_uint16(buffer);
-    buffer += 2;
     poll_request->timeout = espcp_extract_int32(buffer);
+    buffer += 4;
+    poll_request->setup = espcp_extract_int32(buffer);
+    buffer += 4;
+    poll_request->setup_message_id = espcp_extract_uint32(buffer);
     return(poll_request);
 }
 
 /****************************************************************************
-* Name: espcp_encode_poll_response
+* Name: espcp_encode_interrupt_poll_response
 *
 * Description:
-*  Convert the espcp_poll_response_t object into a byte stream that can 
+*  Convert the espcp_interrupt_poll_response_t object into a byte stream that can 
 *  be sent to the ESP32.
 *
 * Input Parameters:
-*  poll_response - object to be encoded.
+*  interrupt_poll_response - object to be encoded.
 *
 * Returned Value:
 *  None
@@ -2971,68 +3077,76 @@ espcp_poll_request_t *espcp_extract_poll_request(uint8_t *buffer)
 *  None
 *
 ****************************************************************************/
-void espcp_encode_poll_response(espcp_poll_response_t *poll_response, uint8_t *buffer)
+void espcp_encode_interrupt_poll_response(espcp_interrupt_poll_response_t *interrupt_poll_response, uint8_t *buffer)
 {
-    espcp_encode_uint16(poll_response->returned_events, buffer);
-    buffer += 2;
-    espcp_encode_int32(poll_response->result, buffer);
+    espcp_encode_int32(interrupt_poll_response->socket_handle, buffer);
     buffer += 4;
-    espcp_encode_int32(poll_response->response_errno, buffer);
+    espcp_encode_int32(interrupt_poll_response->result, buffer);
+    buffer += 4;
+    espcp_encode_int32(interrupt_poll_response->response_errno, buffer);
+    buffer += 4;
+    espcp_encode_uint16(interrupt_poll_response->returned_events, buffer);
+    buffer += 2;
+    espcp_encode_uint32(interrupt_poll_response->setup_message_id, buffer);
 }
 
 /****************************************************************************
-* Name: espcp_encoded_espcp_poll_response_t_buffer_size
+* Name: espcp_encoded_espcp_interrupt_poll_response_t_buffer_size
 *
 * Description:
 *  Calculate the amount of memory needed to store and encoded version of an
-*  espcp_espcp_poll_response_t_t object.
+*  espcp_espcp_interrupt_poll_response_t_t object.
 *
 * Input Parameters:
-*  espcp_poll_response_t - espcp_espcp_poll_response_t_t object to be encoded.
+*  espcp_interrupt_poll_response_t - espcp_espcp_interrupt_poll_response_t_t object to be encoded.
 *
 * Returned Value:
-*  Number of bytes required to hold the encoded espcp_espcp_poll_response_t_t object.
+*  Number of bytes required to hold the encoded espcp_espcp_interrupt_poll_response_t_t object.
 *
 * Assumptions/Limitations:
 *  None
 *
 ****************************************************************************/
-int espcp_poll_response_buffer_size(espcp_poll_response_t *poll_response)
+int espcp_interrupt_poll_response_buffer_size(espcp_interrupt_poll_response_t *interrupt_poll_response)
 {
-    return(10);
+    return(18);
 }
 
 /****************************************************************************
-* Name: espcp_extract_poll_response
+* Name: espcp_extract_interrupt_poll_response
  *  
 * Description:
-*  Extract the espcp_poll_response_ object that is
+*  Extract the espcp_interrupt_poll_response_ object that is
 *  encoded in the given buffer.
 *  
 *  Note that the returned pointer points to a block of memory on the heap and
 *  this should eventually be released calling free(...).
 *  
 * Input Parameters:
-*  poll_response - pointer to the buffer containing the encoded
-*  espcp_poll_response_t object.
+*  interrupt_poll_response - pointer to the buffer containing the encoded
+*  espcp_interrupt_poll_response_t object.
 *
 * Returned Value:
-*  Pointer to the extracted espcp_poll_response_t object.
+*  Pointer to the extracted espcp_interrupt_poll_response_t object.
 *
 * Assumptions/Limitations:
 *  None
 *
 ****************************************************************************/
-espcp_poll_response_t *espcp_extract_poll_response(uint8_t *buffer)
+espcp_interrupt_poll_response_t *espcp_extract_interrupt_poll_response(uint8_t *buffer)
 {
-    espcp_poll_response_t *poll_response = (espcp_poll_response_t *) malloc(sizeof(espcp_poll_response_t));
+    espcp_interrupt_poll_response_t *interrupt_poll_response = (espcp_interrupt_poll_response_t *) malloc(sizeof(espcp_interrupt_poll_response_t));
 
-    poll_response->returned_events = espcp_extract_uint16(buffer);
-    buffer += 2;
-    poll_response->result = espcp_extract_int32(buffer);
+    interrupt_poll_response->socket_handle = espcp_extract_int32(buffer);
     buffer += 4;
-    poll_response->response_errno = espcp_extract_int32(buffer);
-    return(poll_response);
+    interrupt_poll_response->result = espcp_extract_int32(buffer);
+    buffer += 4;
+    interrupt_poll_response->response_errno = espcp_extract_int32(buffer);
+    buffer += 4;
+    interrupt_poll_response->returned_events = espcp_extract_uint16(buffer);
+    buffer += 2;
+    interrupt_poll_response->setup_message_id = espcp_extract_uint32(buffer);
+    return(interrupt_poll_response);
 }
 
 

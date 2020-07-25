@@ -69,6 +69,7 @@
 #endif
 
 int meadow_upd_initialize(void);
+int hcom_proxy_upd_initialize(void);
 
 /************************************************************************************
  * Pre-processor Definitions
@@ -212,8 +213,6 @@ void board_late_initialize(void)
 #if defined(CONFIG_STM32F7_PWR)
   // Initialize the backup SRAM and the 32 registers
   stm32_pwr_initbkp(true);    // initialize as writable
-
-  hcom_manager_syslog_mask_init();
 #endif
 
 #ifdef CONFIG_PWM
@@ -239,7 +238,11 @@ void board_late_initialize(void)
 #endif
 
 #ifdef CONFIG_EXAMPLES_MONO
-  meadow_upd_initialize();
+  ret = meadow_upd_initialize();
+  if (ret < 0)
+    {
+      syslog(LOG_ERR, "ERROR: meadow_upd_initialize() failed: %d\n", ret);
+    }
 #endif
 
 #if defined(CONFIG_STM32F7_QUADSPI)
@@ -278,13 +281,20 @@ void board_late_initialize(void)
 #endif
 
 #if defined(CONFIG_MEADOW_HCOM)
-  // Initialize Meadow HCOM host communications
-  ret = hcom_manager_setup(mtd);
+  ret = hcom_proxy_upd_initialize();
   if(ret < 0)
   {
-    syslog(LOG_EMERG, "ERROR: HCOM initialization failed!\n");
+    syslog(LOG_EMERG, "ERROR: HCOM proxy initialization failed!\n");
     PANIC();
   }
+  
+  // // Initialize Meadow HCOM host communications
+  // ret = hcom_manager_setup(mtd);
+  // if(ret < 0)
+  // {
+  //   syslog(LOG_EMERG, "ERROR: HCOM initialization failed!\n");
+  //   PANIC();
+  // }
 #endif
 }
 

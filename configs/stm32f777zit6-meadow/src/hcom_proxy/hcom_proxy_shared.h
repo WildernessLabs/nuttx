@@ -32,16 +32,31 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
-#ifndef __CONFIGS_MEADOW_SRC_HCOM_PROXY_UPD__H
-#define __CONFIGS_MEADOW_SRC_HCOM_PROXY_UPD__H
+#ifndef __CONFIGS_MEADOW_SRC_HCOM_PROXY_SHARED__H
+#define __CONFIGS_MEADOW_SRC_HCOM_PROXY_SHARED__H
 
 /****************************************************************************
  * Included Files
  ****************************************************************************/
 
+// This header file contains those items that must be shared by apps/hcom
 // #include <string.h>
 
 #define HCOM_PROXY_UPD_DRIVER_NAME "/dev/hcomproxyupd"
+
+// Battery Backed Register
+struct hcom_proxy_upd_bbr_value
+{
+  uint32_t bbr_id;
+  uint32_t value;
+};
+
+struct hcom_proxy_upd_bbr_update
+{
+  uint32_t bbr_id;
+  uint32_t clearBits;
+  uint32_t setBits;
+};
 
 struct hcom_proxy_upd_register_value
 {
@@ -56,14 +71,11 @@ struct hcom_proxy_upd_register_update
   uint32_t setBits;
 };
 
-struct hcom_proxy_upd_first_test
-{
-  uint32_t value;
-};
+#define HCOM_PROXY_UPD_SET_REGISTER     1
+#define HCOM_PROXY_UPD_GET_REGISTER     2
+#define HCOM_PROXY_UPD_UPDATE_REGISTER  3
+#define HCOM_PROXY_UPD_SET_BBR_VALUE    4
+#define HCOM_PROXY_UPD_GET_BBR_VALUE    5
+#define HCOM_PROXY_UPD_UPDATE_BBR_VALUE 6
 
-#define HCOM_PROXY_UPD_SET_REGISTER    1
-#define HCOM_PROXY_UPD_GET_REGISTER    2
-#define HCOM_PROXY_UPD_UPDATE_REGISTER 3
-#define HCOM_PROXY_UPD_FIRST_TEST      4
-
-#endif  // __CONFIGS_MEADOW_SRC_HCOM_PROXY_UPD__H
+#endif  // __CONFIGS_MEADOW_SRC_HCOM_PROXY_SHARED__H

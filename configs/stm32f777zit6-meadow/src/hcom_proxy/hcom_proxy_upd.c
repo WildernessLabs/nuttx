@@ -47,10 +47,6 @@
 #include <nuttx/fs/fs.h>
 #include <nuttx/kmalloc.h>
 #include <arch/board/board.h>
-// #include <nuttx/mqueue.h>
-// #include <nuttx/signal.h>
-// #include <nuttx/drivers/pwm.h>
-// #include <nuttx/spi/spi.h>
 
 #include <stdbool.h>
 #include <assert.h>
@@ -59,17 +55,14 @@
 
 #include "chip.h"
 #include "fcntl.h"
-// #include "stm32_pwm.h"
-// #include "stm32_i2c.h"
-// #include "stm32f777zit6-meadow.h"
-// #include "stm32_spi.h"
 
 #include <dirent.h>
-
-// #include <nuttx/timers/timer.h>
 #include <sys/ioctl.h>
-// #include "stm32_tim.h"
-#include "hcom_proxy_upd.h"
+
+#include "hcom_proxy_shared.h"
+
+#include "chip/stm32f76xx77xx_memorymap.h"
+#include "chip/stm32_rtcc.h"    // battery backed registers and ram
 
 /****************************************************************************
  * Private Types
@@ -82,7 +75,9 @@
 static int hcp_upd_open(struct file *filep);
 static int hcp_upd_close(struct file *filep);
 static int hcp_upd_ioctl(FAR struct file *filep, int cmd, unsigned long arg);
+// Added read because open failed without it. The open flag O_RDONLY == 0.
 static int hcp_upd_read(FAR struct file *filep, FAR char *buffer, size_t buflen);
+static uint32_t hcom_proxy_upd_find_bbr_addr(uint32_t bbrId);
 
 /****************************************************************************
  * Private Data
@@ -96,34 +91,39 @@ static const struct file_operations g_hcom_proxy_operations =
   .read  = hcp_upd_read
 };
 
+// ====================================================================
 // Called when hcom proxy upd driver is opened
 int hcp_upd_open(struct file *filep)
 {
   return OK;
 }
 
+// ====================================================================
 // Called when hcom proxy upd driver is closed
 int hcp_upd_close(struct file *filep)
 {
   return OK;
 }
 
-// Added read because open failed even with O_RDONLY which is 0
+// ====================================================================
 int hcp_upd_read(FAR struct file *filep, FAR char *buffer, size_t buflen)
 {
   return OK;
 }
 
+// ====================================================================
 static int hcp_upd_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 {
+  uint32_t tempAddr;
+  uint32_t tempData;
   struct hcom_proxy_upd_register_value *register_val;
   struct hcom_proxy_upd_register_update *register_update;
-  struct hcom_proxy_upd_first_test *first_test;
+  struct hcom_proxy_upd_bbr_value *bbr_val;
+  struct hcom_proxy_upd_bbr_update *bbr_update;
 
   switch(cmd)
-  {
-    syslog(1, "Entered %s()\n", __func__);  usleep(50 * 1000);
-    
+  {    
+    // This work with any register
     case HCOM_PROXY_UPD_SET_REGISTER:
       register_val = (struct hcom_proxy_upd_register_value *)arg;
       putreg32(register_val->value, register_val->address);
@@ -137,12 +137,68 @@ static int hcp_upd_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
       register_update = (struct hcom_proxy_upd_register_update *)arg;
       modifyreg32(register_update->address, register_update->clearBits, register_update->setBits);
       return OK;
-    case HCOM_PROXY_UPD_FIRST_TEST:
-      first_test = (struct hcom_proxy_upd_first_test *)arg;
-      syslog(1, "Have Reached HPUPD_FIRST_TEST! value:%d, PID:%d\n", first_test->value, getpid());  usleep(50 * 1000);
+
+      // This only work with Battery Backed Registers via 0-31 id value
+    case HCOM_PROXY_UPD_SET_BBR_VALUE:
+      bbr_val = (struct hcom_proxy_upd_bbr_value *)arg;
+      putreg32(bbr_val->value, hcom_proxy_upd_find_bbr_addr(bbr_val->bbr_id));
+      return OK;
+    case HCOM_PROXY_UPD_GET_BBR_VALUE:
+      bbr_val = (struct hcom_proxy_upd_bbr_value *)arg;
+      bbr_val->value = getreg32(hcom_proxy_upd_find_bbr_addr(bbr_val->bbr_id));
+      return OK;
+    case HCOM_PROXY_UPD_UPDATE_BBR_VALUE:
+      bbr_update = (struct hcom_proxy_upd_bbr_update *)arg;
+      tempAddr = hcom_proxy_upd_find_bbr_addr(bbr_update->bbr_id);
+      modifyreg32(tempAddr, bbr_update->clearBits, bbr_update->setBits);
       return OK;
   }
   return ERROR;
+}
+
+// ====================================================================
+uint32_t hcom_proxy_upd_find_bbr_addr(uint32_t bbrId)
+{
+  uint32_t bbrAddr;
+
+  // A value 0 - 31 relates to Battery Backed Registers 1 - 31
+  DEBUGASSERT(bbrId >= 0 && bbrId < 32);
+  switch(bbrId)
+  {
+    case 0: bbrAddr = STM32_RTC_BK0R; break;
+    case 1: bbrAddr = STM32_RTC_BK1R; break;
+    case 2: bbrAddr = STM32_RTC_BK2R; break;
+    case 3: bbrAddr = STM32_RTC_BK3R; break;
+    case 4: bbrAddr = STM32_RTC_BK4R; break;
+    case 5: bbrAddr = STM32_RTC_BK5R; break;
+    case 6: bbrAddr = STM32_RTC_BK6R; break;
+    case 7: bbrAddr = STM32_RTC_BK7R; break;
+    case 8: bbrAddr = STM32_RTC_BK8R; break;
+    case 9: bbrAddr = STM32_RTC_BK9R; break;
+    case 10: bbrAddr = STM32_RTC_BK10R; break;
+    case 11: bbrAddr = STM32_RTC_BK11R; break;
+    case 12: bbrAddr = STM32_RTC_BK12R; break;
+    case 13: bbrAddr = STM32_RTC_BK13R; break;
+    case 14: bbrAddr = STM32_RTC_BK14R; break;
+    case 15: bbrAddr = STM32_RTC_BK15R; break;
+    case 16: bbrAddr = STM32_RTC_BK16R; break;
+    case 17: bbrAddr = STM32_RTC_BK17R; break;
+    case 18: bbrAddr = STM32_RTC_BK18R; break;
+    case 19: bbrAddr = STM32_RTC_BK19R; break;
+    case 20: bbrAddr = STM32_RTC_BK20R; break;
+    case 21: bbrAddr = STM32_RTC_BK21R; break;
+    case 22: bbrAddr = STM32_RTC_BK22R; break;
+    case 23: bbrAddr = STM32_RTC_BK23R; break;
+    case 24: bbrAddr = STM32_RTC_BK24R; break;
+    case 25: bbrAddr = STM32_RTC_BK25R; break;
+    case 26: bbrAddr = STM32_RTC_BK26R; break;
+    case 27: bbrAddr = STM32_RTC_BK27R; break;
+    case 28: bbrAddr = STM32_RTC_BK28R; break;
+    case 29: bbrAddr = STM32_RTC_BK29R; break;
+    case 30: bbrAddr = STM32_RTC_BK30R; break;
+    case 31: bbrAddr = STM32_RTC_BK31R; break;
+  }
+  return bbrAddr;
 }
 
 /****************************************************************************

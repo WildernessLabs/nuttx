@@ -78,8 +78,13 @@ CSRCS += stm32_idle.c
 endif
 
 ifeq ($(CONFIG_MEADOW_HCOM),y)
-CSRCS += hcom_proxy/hcom_proxy_upd.c
-endif
+CSRCS += hcom_proxy/hcom_proxy_upd.c \
+hcom_proxy/hcom_proxy_startup_mgr.c \
+hcom_proxy/hcom_proxy_common_utils.c \
+hcom_proxy/hcom_proxy_route_command.c \
+hcom_proxy/commands/hcom_external_flash.c \
+hcom_proxy/fs/hcom_fs.c \
+hcom_proxy/fs/hcom_fs_littlefs.c
 
 ifeq ($(CONFIG_MEADOW_ESPCP_MANAGER),y)
 CSRCS += espcp/espcp_thread.c \
@@ -92,7 +97,8 @@ CSRCS += espcp/espcp_thread.c \
 		 espcp/espcp_posix.c \
 		 espcp/espcp_wifi.c \
 		 espcp/espcp_system.c \
-		 espcp/espcp_common.c
+		 espcp/espcp_common.c 
+endif
 endif
 
 include $(TOPDIR)/configs/Board.mk

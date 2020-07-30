@@ -42,7 +42,9 @@
 // This header file contains those items that must be shared by apps/hcom
 // #include <string.h>
 
-#define HCOM_PROXY_UPD_DRIVER_NAME "/dev/hcomproxyupd"
+#define HCOM_PROXY_UPD_DRIVER_NAME "/dev/proxyupd"
+#define HCOM_PROXY_CMD_HOST_MSG_SIZE 128
+#define HCOM_PROXY_CMD_LOG_MSG_SIZE 128
 
 // Battery Backed Register
 struct hcom_proxy_upd_bbr_value
@@ -71,11 +73,39 @@ struct hcom_proxy_upd_register_update
   uint32_t setBits;
 };
 
-#define HCOM_PROXY_UPD_SET_REGISTER     1
-#define HCOM_PROXY_UPD_GET_REGISTER     2
-#define HCOM_PROXY_UPD_UPDATE_REGISTER  3
-#define HCOM_PROXY_UPD_SET_BBR_VALUE    4
-#define HCOM_PROXY_UPD_GET_BBR_VALUE    5
-#define HCOM_PROXY_UPD_UPDATE_BBR_VALUE 6
+struct hcom_proxy_cmd_data
+{
+  uint32_t proxyCmd;
+  uint32_t userData;
+
+  uint8_t logLevel;
+  uint8_t logLen;
+  uint8_t hostLen;
+  uint8_t future;
+  char logMsg[HCOM_PROXY_CMD_LOG_MSG_SIZE + 1];
+  char hostMsg[HCOM_PROXY_CMD_HOST_MSG_SIZE + 1];
+};
+
+// Augment the normal Nuttx LOG_XXXX list
+#define LOG_NONE                            0xff
+
+#define HCOM_PROXY_UPD_SET_REGISTER         1
+#define HCOM_PROXY_UPD_GET_REGISTER         2
+#define HCOM_PROXY_UPD_UPDATE_REGISTER      3
+#define HCOM_PROXY_UPD_SET_BBR_VALUE        4
+#define HCOM_PROXY_UPD_GET_BBR_VALUE        5
+#define HCOM_PROXY_UPD_UPDATE_BBR_VALUE     6
+#define HCOM_PROXY_UPD_CLI_COMMAND          7
+#define HCOM_PROXY_UPD_GET_MCU_ID           8
+
+//==================================================
+#define HCOM_PROXY_CLI_CMD_DEVELOPER_1      1
+#define HCOM_PROXY_CLI_CMD_MONO_FLASH       2
+#define HCOM_PROXY_CLI_CMD_RESTART_MEADOW   3
+#define HCOM_PROXY_CLI_CMD_ERASE_EX_FLASH   4
+#define HCOM_PROXY_CLI_CMD_VERIFY_EX_FLASH  5
+#define HCOM_PROXY_CLI_CMD_RENEW_FILE_SYS   6
+
+//#define HCOM_PROXY_CLI_CMD_
 
 #endif  // __CONFIGS_MEADOW_SRC_HCOM_PROXY_SHARED__H

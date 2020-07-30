@@ -69,7 +69,7 @@
 #endif
 
 int meadow_upd_initialize(void);
-int hcom_proxy_upd_initialize(void);
+int hcom_proxy_setup_mgr(FAR struct mtd_dev_s *mtd);
 
 /************************************************************************************
  * Pre-processor Definitions
@@ -281,20 +281,13 @@ void board_late_initialize(void)
 #endif
 
 #if defined(CONFIG_MEADOW_HCOM)
-  ret = hcom_proxy_upd_initialize();
+  // Initialize Meadow HCOM proxy
+  ret = hcom_proxy_setup_mgr(mtd);
   if(ret < 0)
   {
     syslog(LOG_EMERG, "ERROR: HCOM proxy initialization failed!\n");
     PANIC();
   }
-  
-  // // Initialize Meadow HCOM host communications
-  // ret = hcom_manager_setup(mtd);
-  // if(ret < 0)
-  // {
-  //   syslog(LOG_EMERG, "ERROR: HCOM initialization failed!\n");
-  //   PANIC();
-  // }
 #endif
 }
 

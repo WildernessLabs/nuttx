@@ -60,9 +60,11 @@
 #include <sys/ioctl.h>
 
 #include "hcom_proxy_shared.h"
+#include "hcom_proxy_common.h"
 
 #include "chip/stm32f76xx77xx_memorymap.h"
 #include "chip/stm32_rtcc.h"    // battery backed registers and ram
+#include "stm32_uid.h"          // stm32_get_uniqueid()
 
 /****************************************************************************
  * Private Types
@@ -72,54 +74,56 @@
  * Private Function Prototypes
  ****************************************************************************/
 
-static int hcp_upd_open(struct file *filep);
-static int hcp_upd_close(struct file *filep);
-static int hcp_upd_ioctl(FAR struct file *filep, int cmd, unsigned long arg);
+static int hcom_upd_proxy_open(struct file *filep);
+static int hcom_upd_proxy_close(struct file *filep);
+static int hcom_upd_proxy_ioctl(FAR struct file *filep, int cmd, unsigned long arg);
 // Added read because open failed without it. The open flag O_RDONLY == 0.
-static int hcp_upd_read(FAR struct file *filep, FAR char *buffer, size_t buflen);
+static int hcom_upd_proxy_read(FAR struct file *filep, FAR char *buffer, size_t buflen);
 static uint32_t hcom_proxy_upd_find_bbr_addr(uint32_t bbrId);
 
 /****************************************************************************
  * Private Data
  ****************************************************************************/
+static char *thisFile = __FILE__;
 
 static const struct file_operations g_hcom_proxy_operations =
 {
-  .open  = hcp_upd_open,
-  .close = hcp_upd_close,
-  .ioctl = hcp_upd_ioctl,
-  .read  = hcp_upd_read
+  .open  = hcom_upd_proxy_open,
+  .close = hcom_upd_proxy_close,
+  .read  = hcom_upd_proxy_read,
+  .ioctl = hcom_upd_proxy_ioctl
 };
 
 // ====================================================================
 // Called when hcom proxy upd driver is opened
-int hcp_upd_open(struct file *filep)
+int hcom_upd_proxy_open(struct file *filep)
 {
   return OK;
 }
 
 // ====================================================================
 // Called when hcom proxy upd driver is closed
-int hcp_upd_close(struct file *filep)
+int hcom_upd_proxy_close(struct file *filep)
 {
   return OK;
 }
 
 // ====================================================================
-int hcp_upd_read(FAR struct file *filep, FAR char *buffer, size_t buflen)
+int hcom_upd_proxy_read(FAR struct file *filep, FAR char *buffer, size_t buflen)
 {
   return OK;
 }
 
 // ====================================================================
-static int hcp_upd_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
+static int hcom_upd_proxy_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 {
-  uint32_t tempAddr;
+  uint32_t ret;
   uint32_t tempData;
   struct hcom_proxy_upd_register_value *register_val;
   struct hcom_proxy_upd_register_update *register_update;
   struct hcom_proxy_upd_bbr_value *bbr_val;
   struct hcom_proxy_upd_bbr_update *bbr_update;
+  struct hcom_proxy_cmd_data *cmdData;
 
   switch(cmd)
   {    
@@ -149,14 +153,30 @@ static int hcp_upd_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
       return OK;
     case HCOM_PROXY_UPD_UPDATE_BBR_VALUE:
       bbr_update = (struct hcom_proxy_upd_bbr_update *)arg;
-      tempAddr = hcom_proxy_upd_find_bbr_addr(bbr_update->bbr_id);
-      modifyreg32(tempAddr, bbr_update->clearBits, bbr_update->setBits);
+      tempData = hcom_proxy_upd_find_bbr_addr(bbr_update->bbr_id);
+      modifyreg32(tempData, bbr_update->clearBits, bbr_update->setBits);
       return OK;
+
+    case HCOM_PROXY_UPD_CLI_COMMAND:
+      cmdData = (struct hcom_proxy_cmd_data *)arg;
+      ret = hcom_proxy_route_cli_command(cmdData);
+      return ret;
+
+    case HCOM_PROXY_UPD_GET_MCU_ID:
+      stm32_get_uniqueid((uint8_t *)arg);
+      return OK;
+
+    default:
+      syslog(LOG_ERR, "%s@%d-unknown hcom proxy upd command:%d\n", thisFile, __LINE__, cmd);
+
   }
+
   return ERROR;
 }
 
 // ====================================================================
+// Map battery backed register
+// (at this time only #31 is used)
 uint32_t hcom_proxy_upd_find_bbr_addr(uint32_t bbrId)
 {
   uint32_t bbrAddr;
@@ -197,6 +217,8 @@ uint32_t hcom_proxy_upd_find_bbr_addr(uint32_t bbrId)
     case 29: bbrAddr = STM32_RTC_BK29R; break;
     case 30: bbrAddr = STM32_RTC_BK30R; break;
     case 31: bbrAddr = STM32_RTC_BK31R; break;
+    default:
+    syslog(LOG_ERR, "%s@%d-unknown hcom proxy bbr id:%d\n", thisFile, __LINE__, bbrId);
   }
   return bbrAddr;
 }

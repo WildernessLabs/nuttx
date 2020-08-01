@@ -60,16 +60,6 @@ static char *thisFile = __FILE__;
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
-int hcom_utils_setup()
-{
-  return OK;
-}
-
-//============================================================================
-// p-m Any idea about how to shut down?
-// void hcom_utils_shutdown()
-// {
-// }
 
 // //===================================================================
 // // This is called during startup, before the hcom thread is created,

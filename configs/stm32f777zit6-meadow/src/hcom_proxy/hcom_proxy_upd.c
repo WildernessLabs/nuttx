@@ -124,6 +124,7 @@ static int hcom_upd_proxy_ioctl(FAR struct file *filep, int cmd, unsigned long a
   struct hcom_proxy_upd_bbr_value *bbr_val;
   struct hcom_proxy_upd_bbr_update *bbr_update;
   struct hcom_proxy_cmd_data *cmdData;
+  struct hcom_proxy_upd_is_part_mounted *is_mounted;
 
   switch(cmd)
   {    
@@ -164,6 +165,11 @@ static int hcom_upd_proxy_ioctl(FAR struct file *filep, int cmd, unsigned long a
 
     case HCOM_PROXY_UPD_GET_MCU_ID:
       stm32_get_uniqueid((uint8_t *)arg);
+      return OK;
+
+    case HCOM_PROXY_UPD_IS_PART_MOUNTED:
+      is_mounted = (struct hcom_proxy_upd_is_part_mounted *)arg;
+      is_mounted->isMounted = hcom_fs_is_mounted(is_mounted->partitionId);
       return OK;
 
     default:

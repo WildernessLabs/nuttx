@@ -38,8 +38,11 @@
  ****************************************************************************/
 
 #include "hcom_proxy_common.h"
-
 #include <assert.h>
+
+#if defined (CONFIG_FS_PROCFS)
+#include "stm32f777zit6-meadow.h"
+#endif
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -65,7 +68,17 @@ int hcom_proxy_setup_mgr(FAR struct mtd_dev_s *mtd)
   {
     return ERROR;
   }
-  
+
+#if (defined (CONFIG_FS_PROCFS) && defined (CONFIG_SYSTEM_NSH))
+  ret = mount(NULL, STM32_PROCFS_MOUNTPOINT, "procfs", 0, NULL);
+  if (ret < 0)
+  {
+    syslog(LOG_ERR, "ERROR: Failed to mount procfs at %s: %d\n",
+            STM32_PROCFS_MOUNTPOINT, ret);
+  }
+#endif
+
+  // Initialize hcom proxy driver
   ret = hcom_proxy_upd_initialize();
   if (ret < 0)
   {
@@ -73,14 +86,7 @@ int hcom_proxy_setup_mgr(FAR struct mtd_dev_s *mtd)
     return ret;
   }
 
-  ret = hcom_utils_setup();
-  if (ret < 0)
-  {
-    syslog(LOG_CRIT, "%s@%d-setup hcom utils:%d\n", thisFile, __LINE__, ret);
-    return ret;
-  }
-
-  // Sets a few internal variable states
+  // Saves a copy of mtd
   ret = hcom_exec_ex_flash_setup(mtd);
   if (ret < 0)
   {
@@ -106,12 +112,15 @@ int hcom_proxy_setup_mgr(FAR struct mtd_dev_s *mtd)
 //     return ret;
 //   }
 
-  ret = hcom_fs_setup(mtd);
+// Initialize the file system as needed
+#if defined(CONFIG_HCOM_FILESYSTEM_INIT)    // defined in menuconfig
+  ret = hcom_create_fs_initialize(mtd);
   if (ret < 0)
   {
     syslog(LOG_CRIT, "%s@%d-setup F/S helper %d\n", thisFile, __LINE__, ret);
     return ret;
   }
+#endif
 
 // #if defined(CONFIG_HCOM_MTD_STRESS_TEST)
 //   ret = hcom_exec_rqst_testing_setup(mtd);
@@ -121,16 +130,6 @@ int hcom_proxy_setup_mgr(FAR struct mtd_dev_s *mtd)
 //     return ret;
 //   }
 // #endif
-
-// Initialize the file system as needed
-#if defined(CONFIG_HCOM_FILESYSTEM_INIT)    // defined in menuconfig
-  ret = hcom_fs_init_file_system();
-  if (ret < 0)
-  {
-    syslog(LOG_CRIT, "%s@%d-setup F/S helper %d\n", thisFile, __LINE__, ret);
-    return ret;
-  }
-#endif
 
   return OK;
 }

@@ -54,8 +54,6 @@ static char *thisFile = __FILE__;
  * Private Function Prototypes
  ****************************************************************************/
 
-
-
 // Proxy playground
 int hcom_developer_1(struct hcom_proxy_cmd_data *cmdData)
 {
@@ -63,10 +61,11 @@ int hcom_developer_1(struct hcom_proxy_cmd_data *cmdData)
   cmdData->logLen = snprintf(cmdData->logMsg, HCOM_PROXY_CMD_LOG_MSG_SIZE,
             "%s@%d-Developer1 is not a real command:0x%08x.\n", thisFile, __LINE__, cmdData->proxyCmd);
 
-  cmdData->hostLen = snprintf(cmdData->hostMsg, HCOM_PROXY_CMD_HOST_MSG_SIZE,
+  char hostMsg[HCOM_PROXY_CMD_HOST_MSG_SIZE];
+  snprintf(hostMsg, HCOM_PROXY_CMD_HOST_MSG_SIZE,
             "%s@%d-'Developer1 received userData:%d and command:0x%08x'.",
             thisFile, __LINE__, cmdData->userData, cmdData->proxyCmd);
-
+  cmdData->send_host_text(hostMsg, 0, thisFile, __LINE__);
   return -1;
 }
 

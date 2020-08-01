@@ -73,6 +73,12 @@ struct hcom_proxy_upd_register_update
   uint32_t setBits;
 };
 
+struct hcom_proxy_upd_is_part_mounted
+{
+  uint32_t partitionId;
+  bool isMounted;
+};
+
 struct hcom_proxy_cmd_data
 {
   uint32_t proxyCmd;
@@ -80,10 +86,8 @@ struct hcom_proxy_cmd_data
 
   uint8_t logLevel;
   uint8_t logLen;
-  uint8_t hostLen;
-  uint8_t future;
   char logMsg[HCOM_PROXY_CMD_LOG_MSG_SIZE + 1];
-  char hostMsg[HCOM_PROXY_CMD_HOST_MSG_SIZE + 1];
+  void (* send_host_text)(char *, uint32_t, char *, int);
 };
 
 // Augment the normal Nuttx LOG_XXXX list
@@ -97,8 +101,11 @@ struct hcom_proxy_cmd_data
 #define HCOM_PROXY_UPD_UPDATE_BBR_VALUE     6
 #define HCOM_PROXY_UPD_CLI_COMMAND          7
 #define HCOM_PROXY_UPD_GET_MCU_ID           8
+#define HCOM_PROXY_UPD_IS_PART_MOUNTED      9
 
 //==================================================
+// UPD comands based on CLI commands
+// The following are "redefinitions" of CLI commands
 #define HCOM_PROXY_CLI_CMD_DEVELOPER_1      1
 #define HCOM_PROXY_CLI_CMD_MONO_FLASH       2
 #define HCOM_PROXY_CLI_CMD_RESTART_MEADOW   3

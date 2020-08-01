@@ -83,8 +83,8 @@ hcom_proxy/hcom_proxy_startup_mgr.c \
 hcom_proxy/hcom_proxy_common_utils.c \
 hcom_proxy/hcom_proxy_route_command.c \
 hcom_proxy/commands/hcom_external_flash.c \
-hcom_proxy/fs/hcom_fs.c \
-hcom_proxy/fs/hcom_fs_littlefs.c
+hcom_proxy/create_fs/hcom_fs.c \
+hcom_proxy/create_fs/hcom_fs_littlefs.c
 
 ifeq ($(CONFIG_MEADOW_ESPCP_MANAGER),y)
 CSRCS += espcp/espcp_thread.c \

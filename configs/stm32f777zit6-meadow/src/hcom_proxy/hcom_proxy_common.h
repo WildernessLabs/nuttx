@@ -1,9 +1,7 @@
 /****************************************************************************
- * configs/stm32f777-zit6-meadow/src/hcom/hcom_common.h
+ * configs\stm32f777zit6-meadow\src\hcom_proxy\hcom_proxy_common.h
  * 
  *   Copyright (C) 2019 - 2020 Wilderness Labs. All rights reserved.
- *   Copyright (C) 2017 Gregory Nutt. All rights reserved.
- *   Copyright (C) 2017 Alan Carvalho de Assis. All rights reserved.
  *   Author:  Wilderness Labs
  *
  * Redistribution and use in source and binary forms, with or without
@@ -113,7 +111,6 @@ extern "C"
  ****************************************************************************************************/
 
   // int hcom_proxy_setup_mgr(FAR struct mtd_dev_s *mtd);   // called from stm32_boot.c
-  int hcom_utils_setup(void);
   int hcom_proxy_upd_initialize(void);
 
   // HCOM command handling
@@ -126,20 +123,18 @@ extern "C"
   int hcom_exec_ex_flash_verify_ex_flash(struct hcom_proxy_cmd_data *cmdData);
 
   // Low-level file system
-  int hcom_fs_setup(FAR struct mtd_dev_s *mtd);
-  int hcom_fs_init_file_system(void);
-  int hcom_fs_mount_file_system(const char *sourceDevice, const char *targetDevice,
+  int hcom_create_fs_initialize(FAR struct mtd_dev_s *mtd);
+  int hcom_create_fs_mount(const char *sourceDevice, const char *targetDevice,
                                         const char *fileSystemType, uint32_t partitionId,
                                         const char *mountCommand);
+bool hcom_fs_is_mounted(uint32_t partitionId);
 
 #ifdef CONFIG_FS_LITTLEFS
-  int hcom_fs_littlefs_setup(void);
-  int hcom_little_support_init_master_fs(FAR struct mtd_dev_s *master_flash_mtd);
-  void hcom_fs_littlefs_shutdown(void);
+  int hcom_create_littlefs_support_init_master(FAR struct mtd_dev_s *master_flash_mtd);
 #ifdef CONFIG_MTD_PARTITION
-  int hcom_fs_littlefs_init_part_fs(uint32_t partitionId, struct mtd_dev_s *partMtd);
+  int hcom_create_littlefs_init_1_part(uint32_t partitionId, struct mtd_dev_s *partMtd);
 #endif
-  int hcom_fs_littlefs_mount_format(uint32_t partitionId);
+  int hcom_create_littlefs_mount_format_1_part(uint32_t partitionId);
 #endif
 
   // Diagnostics

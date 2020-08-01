@@ -40,7 +40,7 @@
 #include "../hcom_proxy_common.h"
 
 #if !defined CONFIG_FS_LITTLEFS
-#warning "LittleFS is not configured. No file system exists."
+#warning "LittleFS is not configured. No file system can exist"
 #endif
 
 #include <errno.h>
@@ -49,30 +49,22 @@
 #include <nuttx/mtd/mtd.h>
 #include <dirent.h>
 
-
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
-// static struct partition_info
-// {
-//   struct mtd_dev_s *mtdPart;
-//   bool isPartMounted;
-//   off_t partPageOffset;
-// };
+static struct partition_info
+{
+  struct mtd_dev_s *mtdPart;
+  bool isPartMounted;
+  off_t partPageOffset;
+};
 
 /****************************************************************************
  * Private Data
  ****************************************************************************/
 static char *thisFile = __FILE__;
 
-// p-m using this would be cleaner
-// static FAR struct partition_info _partInfo[HCOM_FLASH_FILE_PARTITION_COUNT_MAX];
-
-static FAR struct mtd_dev_s *_mtd;
-static FAR struct mtd_dev_s *_mtdPartArray[HCOM_FLASH_FILE_PARTITION_COUNT_MAX];
-static bool _mountedPartitionId[HCOM_FLASH_FILE_PARTITION_COUNT_MAX];
-static off_t _partPageOffset[HCOM_FLASH_FILE_PARTITION_COUNT_MAX];
-//static bool _shutting_down;
+static FAR struct partition_info _partInfo[HCOM_FLASH_FILE_PARTITION_COUNT_MAX];
 static int _totalPartitionCount;
 static uint32_t _pagesPerEraSector;
 
@@ -87,51 +79,25 @@ int hcom_fs_init_partitions(FAR struct mtd_dev_s *mtd, uint32_t numberOfPartitio
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
-
-/****************************************************************************
- * Implementation
- ****************************************************************************/
-int hcom_fs_setup(FAR struct mtd_dev_s *mtd)
+// Entry point for initialization of file system.
+// Called at startup to insure correct low-level file system
+int hcom_create_fs_initialize(FAR struct mtd_dev_s *mtd)
 {
-  _mtd = mtd;
+  int ret;
+
+  //_mtd = mtd;
   for(int i = 0; i < HCOM_FLASH_FILE_PARTITION_COUNT_MAX; i++)
   {
-    _mtdPartArray[i] = NULL;
-    _mountedPartitionId[i] = false;
-    _partPageOffset[i] = 0;
+    _partInfo[i].mtdPart = NULL;
+    _partInfo[i].isPartMounted = false;
+    _partInfo[i].partPageOffset = 0;
   }
   
   _totalPartitionCount = 0;
   _pagesPerEraSector = 0;
 
-  // _shutting_down = false;
-
-#if defined(CONFIG_FS_LITTLEFS)
-  hcom_fs_littlefs_setup();
-#endif
-
-  return OK;
-}
-
-// p-m possible?
-// //==================================================================
-// void hcom_fs_shutdown()
-// {
-//   _shutting_down = true;
-
-// #if defined(CONFIG_FS_LITTLEFS)
-//   hcom_fs_littlefs_shutdown();
-// #endif
-// }
-
-//==================================================================
-// Entry point for initialization of file system
-int hcom_fs_init_file_system()
-{
-  int ret;
-
 #ifdef CONFIG_FS_LITTLEFS
-  ret = hcom_little_support_init_master_fs(_mtd);
+  ret = hcom_create_littlefs_support_init_master(mtd);
   if (ret < 0)
   {
     syslog(LOG_ERR, "%s@%d-ERROR:LittleFS F/S init error:%d\n",
@@ -141,7 +107,7 @@ int hcom_fs_init_file_system()
 #endif
 
 #if !defined(CONFIG_HCOM_MTD_STRESS_TEST)
-  ret = hcom_fs_create_partition_initialize_and_mount_fs(_mtd,
+  ret = hcom_fs_create_partition_initialize_and_mount_fs(mtd,
         HCOM_NUMBER_OF_FS_PARTITIONS);
   if (ret < 0)
   {
@@ -160,12 +126,12 @@ int hcom_fs_create_partition_initialize_and_mount_fs(FAR struct mtd_dev_s *mtd,
                                                       uint32_t numbOfPartitions)
 {
   int ret;
-  uint32_t partCounter;
+  uint32_t partNumb;
 
   //------------------------------------------------------------------------
   syslog(LOG_INFO, "F/S create %d partitions\n", numbOfPartitions);
 
-  // Create the number of partitions in the external flash
+  // Create the partitions in the external flash
   ret = hcom_fs_init_partitions(mtd, numbOfPartitions);
   if (ret < 0)
   {
@@ -177,16 +143,16 @@ int hcom_fs_create_partition_initialize_and_mount_fs(FAR struct mtd_dev_s *mtd,
   syslog(LOG_INFO, "Partitioning complete. Init partitions\n");
 
   // Initialize the file system
-  for (partCounter = 0; partCounter < numbOfPartitions; partCounter++)
+  for (partNumb = 0; partNumb < numbOfPartitions; partNumb++)
   {
-    syslog(2, "Init F/S part:%d\n", partCounter);
+    syslog(2, "Init F/S part:%d\n", partNumb);
 
 #if (defined CONFIG_FS_LITTLEFS && defined CONFIG_MTD_PARTITION)
-    ret = hcom_fs_littlefs_init_part_fs(partCounter, _mtdPartArray[partCounter]);
+    ret = hcom_create_littlefs_init_1_part(partNumb, _partInfo[partNumb].mtdPart);
     if (ret < 0)
     {
       syslog(LOG_ERR, "%s@%d-LittleFS error:%d part:%d\n",
-               thisFile, __LINE__, ret, partCounter);
+               thisFile, __LINE__, ret, partNumb);
       return ret;
     }
 #endif
@@ -195,18 +161,18 @@ int hcom_fs_create_partition_initialize_and_mount_fs(FAR struct mtd_dev_s *mtd,
   //------------------------------------------------------------------------
   syslog(LOG_INFO, "F/S Part Init complete, mount & format\n");
 
-  for (partCounter = 0; partCounter < numbOfPartitions; partCounter++)
+  for (partNumb = 0; partNumb < numbOfPartitions; partNumb++)
   {
-    syslog(2, "%s@%d-Mount part %d\n", thisFile, __LINE__, partCounter);
+    syslog(2, "%s@%d-Mount part %d\n", thisFile, __LINE__, partNumb);
 
     // Attempt to mount - if fails format and attempt to mount again
 #if defined(CONFIG_FS_LITTLEFS)
-    ret = hcom_fs_littlefs_mount_format(partCounter);
+    ret = hcom_create_littlefs_mount_format_1_part(partNumb);
     if (ret < 0)
     {
       syslog(LOG_ERR, "%s@%d-mount failed '%s' to '%s' for type '%s', Part %d error:%d\n",
             thisFile, __LINE__, HCOM_FILE_MOUNT_POINT_SOURCE, HCOM_FILE_MOUNT_POINT_TARGET,
-            HCOM_FILE_MOUNT_FILE_SYS_TYPE, partCounter, ret);
+            HCOM_FILE_MOUNT_FILE_SYS_TYPE, partNumb, ret);
     }
 #endif
   }
@@ -216,14 +182,12 @@ int hcom_fs_create_partition_initialize_and_mount_fs(FAR struct mtd_dev_s *mtd,
 }
 
 //==============================================================================
-// This method is called to mount either one partition or the only file system 
-int hcom_fs_mount_file_system(const char *sourceDevice, const char *targetDevice,
+// This method is called from littlefs to mount either a partition or the
+// only partition in the file system 
+int hcom_create_fs_mount(const char *sourceDevice, const char *targetDevice,
                                         const char *fileSystemType, uint32_t partitionId,
                                         const char *mountCommand)
 {
-  // if (_shutting_down)
-  //   return OK;
-
   int ret;
   char *finalSourceName = malloc(HCOM_MAX_PATH_AND_FILE_BUFF_LENGTH);
   char *fullMountPtName = malloc(HCOM_MAX_PATH_AND_FILE_BUFF_LENGTH);
@@ -262,7 +226,7 @@ int hcom_fs_mount_file_system(const char *sourceDevice, const char *targetDevice
     return -errnumb;
   }
 
-  _mountedPartitionId[partitionId] = true;
+  _partInfo[partitionId].isPartMounted = true;
   
   syslog(LOG_INFO, "%s@%d-Mounted '%s' to '%s' for type '%s'\n", thisFile, __LINE__,
         finalSourceName, fullMountPtName, fileSystemType);
@@ -277,23 +241,23 @@ int hcom_fs_mount_file_system(const char *sourceDevice, const char *targetDevice
 //
 bool hcom_fs_is_mounted(uint32_t partitionId)
 {
-  return (_mountedPartitionId[partitionId]);
+  return (_partInfo[partitionId].isPartMounted);
 }
 
 //=====================================================================
-//
+// Used to implement RenewFileSys
 int hcom_fs_1st_erase_sector_of_partition(uint32_t partitionId)
 {
-  return (_partPageOffset[partitionId] / _pagesPerEraSector);
+  return (_partInfo[partitionId].partPageOffset / _pagesPerEraSector);
 }
 
 //======================================================================
 // Partitions the entire flash chip with the number of partitions specified.
-// This sets the size of each partition
+// This also sets the size of each partition
 int hcom_fs_init_partitions(FAR struct mtd_dev_s *mtd, uint32_t numberOfPartitions)
 {
 #ifndef CONFIG_MTD_PARTITION
-  _mtdPartArray[0] = mtd;
+  _partInfo[0].mtdPart = mtd;
   _totalPartitionCount = 1;
 #else
   FAR struct mtd_geometry_s geo;
@@ -322,20 +286,18 @@ int hcom_fs_init_partitions(FAR struct mtd_dev_s *mtd, uint32_t numberOfPartitio
 
   size_t nEraseBlocks = geo.neraseblocks;
   nEraseBlocks -= (HCOM_FS_MONO_RAW_PARTITION_SIZE / geo.erasesize);
-
   int nPages = (nEraseBlocks / numberOfPartitions) * _pagesPerEraSector;
 
   // Reserve some size in the flash for Mono raw partition.
   int offsetInPages = HCOM_FS_MONO_RAW_PARTITION_SIZE / geo.blocksize;
-
   size_t partsize = nPages * geo.blocksize;
 
   for (partitionId = 0; partitionId < numberOfPartitions; partitionId++)
   {
-    _partPageOffset[partitionId] = offsetInPages;
-    _mtdPartArray[partitionId] = mtd_partition(mtd, offsetInPages, nPages);
+    _partInfo[partitionId].partPageOffset = offsetInPages;
+    _partInfo[partitionId].mtdPart = mtd_partition(mtd, offsetInPages, nPages);
     offsetInPages += nPages;
-    if (!_mtdPartArray[partitionId])
+    if (!_partInfo[partitionId].mtdPart)
     {
       syslog(LOG_ERR, "%s@%d-Error:mtd_partition, offset=%lu nPages=%lu\n",
                thisFile, __LINE__, (unsigned long)offsetInPages, (unsigned long)nPages);

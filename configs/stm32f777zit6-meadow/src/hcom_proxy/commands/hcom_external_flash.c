@@ -75,11 +75,15 @@ int hcom_exec_ex_flash_setup(FAR struct mtd_dev_s *mtd)
 }
 
 //=======================================================================================
+// Called from host PC
 int hcom_exec_ex_flash_erase_ex_flash(struct hcom_proxy_cmd_data *cmdData)
 {
   int ret;
 
-  syslog(LOG_WARNING, "Bulk erase of External Flash begun\n");
+  cmdData->send_host_text("Bulk erase begun. Will take 2-3 minutes.",
+          0, thisFile, __LINE__);
+
+  syslog(LOG_INFO, "Bulk erase of External Flash begun\n");
 
   ret = _mtd->ioctl(_mtd, MTDIOC_BULKERASE, 0);
   if (ret < 0)
@@ -88,25 +92,30 @@ int hcom_exec_ex_flash_erase_ex_flash(struct hcom_proxy_cmd_data *cmdData)
     cmdData->logLen = snprintf(cmdData->logMsg, HCOM_PROXY_CMD_LOG_MSG_SIZE,
             "%s@%d-IOCTL MTDIOC_BULKERASE Err:%d\n", thisFile, __LINE__, ret);
 
-    cmdData->hostLen = snprintf(cmdData->hostMsg, HCOM_PROXY_CMD_HOST_MSG_SIZE,
-            "Bulk Erase of QSPI Flash error %d.", ret);
+    char hostMsg[HCOM_PROXY_CMD_HOST_MSG_SIZE];
+    snprintf(hostMsg, HCOM_PROXY_CMD_HOST_MSG_SIZE,
+              "Bulk Erase of QSPI Flash error:%d.", ret);
+    cmdData->send_host_text(hostMsg, 0, thisFile, __LINE__);
     return ret;
   }
 
-  cmdData->hostLen = snprintf(cmdData->hostMsg, HCOM_PROXY_CMD_HOST_MSG_SIZE,
-          "Bulk erase completed", thisFile, __LINE__);
+  cmdData->send_host_text("Bulk erase completed successfully", 0, thisFile, __LINE__);
 
-  syslog(LOG_WARNING, "Bulk erase complete\n\n");
+  syslog(LOG_INFO, "Bulk erase complete\n\n");
   return OK;
 }
 
-//=======================================================================================
+//========================================================================
+// Called from host PC
 int hcom_exec_ex_flash_verify_ex_flash(struct hcom_proxy_cmd_data *cmdData)
 {
   FAR struct mtd_geometry_s geo;
   int sectorCounter;
   int notErasedSectors;
   int ret;
+
+  cmdData->send_host_text("External flash verification begun",
+          0, thisFile, __LINE__);
 
   syslog(LOG_NOTICE, "Verification of External Flash Erased beginning\n");
 
@@ -160,9 +169,11 @@ int hcom_exec_ex_flash_verify_ex_flash(struct hcom_proxy_cmd_data *cmdData)
   syslog(LOG_NOTICE, "Verify complete, %d non-erased 4KB sectors\n\n", notErasedSectors);
 
   // Send text message to host
-  cmdData->hostLen = snprintf(cmdData->hostMsg, HCOM_PROXY_CMD_HOST_MSG_SIZE,
-        "Verified %04d bytes (%d of %d sectors), found %d not erased.",
-        sectorCounter * geo.erasesize, sectorCounter, geo.neraseblocks, notErasedSectors);
+  char hostMsg[HCOM_PROXY_CMD_HOST_MSG_SIZE];
+  snprintf(hostMsg, HCOM_PROXY_CMD_HOST_MSG_SIZE,
+            "Verified %04d bytes (%d of %d sectors), found %d not erased.",
+            sectorCounter * geo.erasesize, sectorCounter, geo.neraseblocks, notErasedSectors);
+  cmdData->send_host_text(hostMsg, 0, thisFile, __LINE__);
 
   free(baseReference);
   free(readBuffer);
@@ -170,9 +181,11 @@ int hcom_exec_ex_flash_verify_ex_flash(struct hcom_proxy_cmd_data *cmdData)
 }
 
 //======================================================================================
+// Called from host PC
 int hcom_exec_ex_flash_mono_flash(struct hcom_proxy_cmd_data *cmdData)
 {
   cmdData->userData = 0;
+  int lastPercentSent = 0;
 
   // Check for Mono runtime binary on filesystem.
 #ifdef CONFIG_MTD_PARTITION
@@ -229,6 +242,17 @@ int hcom_exec_ex_flash_mono_flash(struct hcom_proxy_cmd_data *cmdData)
       goto cleanup;
     }
 
+    // 10%, 20% etc
+    int percentDone = (i * 100) / numBlocksToWrite;
+    if(percentDone / 10 != lastPercentSent)
+    {
+      char hostMsg[HCOM_PROXY_CMD_HOST_MSG_SIZE];
+      lastPercentSent = percentDone / 10;
+
+      snprintf(hostMsg, HCOM_PROXY_CMD_HOST_MSG_SIZE, "File %d%% downloaded", percentDone);
+      cmdData->send_host_text(hostMsg, 0, thisFile, __LINE__);
+    }
+
 #define MONO_VERIFY 0
 #if MONO_VERIFY > 0
     uint8_t verify[geo.blocksize];
@@ -241,14 +265,9 @@ int hcom_exec_ex_flash_mono_flash(struct hcom_proxy_cmd_data *cmdData)
     }
 #endif
   }
-
   const char monoSuccessFlashMsg[] = "Mono runtime successfully flashed.\n";
-  cmdData->logLevel = LOG_ERR;
-  cmdData->logLen = snprintf(cmdData->logMsg, HCOM_PROXY_CMD_LOG_MSG_SIZE,
-          monoSuccessFlashMsg);
-
-  cmdData->hostLen = snprintf(cmdData->hostMsg, HCOM_PROXY_CMD_HOST_MSG_SIZE,
-          monoSuccessFlashMsg);
+  syslog(LOG_INFO, monoSuccessFlashMsg);
+  cmdData->send_host_text((char*)monoSuccessFlashMsg, 0, thisFile, __LINE__);
 
   cleanup:
     fclose(file);

@@ -39,6 +39,9 @@
  * Included Files
  ****************************************************************************/
 
+/****************************************************************************
+ * Private defines
+ ****************************************************************************/
 // This header file contains those items that must be shared by apps/hcom
 // #include <string.h>
 
@@ -90,6 +93,37 @@ struct hcom_proxy_cmd_data
   void (* send_host_text)(char *, uint32_t, char *, int);
 };
 
+struct hcom_proxy_upd_gpio_config_s
+{
+  uint8_t gpioDefn;     // 1- n
+  uint8_t configValue;  // 1 = input, 0 = output
+  int result;
+};
+
+struct hcom_proxy_upd_gpio_write_s
+{
+  uint8_t gpioDefn;   // 1- n
+  uint8_t cmdValue;   // 1 = high, 0 = low
+};
+
+struct hcom_proxy_upd_gpio_output_map_s
+{
+  uint32_t gpio_output_defn;
+};
+
+struct hcom_proxy_upd_gpio_input_map_s
+{
+  uint32_t gpio_input_defn;
+};
+
+//==================================================
+// These define GPIOs that cannot be access from
+// the apps side
+#define HCOM_PROXY_GPIO_CONFIG_INPUT        1
+#define HCOM_PROXY_GPIO_CONFIG_OUTPUT       0
+#define HCOM_PROXY_GPIO_CMD_VALUE_HIGH      1
+#define HCOM_PROXY_GPIO_CMD_VALUE_LOW       0
+
 // Augment the normal Nuttx LOG_XXXX list
 #define LOG_NONE                            0xff
 
@@ -102,6 +136,8 @@ struct hcom_proxy_cmd_data
 #define HCOM_PROXY_UPD_CLI_COMMAND          7
 #define HCOM_PROXY_UPD_GET_MCU_ID           8
 #define HCOM_PROXY_UPD_IS_PART_MOUNTED      9
+#define HCOM_PROXY_UPD_GPIO_COMMAND         10
+#define HCOM_PROXY_UPD_GPIO_CONFIG          11
 
 //==================================================
 // UPD comands based on CLI commands
@@ -113,6 +149,22 @@ struct hcom_proxy_cmd_data
 #define HCOM_PROXY_CLI_CMD_VERIFY_EX_FLASH  5
 #define HCOM_PROXY_CLI_CMD_RENEW_FILE_SYS   6
 
-//#define HCOM_PROXY_CLI_CMD_
+#define HCOM_PROXY_GPIO_DEFN_ESP_RESET      1
+// The order here is imporatant because these are used as offsets
+// into hcom_proxy_udp
+enum HcomProxyGpioDefn
+{
+  HcomProxyGpioDefnEspReset,
+  HcomProxyGpioDefnEspBoot,
+  HcomProxyGpioDefnA0___01,
+  HcomProxyGpioDefnA1___02,
+  HcomProxyGpioDefnA2___03,
+  HcomProxyGpioDefnA3___04,
+  HcomProxyGpioDefnA4___05,
+  HcomProxyGpioDefnA5___06,
+  HcomProxyGpioDefnSCK__07,
+  HcomProxyGpioDefnMOSI_08,
+  HcomProxyGpioDefnMISO_09,
+};
 
 #endif  // __CONFIGS_MEADOW_SRC_HCOM_PROXY_SHARED__H

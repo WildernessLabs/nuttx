@@ -66,6 +66,10 @@
 #include "chip/stm32_rtcc.h"    // battery backed registers and ram
 #include "stm32_uid.h"          // stm32_get_uniqueid()
 
+#include <nuttx/board.h>
+#include <arch/board/board.h>
+#include "stm32_gpio.h"
+
 /****************************************************************************
  * Private Types
  ****************************************************************************/
@@ -80,6 +84,8 @@ static int hcom_upd_proxy_ioctl(FAR struct file *filep, int cmd, unsigned long a
 // Added read because open failed without it. The open flag O_RDONLY == 0.
 static int hcom_upd_proxy_read(FAR struct file *filep, FAR char *buffer, size_t buflen);
 static uint32_t hcom_proxy_upd_find_bbr_addr(uint32_t bbrId);
+static int hcom_proxy_upd_execute_gpio_config(unsigned long arg);
+static int hcom_proxy_upd_execute_gpio_write(unsigned long arg);
 
 /****************************************************************************
  * Private Data
@@ -93,6 +99,34 @@ static const struct file_operations g_hcom_proxy_operations =
   .read  = hcom_upd_proxy_read,
   .ioctl = hcom_upd_proxy_ioctl
 };
+
+// These 2 table eliminate giant switch statements
+// The order of the entries must match the shared
+// related enumeration
+static struct hcom_proxy_upd_gpio_output_map_s gpioOutputDefnArray[] = 
+{
+  {MEADOW_ESP32_ONBOARD_RESET_PIN_OUTPUT},
+  {MEADOW_ESP32_ONBOARD_BOOT_PIN_OUTPUT},
+  {MEADOW_DIAG_GPIO_A0___01_OUTPUT},
+  {MEADOW_DIAG_GPIO_A1___02_OUTPUT},
+  {MEADOW_DIAG_GPIO_A2___03_OUTPUT},
+  {MEADOW_DIAG_GPIO_A3___04_OUTPUT},
+  {MEADOW_DIAG_GPIO_A4___05_OUTPUT},
+  {MEADOW_DIAG_GPIO_A5___06_OUTPUT},
+  {MEADOW_DIAG_GPIO_SCK__07_OUTPUT},
+  {MEADOW_DIAG_GPIO_MOSI_08_OUTPUT},
+  {MEADOW_DIAG_GPIO_MISO_09_OUTPUT}
+};
+
+#define HCOM_NUMBER_OF_GPIO_OUTPUT_MAP_ELEMENTS (sizeof(gpioOutputDefnArray)/sizeof(struct hcom_proxy_upd_gpio_output_map_s))
+
+static struct hcom_proxy_upd_gpio_input_map_s gpioInputDefnArray[] =
+{
+  {MEADOW_ESP32_ONBOARD_RESET_PIN_INPUT},
+  {MEADOW_ESP32_ONBOARD_BOOT_PIN_INPUT}
+};
+
+#define HCOM_NUMBER_OF_GPIO_INPUT_MAP_ELEMENTS (sizeof(gpioInputDefnArray)/sizeof(struct hcom_proxy_upd_gpio_input_map_s))
 
 // ====================================================================
 // Called when hcom proxy upd driver is opened
@@ -143,7 +177,7 @@ static int hcom_upd_proxy_ioctl(FAR struct file *filep, int cmd, unsigned long a
       modifyreg32(register_update->address, register_update->clearBits, register_update->setBits);
       return OK;
 
-      // This only work with Battery Backed Registers via 0-31 id value
+      // This only works with Battery Backed Registers via 0-31 id value
     case HCOM_PROXY_UPD_SET_BBR_VALUE:
       bbr_val = (struct hcom_proxy_upd_bbr_value *)arg;
       putreg32(bbr_val->value, hcom_proxy_upd_find_bbr_addr(bbr_val->bbr_id));
@@ -172,17 +206,70 @@ static int hcom_upd_proxy_ioctl(FAR struct file *filep, int cmd, unsigned long a
       is_mounted->isMounted = hcom_fs_is_mounted(is_mounted->partitionId);
       return OK;
 
+    case HCOM_PROXY_UPD_GPIO_COMMAND:
+      return hcom_proxy_upd_execute_gpio_write(arg);
+
+    case HCOM_PROXY_UPD_GPIO_CONFIG:
+      return hcom_proxy_upd_execute_gpio_config(arg);
+
     default:
       syslog(LOG_ERR, "%s@%d-unknown hcom proxy upd command:%d\n", thisFile, __LINE__, cmd);
-
   }
 
   return ERROR;
 }
 
 // ====================================================================
-// Map battery backed register
-// (at this time only #31 is used)
+// Execute a gpio digital write to output gpio 
+int hcom_proxy_upd_execute_gpio_write(unsigned long arg)
+{
+  struct hcom_proxy_upd_gpio_write_s *gpio_write;
+
+  gpio_write = (struct hcom_proxy_upd_gpio_write_s*)arg;
+  if(gpio_write->gpioDefn > HCOM_NUMBER_OF_GPIO_OUTPUT_MAP_ELEMENTS)
+  {
+    syslog(LOG_ERR, "%s@%d-GPIO output defn:%d out of range\n", thisFile, __LINE__, gpio_write->gpioDefn);
+    return -1;
+  }
+  uint32_t gpioOutputDefn = gpioOutputDefnArray[gpio_write->gpioDefn].gpio_output_defn;
+  stm32_gpiowrite(gpioOutputDefn, gpio_write->cmdValue);  
+  return OK;
+}
+
+// ====================================================================
+// Configure a gpio
+int hcom_proxy_upd_execute_gpio_config(unsigned long arg)
+{
+  int ret;
+  uint32_t gpioIODefn;
+  struct hcom_proxy_upd_gpio_config_s *gpio_config;
+
+  gpio_config = (struct hcom_proxy_upd_gpio_config_s*)arg;
+  if(gpio_config->configValue == HCOM_PROXY_GPIO_CONFIG_OUTPUT)
+  {
+    if(gpio_config->gpioDefn > HCOM_NUMBER_OF_GPIO_OUTPUT_MAP_ELEMENTS)
+    {
+      syslog(LOG_ERR, "%s@%d-GPIO output defn:%d out of range\n", thisFile, __LINE__, gpio_config->gpioDefn);
+      return -1;
+    }
+    gpioIODefn = gpioOutputDefnArray[gpio_config->gpioDefn].gpio_output_defn;
+  }
+  else
+  {
+    if(gpio_config->gpioDefn > HCOM_NUMBER_OF_GPIO_INPUT_MAP_ELEMENTS)
+    {
+      syslog(LOG_ERR, "%s@%d-GPIO input defn:%d out of range\n", thisFile, __LINE__, gpio_config->gpioDefn);
+      return -1;
+    }
+    gpioIODefn = gpioInputDefnArray[gpio_config->gpioDefn].gpio_input_defn;
+  }
+
+  ret = stm32_configgpio(gpioIODefn);  
+  return ret;
+}
+
+// ====================================================================
+// Map battery backed register Note: at this time only #31 is used
 uint32_t hcom_proxy_upd_find_bbr_addr(uint32_t bbrId)
 {
   uint32_t bbrAddr;

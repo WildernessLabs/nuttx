@@ -349,6 +349,10 @@ static ssize_t espcp_usrsock_sockif_send(FAR struct socket *psock,
                                          FAR const void *buffer,
                                          size_t len, int flags)
 {
+    //
+    //  TODO: Make this call sendto.
+    //
+    // return(espcp_usrsock_sendto(psock, buffer, len, flags, NULL, 0));
     int32_t result = -1;
     espcp_message_t *message = NULL;
 
@@ -824,6 +828,7 @@ static int espcp_usrsock_poll_setup(FAR struct socket *psock, FAR struct pollfd 
                                                             espcp_get_next_message_id(), payload, payload_length);       
     if (message == NULL)
     {
+        free(payload);
         return (-ENOMEM);
     }
 
@@ -954,12 +959,83 @@ static void espcp_usrsock_poll_interrupt_handler(espcp_message_t *message)
     if (pr != NULL)
     {
         pr->fd->revents = ipr->returned_events;
+        errno = ipr->response_errno;
         nxsem_post(pr->fd->sem);
     }
     free(ipr);
     free(pr);
     free(message->payload);
     free(message);
+}
+
+/****************************************************************************
+ * Name: espcp_usrsock_direct_poll
+ *
+ * Description:
+ *   Setup a poll request passing the request information to the ESP32.
+ *   to this function.
+ *
+ * Input Parameters:
+ *   psock - An instance of the internal socket structure.
+ *   fds   - The structure describing the events to be monitored.
+ *
+ * Returned Value:
+ *  0: Success; Negated errno on failure
+ *
+ ****************************************************************************/
+static int espcp_usrsock_direct_poll(FAR struct socket *psock, FAR struct pollfd *fds)
+{
+    int result = 0;
+
+    espcp_poll_request_t *request = (espcp_poll_request_t *) malloc(sizeof(espcp_poll_request_t));
+    if (request == NULL)
+    {
+        return (-ENOMEM);
+    }
+    memset(request, 0, sizeof(espcp_poll_request_t));
+    request->socket_handle = psock->s_esp32_sockfd;
+    request->events = fds->events;
+    request->timeout = 5000;
+    request->setup = 2;             /* Temporary magic number */
+
+    int payload_length = espcp_poll_request_buffer_size(request);
+    uint8_t *payload = (uint8_t *) malloc(payload_length);
+    if (payload == NULL)
+    {
+        free(request);
+        return (-ENOMEM);
+    }
+    espcp_encode_poll_request(request, payload);
+    free(request);
+
+    espcp_message_t *message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi,
+                                                            espcp_wi_fi_function_poll,
+                                                            espcp_status_codes_completed_ok,
+                                                            espcp_get_next_message_id(), payload, payload_length);       
+    if (message == NULL)
+    {
+        free(payload);
+        return (-ENOMEM);
+    }
+
+    if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+    {
+        espcp_poll_response_t *response = espcp_extract_poll_response(message->payload);
+        result = response->result;
+        if (result < 0)
+        {
+            errno = response->response_errno;
+        }
+        fds->revents = response->returned_events;
+        if (fds->revents != 0)
+        {
+            nxsem_post(fds->sem);
+        }
+        free(response);
+    }
+
+    espcp_delete_message_and_payload(message);
+    return(result);
 }
 
 /****************************************************************************
@@ -981,15 +1057,35 @@ static void espcp_usrsock_poll_interrupt_handler(espcp_message_t *message)
 int espcp_usrsock_poll(FAR struct socket *psock, FAR struct pollfd *fds, bool setup)
 {
     int result = 0;
+    // static int pollCount = 0;
 
+    // hcom_utils_f7syslog(LOG_CRIT, "%s@%d %s has been called.\n", _thisFile, __LINE__, __func__);
+    // if (fds != NULL)
+    // {
+    //     hcom_utils_f7syslog(LOG_CRIT, "%s@%d poll event number: %d, request events %d.\n", _thisFile, __LINE__, pollCount++, fds->events);
+    // }
+    // else
+    // {
+    //     hcom_utils_f7syslog(LOG_CRIT, "%s@%d fds is null.\n", _thisFile, __LINE__);
+    // }
+
+    errno = 0;
     if (setup)
     {
-        result = espcp_usrsock_poll_setup(psock, fds);
+        // result = espcp_usrsock_poll_setup(psock, fds);
+        // result = espcp_usrsock_direct_poll(psock, fds);
+        if (fds->events == 0)
+        {
+            usleep(10000);
+        }
+        fds->revents = fds->events;
+        nxsem_post(fds->sem);
     }
     else
     {
-        result = espcp_usrsock_poll_teardown(psock, fds);
+        // result = espcp_usrsock_poll_teardown(psock, fds);
     }
+    // result = 0;
     return (result);
 }
 
@@ -1023,6 +1119,7 @@ ssize_t espcp_usrsock_recvfrom(FAR struct socket *psock, FAR void *buffer, size_
     espcp_recv_from_request_t *request = (espcp_recv_from_request_t *) malloc(sizeof(espcp_recv_from_request_t));
     if (request == NULL)
     {
+        errno = ENOMEM;
         return(-1);
     }
     request->socket_handle = psock->s_esp32_sockfd;
@@ -1030,17 +1127,27 @@ ssize_t espcp_usrsock_recvfrom(FAR struct socket *psock, FAR void *buffer, size_
     request->flags = flags;
     request->get_source_address = (from != NULL);
 
-    int payload_length = espcp_recv_from_request_buffer_size(request);
-    uint8_t *payload = (uint8_t *) malloc(payload_length);
-    if (payload == NULL)
+    void *nextBlock = buffer;
+    int totalAmount = 0;
+    int amountRemaining = len;
+    bool gettingData = true;
+    while (gettingData)
     {
-        free(request);
-        return(-1);
-    }
-    else
-    {
+        if (message != NULL)
+        {
+            espcp_delete_message_and_payload(message);
+        }
+
+        request->length = (amountRemaining > 4000) ? 4000 : amountRemaining;
+        int payload_length = espcp_recv_from_request_buffer_size(request);
+        uint8_t *payload = (uint8_t *) malloc(payload_length);
+        if (payload == NULL)
+        {
+            free(request);
+            errno = ENOMEM;
+            return(-1);
+        }
         espcp_encode_recv_from_request(request, payload);
-        free(request);
 
         message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi,
                                                espcp_wi_fi_function_recv_from, espcp_status_codes_completed_ok,
@@ -1051,10 +1158,11 @@ ssize_t espcp_usrsock_recvfrom(FAR struct socket *psock, FAR void *buffer, size_
             espcp_recv_from_response_t *response = espcp_extract_recv_from_response(message->payload);
             errno = response->response_errno;
             result = response->result;
+
+            int amount = 0;
             if (result > 0)
             {
-                int amount = 0;
-                if (from != NULL)
+                if ((totalAmount == 0) && (from != NULL))       /* We only do this the first time. */
                 {
                     espcp_sock_addr_t *sa = espcp_extract_sock_addr(response->source_address);
                     struct sockaddr_in sin;
@@ -1072,21 +1180,33 @@ ssize_t espcp_usrsock_recvfrom(FAR struct socket *psock, FAR void *buffer, size_
                     *fromlen = amount;
                     memcpy(from, &sin, amount);
                     free(sa);
+                    request->get_source_address = false;
                 }
-                if (len > response->result)
+                if (amountRemaining > response->result)
                 {
                     amount = response->result;
                 }
                 else
                 {
-                    amount = len;
+                    amount = amountRemaining;
                 }
-                memcpy(buffer, response->buffer, amount);
+                memcpy(nextBlock, response->buffer, amount);
+                totalAmount += amount;
+                amountRemaining -= amount;
+                nextBlock += amount;
+                gettingData = ((amountRemaining > 0) && (request->length == result));
                 free(response->buffer);
+                result = totalAmount;
+            }
+            else
+            {
+                gettingData = false;
             }
             free(response);
         }
     }
+
+    free(request);
 
     espcp_delete_message_and_payload(message);
     return (result);
@@ -1122,6 +1242,10 @@ ssize_t espcp_usrsock_sendto(FAR struct socket *psock, FAR const void *buffer,
     {
         return(-1);
     }
+    //
+    //  BUG: Need to deal with to == NULL & tolen == 0.
+    //  TODO: Make this deal with send requests where the buffer is > 4000 bytes.
+    //
     struct sockaddr_in *sin = (struct sockaddr_in *) to;
     sa->family = sin->sin_family;
     sa->port = sin->sin_port;

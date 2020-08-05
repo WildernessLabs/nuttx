@@ -3061,6 +3061,87 @@ espcp_poll_request_t *espcp_extract_poll_request(uint8_t *buffer)
 }
 
 /****************************************************************************
+* Name: espcp_encode_poll_response
+*
+* Description:
+*  Convert the espcp_poll_response_t object into a byte stream that can 
+*  be sent to the ESP32.
+*
+* Input Parameters:
+*  poll_response - object to be encoded.
+*
+* Returned Value:
+*  None
+*
+* Assumptions/Limitations:
+*  None
+*
+****************************************************************************/
+void espcp_encode_poll_response(espcp_poll_response_t *poll_response, uint8_t *buffer)
+{
+    espcp_encode_uint16(poll_response->returned_events, buffer);
+    buffer += 2;
+    espcp_encode_int32(poll_response->result, buffer);
+    buffer += 4;
+    espcp_encode_int32(poll_response->response_errno, buffer);
+}
+
+/****************************************************************************
+* Name: espcp_encoded_espcp_poll_response_t_buffer_size
+*
+* Description:
+*  Calculate the amount of memory needed to store and encoded version of an
+*  espcp_espcp_poll_response_t_t object.
+*
+* Input Parameters:
+*  espcp_poll_response_t - espcp_espcp_poll_response_t_t object to be encoded.
+*
+* Returned Value:
+*  Number of bytes required to hold the encoded espcp_espcp_poll_response_t_t object.
+*
+* Assumptions/Limitations:
+*  None
+*
+****************************************************************************/
+int espcp_poll_response_buffer_size(espcp_poll_response_t *poll_response)
+{
+    return(10);
+}
+
+/****************************************************************************
+* Name: espcp_extract_poll_response
+ *  
+* Description:
+*  Extract the espcp_poll_response_ object that is
+*  encoded in the given buffer.
+*  
+*  Note that the returned pointer points to a block of memory on the heap and
+*  this should eventually be released calling free(...).
+*  
+* Input Parameters:
+*  poll_response - pointer to the buffer containing the encoded
+*  espcp_poll_response_t object.
+*
+* Returned Value:
+*  Pointer to the extracted espcp_poll_response_t object.
+*
+* Assumptions/Limitations:
+*  None
+*
+****************************************************************************/
+espcp_poll_response_t *espcp_extract_poll_response(uint8_t *buffer)
+{
+    espcp_poll_response_t *poll_response = (espcp_poll_response_t *) malloc(sizeof(espcp_poll_response_t));
+
+    poll_response->returned_events = espcp_extract_uint16(buffer);
+    buffer += 2;
+    poll_response->result = espcp_extract_int32(buffer);
+    buffer += 4;
+    poll_response->response_errno = espcp_extract_int32(buffer);
+    return(poll_response);
+}
+
+/****************************************************************************
 * Name: espcp_encode_interrupt_poll_response
 *
 * Description:

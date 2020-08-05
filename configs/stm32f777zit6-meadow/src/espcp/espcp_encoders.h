@@ -263,6 +263,14 @@ struct espcp_poll_request_s
 };
 typedef struct espcp_poll_request_s espcp_poll_request_t;
 
+struct espcp_poll_response_s
+{
+    uint16_t returned_events;
+    int32_t result;
+    int32_t response_errno;
+};
+typedef struct espcp_poll_response_s espcp_poll_response_t;
+
 struct espcp_interrupt_poll_response_s
 {
     int32_t socket_handle;
@@ -395,6 +403,9 @@ espcp_recv_from_response_t *espcp_extract_recv_from_response(uint8_t *);
 void espcp_encode_poll_request(espcp_poll_request_t *, uint8_t *);
 int espcp_poll_request_buffer_size(espcp_poll_request_t *);
 espcp_poll_request_t *espcp_extract_poll_request(uint8_t *);
+void espcp_encode_poll_response(espcp_poll_response_t *, uint8_t *);
+int espcp_poll_response_buffer_size(espcp_poll_response_t *);
+espcp_poll_response_t *espcp_extract_poll_response(uint8_t *);
 void espcp_encode_interrupt_poll_response(espcp_interrupt_poll_response_t *, uint8_t *);
 int espcp_interrupt_poll_response_buffer_size(espcp_interrupt_poll_response_t *);
 espcp_interrupt_poll_response_t *espcp_extract_interrupt_poll_response(uint8_t *);

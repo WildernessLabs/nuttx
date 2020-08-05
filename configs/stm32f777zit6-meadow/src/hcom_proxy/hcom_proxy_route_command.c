@@ -55,7 +55,6 @@ static char *thisFile = __FILE__;
 /****************************************************************************
  * Private Function Prototypes
  ****************************************************************************/
-
 // Proxy playground
 int hcom_developer_1(struct hcom_proxy_cmd_data *cmdData)
 {

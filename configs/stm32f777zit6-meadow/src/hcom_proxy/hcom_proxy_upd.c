@@ -226,6 +226,7 @@ int hcom_proxy_upd_execute_gpio_write(unsigned long arg)
   struct hcom_proxy_upd_gpio_write_s *gpio_write;
 
   gpio_write = (struct hcom_proxy_upd_gpio_write_s*)arg;
+
   if(gpio_write->gpioDefn > HCOM_NUMBER_OF_GPIO_OUTPUT_MAP_ELEMENTS)
   {
     syslog(LOG_ERR, "%s@%d-GPIO output defn:%d out of range\n", thisFile, __LINE__, gpio_write->gpioDefn);
@@ -245,6 +246,7 @@ int hcom_proxy_upd_execute_gpio_config(unsigned long arg)
   struct hcom_proxy_upd_gpio_config_s *gpio_config;
 
   gpio_config = (struct hcom_proxy_upd_gpio_config_s*)arg;
+
   if(gpio_config->configValue == HCOM_PROXY_GPIO_CONFIG_OUTPUT)
   {
     if(gpio_config->gpioDefn > HCOM_NUMBER_OF_GPIO_OUTPUT_MAP_ELEMENTS)

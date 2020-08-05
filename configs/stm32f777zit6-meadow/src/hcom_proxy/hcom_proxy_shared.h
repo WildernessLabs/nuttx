@@ -124,7 +124,7 @@ struct hcom_proxy_upd_gpio_input_map_s
 #define HCOM_PROXY_GPIO_CMD_VALUE_HIGH      1
 #define HCOM_PROXY_GPIO_CMD_VALUE_LOW       0
 
-// Augment the normal Nuttx LOG_XXXX list
+// Augments the normal Nuttx LOG_XXXX list
 #define LOG_NONE                            0xff
 
 #define HCOM_PROXY_UPD_SET_REGISTER         1

@@ -68,6 +68,10 @@
 #include <nuttx/kthread.h>
 
 #include <sys/mount.h>
+
+#include <arch/board/board.h>
+#include "chip/stm32_rtcc.h"    // battery backed registers and ram
+
 #include "hcom_proxy_shared.h"
 
 #ifndef OK
@@ -106,6 +110,8 @@ extern "C"
 #define HCOM_FILE_MOUNT_POINT_SOURCE "/dev/little"
 #define HCOM_FILE_MOUNT_FORCE_FORMAT "forceformat"
 #endif
+
+#define HCOM_BATTERY_BACKED_REG_ADDRESS STM32_RTC_BK31R
 
 /****************************************************************************************************
  * Public Functions

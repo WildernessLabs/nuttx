@@ -52,7 +52,7 @@
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
-static struct partition_info
+struct partition_info
 {
   struct mtd_dev_s *mtdPart;
   bool isPartMounted;
@@ -129,7 +129,7 @@ int hcom_fs_create_partition_initialize_and_mount_fs(FAR struct mtd_dev_s *mtd,
   uint32_t partNumb;
 
   //------------------------------------------------------------------------
-  syslog(LOG_INFO, "F/S create %d partitions\n", numbOfPartitions);
+  syslog(LOG_INFO, "F/S creating %d partition%s\n", numbOfPartitions, numbOfPartitions > 1 ? "s" : "");
 
   // Create the partitions in the external flash
   ret = hcom_fs_init_partitions(mtd, numbOfPartitions);
@@ -140,12 +140,12 @@ int hcom_fs_create_partition_initialize_and_mount_fs(FAR struct mtd_dev_s *mtd,
   }
 
   //------------------------------------------------------------------------
-  syslog(LOG_INFO, "Partitioning complete. Init partitions\n");
+  syslog(LOG_DEBUG, "Partitioning complete. Init partitions\n");
 
   // Initialize the file system
   for (partNumb = 0; partNumb < numbOfPartitions; partNumb++)
   {
-    syslog(2, "Init F/S part:%d\n", partNumb);
+    syslog(LOG_DEBUG, "Init F/S part:%d\n", partNumb);
 
 #if (defined CONFIG_FS_LITTLEFS && defined CONFIG_MTD_PARTITION)
     ret = hcom_create_littlefs_init_1_part(partNumb, _partInfo[partNumb].mtdPart);
@@ -159,11 +159,11 @@ int hcom_fs_create_partition_initialize_and_mount_fs(FAR struct mtd_dev_s *mtd,
   }
 
   //------------------------------------------------------------------------
-  syslog(LOG_INFO, "F/S Part Init complete, mount & format\n");
+  syslog(LOG_DEBUG, "F/S Part Init complete, mount & format\n");
 
   for (partNumb = 0; partNumb < numbOfPartitions; partNumb++)
   {
-    syslog(2, "%s@%d-Mount part %d\n", thisFile, __LINE__, partNumb);
+    syslog(LOG_DEBUG, "%s@%d-Mount part %d\n", thisFile, __LINE__, partNumb);
 
     // Attempt to mount - if fails format and attempt to mount again
 #if defined(CONFIG_FS_LITTLEFS)
@@ -177,7 +177,7 @@ int hcom_fs_create_partition_initialize_and_mount_fs(FAR struct mtd_dev_s *mtd,
 #endif
   }
 
-  syslog(LOG_INFO, "F/S creation complete\n");
+  syslog(LOG_NOTICE, "F/S creation complete\n");
   return OK;
 }
 
@@ -200,7 +200,7 @@ int hcom_create_fs_mount(const char *sourceDevice, const char *targetDevice,
   stringLen = snprintf(fullMountPtName, HCOM_MAX_PATH_AND_FILE_BUFF_LENGTH, "%s%d", targetDevice, partitionId);
   DEBUGASSERT(stringLen < HCOM_MAX_PATH_AND_FILE_BUFF_LENGTH);
 
-  syslog(LOG_INFO, "Attempt to mount partition %d as '%s' to '%s' type '%s'\n",
+  syslog(LOG_DEBUG, "Attempt to mount partition %d as '%s' to '%s' type '%s'\n",
            partitionId, finalSourceName, fullMountPtName, fileSystemType);
 #else
   // e.g. mount("/dev/little", "/meadow", "littlefs", 0, NULL);
@@ -228,8 +228,8 @@ int hcom_create_fs_mount(const char *sourceDevice, const char *targetDevice,
 
   _partInfo[partitionId].isPartMounted = true;
   
-  syslog(LOG_INFO, "%s@%d-Mounted '%s' to '%s' for type '%s'\n", thisFile, __LINE__,
-        finalSourceName, fullMountPtName, fileSystemType);
+  syslog(LOG_DEBUG, "%s@%d-Mounted partition %d as '%s' to '%s' for type '%s'\n", thisFile, __LINE__,
+        partitionId, finalSourceName, fullMountPtName, fileSystemType);
         
   free(finalSourceName);
   free(fullMountPtName);
@@ -279,7 +279,7 @@ int hcom_fs_init_partitions(FAR struct mtd_dev_s *mtd, uint32_t numberOfPartitio
     return ret;
   }
 
-  syslog(2, "MTD Geo info - numb erase sectors %u, erasesize %u page size %u\n",
+  syslog(LOG_DEBUG, "MTD Geo info - numb erase sectors %u, erasesize %u page size %u\n",
           geo.neraseblocks, geo.erasesize, geo.blocksize);
 
   _pagesPerEraSector = geo.erasesize / geo.blocksize;
@@ -303,8 +303,9 @@ int hcom_fs_init_partitions(FAR struct mtd_dev_s *mtd, uint32_t numberOfPartitio
                thisFile, __LINE__, (unsigned long)offsetInPages, (unsigned long)nPages);
     }
 
-    syslog(LOG_INFO, "Part %d created offset:%lu size:%d bytes\n",
+    syslog(LOG_DEBUG, "Part %d created offset:%lu size:%d bytes\n",
              partitionId, (unsigned long)offsetInPages, partsize);
   }
 #endif
+  return OK;
 }

@@ -266,7 +266,8 @@ int hcom_proxy_upd_execute_gpio_config(unsigned long arg)
     gpioIODefn = gpioInputDefnArray[gpio_config->gpioDefn].gpio_input_defn;
   }
 
-  ret = stm32_configgpio(gpioIODefn);  
+  ret = stm32_configgpio(gpioIODefn);
+  gpio_config->result = ret;
   return ret;
 }
 

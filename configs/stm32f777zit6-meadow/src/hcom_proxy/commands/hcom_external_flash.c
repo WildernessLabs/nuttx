@@ -186,7 +186,7 @@ int hcom_exec_ex_flash_mono_flash(struct hcom_proxy_cmd_data *cmdData)
 {
   cmdData->userData = 0;
   int lastPercentSent = 0;
-
+  
   // Check for Mono runtime binary on filesystem.
 #ifdef CONFIG_MTD_PARTITION
   const char runtimePath[] = "/meadow0/" HCOM_FS_MONO_RUNTIME_FILENAME;
@@ -217,6 +217,9 @@ int hcom_exec_ex_flash_mono_flash(struct hcom_proxy_cmd_data *cmdData)
 
   struct mtd_geometry_s geo;
   _mtd->ioctl(_mtd, MTDIOC_GEOMETRY, (unsigned long)((uintptr_t)&geo));
+
+  const char monoEraseFlashMsg[] = "Erasing mono flash memory.\n";
+  cmdData->send_host_text((char*)monoEraseFlashMsg, 0, thisFile, __LINE__);
 
   size_t numBlocksToErase = fileSize / geo.erasesize;
   MTD_ERASE(_mtd, 0, numBlocksToErase);
@@ -249,7 +252,7 @@ int hcom_exec_ex_flash_mono_flash(struct hcom_proxy_cmd_data *cmdData)
       char hostMsg[HCOM_PROXY_CMD_HOST_MSG_SIZE];
       lastPercentSent = percentDone / 10;
 
-      snprintf(hostMsg, HCOM_PROXY_CMD_HOST_MSG_SIZE, "File %d%% downloaded", percentDone);
+      snprintf(hostMsg, HCOM_PROXY_CMD_HOST_MSG_SIZE, "Flashing %d%% complete", percentDone);
       cmdData->send_host_text(hostMsg, 0, thisFile, __LINE__);
     }
 
@@ -265,6 +268,7 @@ int hcom_exec_ex_flash_mono_flash(struct hcom_proxy_cmd_data *cmdData)
     }
 #endif
   }
+
   const char monoSuccessFlashMsg[] = "Mono runtime successfully flashed.\n";
   syslog(LOG_INFO, monoSuccessFlashMsg);
   cmdData->send_host_text((char*)monoSuccessFlashMsg, 0, thisFile, __LINE__);

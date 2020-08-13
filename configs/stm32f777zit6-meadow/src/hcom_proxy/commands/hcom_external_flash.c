@@ -38,7 +38,7 @@
  ****************************************************************************/
 
 #include "../hcom_proxy_common.h"
-#include "../hcom_proxy_shared.h"
+#include <meadow/hcom_proxy_shared.h>
 
 #include <nuttx/arch.h>
 #include <nuttx/mtd/mtd.h>
@@ -177,6 +177,40 @@ int hcom_exec_ex_flash_verify_ex_flash(struct hcom_proxy_cmd_data *cmdData)
 
   free(baseReference);
   free(readBuffer);
+  return OK;
+}
+
+//=======================================================================================
+// userData contains the partition number, if partitioning is in use
+int hcom_exec_ex_flash_renew_file_system(struct hcom_proxy_cmd_data *cmdData)
+{
+  // int ret;
+  
+  // // Send the concluded message after recreating the file system and restarting Meadow
+  // hcom_utils_bbreg_set_bit(HCOM_BATTERY_BACKED_REG_BIT_FLAGS, HCOM_BBREG_RESTART_CONCLUDED_BIT_FLAG);
+
+  // int sectorOffset = hcom_fs_1st_erase_sector_of_partition(partitionId);
+
+  // // Erase the first few sectors of the partition and restart the MCU
+  // ret = MTD_ERASE(_mtd, sectorOffset, 16);
+  // if (ret < 0)
+  // {
+  //   cmdData->logLevel = LOG_ERR;
+  //   cmdData->logLen = snprintf(cmdData->logMsg, HCOM_PROXY_CMD_LOG_MSG_SIZE,
+  //           "%s@%d-flash erase SectorOffset %d, err:%d\n", thisFile, __LINE__, sectorOffset, ret);
+  //   return ret;
+  // }
+
+  // char *sendMsgToHost = "File system renewed. Restarting F7 Micro";
+  // cmdData->send_host_text(hostMsg, 0, thisFile, __LINE__);
+
+  // // Tell host to begin to reconnect
+  // hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_RECONNECT, 0, sendMsgToHost,
+  //          thisFile, __LINE__);
+
+  // usleep(500 * 1000);
+  // up_systemreset();
+
   return OK;
 }
 

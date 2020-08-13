@@ -59,8 +59,8 @@
 #include <dirent.h>
 #include <sys/ioctl.h>
 
-#include "hcom_proxy_shared.h"
 #include "hcom_proxy_common.h"
+#include <meadow/hcom_proxy_shared.h>
 
 #include "chip/stm32f76xx77xx_memorymap.h"
 #include "chip/stm32_rtcc.h"    // battery backed registers and ram

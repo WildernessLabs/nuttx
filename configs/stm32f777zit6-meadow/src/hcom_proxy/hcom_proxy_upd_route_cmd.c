@@ -39,7 +39,8 @@
  * Included Files
  ****************************************************************************/
 #include "hcom_proxy_common.h"
-#include "hcom_proxy_shared.h"
+#include <meadow/hcom_proxy_shared.h>
+#include <meadow/hcom_protocol.h>
 
 #include <assert.h>
 
@@ -78,29 +79,29 @@ int hcom_proxy_route_cli_command(struct hcom_proxy_cmd_data *cmdData)
 {
   int ret;
 
-  switch(cmdData->proxyCmd)
+  switch(cmdData->hcomCmd)
   {
-    case HCOM_PROXY_CLI_CMD_DEVELOPER_1:
+    case HCOM_MDOW_REQUEST_DEVELOPER_1:
       ret = hcom_developer_1(cmdData);
       return ret;
 
-    case HCOM_PROXY_CLI_CMD_RESTART_MEADOW:
+    case HCOM_MDOW_REQUEST_RESTART_PRIMARY_MCU:
       up_systemreset();
       return OK;
 
-    case HCOM_PROXY_CLI_CMD_MONO_FLASH:
+    case HCOM_MDOW_REQUEST_MONO_FLASH:
       ret = hcom_exec_ex_flash_mono_flash(cmdData);
       return ret;
   
-    case HCOM_PROXY_CLI_CMD_ERASE_EX_FLASH:
+    case HCOM_MDOW_REQUEST_BULK_FLASH_ERASE:
       ret = hcom_exec_ex_flash_erase_ex_flash(cmdData);
       return ret;
 
-    case HCOM_PROXY_CLI_CMD_VERIFY_EX_FLASH:
+    case HCOM_MDOW_REQUEST_VERIFY_ERASED_FLASH:
       ret = hcom_exec_ex_flash_verify_ex_flash(cmdData);
       return ret;
 
-    case HCOM_PROXY_CLI_CMD_RENEW_FILE_SYS:
+    case HCOM_MDOW_REQUEST_PART_RENEW_FILE_SYS:
       // p-m implement
       ret = OK;
       return ret;

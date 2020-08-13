@@ -1,5 +1,5 @@
 /****************************************************************************
- * configs\stm32f777zit6-meadow\src\hcom_proxy\hcom_proxy_upd.h
+ * ..\Meadow\Meadow.OS\nuttx\include\meadow\hcom_proxy_shared.h
  * 
  *   Copyright (C) 2020 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs
@@ -32,8 +32,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
-#ifndef __CONFIGS_MEADOW_SRC_HCOM_PROXY_SHARED__H
-#define __CONFIGS_MEADOW_SRC_HCOM_PROXY_SHARED__H
+#ifndef __INCLUDE_MEADOW_HCOM_PROXY_SHARED__H
+#define __INCLUDE_MEADOW_HCOM_PROXY_SHARED__H
 
 /****************************************************************************
  * Included Files
@@ -84,6 +84,7 @@ struct hcom_proxy_upd_is_part_mounted
 
 struct hcom_proxy_cmd_data
 {
+  uint16_t hcomCmd;
   uint32_t proxyCmd;
   uint32_t userData;
 
@@ -117,16 +118,7 @@ struct hcom_proxy_upd_gpio_input_map_s
 };
 
 //==================================================
-// These define GPIOs that cannot be access from
-// the apps side
-#define HCOM_PROXY_GPIO_CONFIG_INPUT        1
-#define HCOM_PROXY_GPIO_CONFIG_OUTPUT       0
-#define HCOM_PROXY_GPIO_CMD_VALUE_HIGH      1
-#define HCOM_PROXY_GPIO_CMD_VALUE_LOW       0
-
-// Augments the normal Nuttx LOG_XXXX list
-#define LOG_NONE                            0xff
-
+// hcom proxy upd ioctl commands
 #define HCOM_PROXY_UPD_SET_REGISTER         1
 #define HCOM_PROXY_UPD_GET_REGISTER         2
 #define HCOM_PROXY_UPD_UPDATE_REGISTER      3
@@ -137,19 +129,18 @@ struct hcom_proxy_upd_gpio_input_map_s
 #define HCOM_PROXY_UPD_GET_MCU_ID           8
 #define HCOM_PROXY_UPD_IS_PART_MOUNTED      9
 #define HCOM_PROXY_UPD_GPIO_COMMAND         10
+
+// Augments the normal Nuttx LOG_XXXX list
+#define LOG_NONE                            0xff
 #define HCOM_PROXY_UPD_GPIO_CONFIG          11
 
-//==================================================
-// UPD comands based on CLI commands
-// The following are "redefinitions" of CLI commands
-#define HCOM_PROXY_CLI_CMD_DEVELOPER_1      1
-#define HCOM_PROXY_CLI_CMD_MONO_FLASH       2
-#define HCOM_PROXY_CLI_CMD_RESTART_MEADOW   3
-#define HCOM_PROXY_CLI_CMD_ERASE_EX_FLASH   4
-#define HCOM_PROXY_CLI_CMD_VERIFY_EX_FLASH  5
-#define HCOM_PROXY_CLI_CMD_RENEW_FILE_SYS   6
+// These define GPIOs that cannot be access from
+// the apps side
+#define HCOM_PROXY_GPIO_CONFIG_INPUT        1
+#define HCOM_PROXY_GPIO_CONFIG_OUTPUT       0
+#define HCOM_PROXY_GPIO_CMD_VALUE_HIGH      1
+#define HCOM_PROXY_GPIO_CMD_VALUE_LOW       0
 
-#define HCOM_PROXY_GPIO_DEFN_ESP_RESET      1
 // The order here is imporatant because these are used as offsets
 // into hcom_proxy_udp
 enum HcomProxyGpioDefn
@@ -167,4 +158,4 @@ enum HcomProxyGpioDefn
   HcomProxyGpioDefnMISO_09,
 };
 
-#endif  // __CONFIGS_MEADOW_SRC_HCOM_PROXY_SHARED__H
+#endif  // __INCLUDE_MEADOW_HCOM_PROXY_SHARED__H

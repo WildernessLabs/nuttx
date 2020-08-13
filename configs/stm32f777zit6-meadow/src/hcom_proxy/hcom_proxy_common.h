@@ -1,6 +1,6 @@
 /****************************************************************************
  * configs\stm32f777zit6-meadow\src\hcom_proxy\hcom_proxy_common.h
- * 
+ *
  *   Copyright (C) 2019 - 2020 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs
  *
@@ -72,7 +72,7 @@
 #include <arch/board/board.h>
 #include "chip/stm32_rtcc.h"    // battery backed registers and ram
 
-#include "hcom_proxy_shared.h"
+#include <meadow/hcom_proxy_shared.h>
 
 #ifndef OK
   #define OK 0
@@ -128,6 +128,7 @@ extern "C"
   int hcom_exec_ex_flash_mono_flash(struct hcom_proxy_cmd_data *cmd_data);
   int hcom_exec_ex_flash_erase_ex_flash(struct hcom_proxy_cmd_data *cmdData);
   int hcom_exec_ex_flash_verify_ex_flash(struct hcom_proxy_cmd_data *cmdData);
+  int hcom_exec_ex_flash_renew_file_system(struct hcom_proxy_cmd_data *cmdData);
 
   // Low-level file system
   int hcom_create_fs_initialize(FAR struct mtd_dev_s *mtd);
@@ -135,6 +136,7 @@ extern "C"
                                         const char *fileSystemType, uint32_t partitionId,
                                         const char *mountCommand);
 bool hcom_fs_is_mounted(uint32_t partitionId);
+int hcom_fs_1st_erase_sector_of_partition(uint32_t partitionId);
 
 #ifdef CONFIG_FS_LITTLEFS
   int hcom_create_littlefs_support_init_master(FAR struct mtd_dev_s *master_flash_mtd);

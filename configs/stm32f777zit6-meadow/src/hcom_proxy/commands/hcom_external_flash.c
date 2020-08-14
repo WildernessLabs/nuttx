@@ -38,7 +38,9 @@
  ****************************************************************************/
 
 #include "../hcom_proxy_common.h"
+#include <meadow/hcom_protocol.h>
 #include <meadow/hcom_proxy_shared.h>
+#include <meadow/hcom_bbreg_defn.h>
 
 #include <nuttx/arch.h>
 #include <nuttx/mtd/mtd.h>
@@ -80,8 +82,8 @@ int hcom_exec_ex_flash_erase_ex_flash(struct hcom_proxy_cmd_data *cmdData)
 {
   int ret;
 
-  cmdData->send_host_text("Bulk erase begun. Will take 2-3 minutes.",
-          0, thisFile, __LINE__);
+  cmdData->send_host_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0,
+          "Bulk erase begun. Will take 2-3 minutes.", thisFile, __LINE__);
 
   syslog(LOG_INFO, "Bulk erase of External Flash begun\n");
 
@@ -95,11 +97,13 @@ int hcom_exec_ex_flash_erase_ex_flash(struct hcom_proxy_cmd_data *cmdData)
     char hostMsg[HCOM_PROXY_CMD_HOST_MSG_SIZE];
     snprintf(hostMsg, HCOM_PROXY_CMD_HOST_MSG_SIZE,
               "Bulk Erase of QSPI Flash error:%d.", ret);
-    cmdData->send_host_text(hostMsg, 0, thisFile, __LINE__);
+    cmdData->send_host_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0, hostMsg,
+            thisFile, __LINE__);
     return ret;
   }
 
-  cmdData->send_host_text("Bulk erase completed successfully", 0, thisFile, __LINE__);
+  cmdData->send_host_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0,
+          "Bulk erase completed successfully", thisFile, __LINE__);
 
   syslog(LOG_INFO, "Bulk erase complete\n\n");
   return OK;
@@ -114,8 +118,8 @@ int hcom_exec_ex_flash_verify_ex_flash(struct hcom_proxy_cmd_data *cmdData)
   int notErasedSectors;
   int ret;
 
-  cmdData->send_host_text("External flash verification begun",
-          0, thisFile, __LINE__);
+  cmdData->send_host_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0,
+          "External flash verification begun", thisFile, __LINE__);
 
   syslog(LOG_NOTICE, "Verification of External Flash Erased beginning\n");
 
@@ -173,7 +177,8 @@ int hcom_exec_ex_flash_verify_ex_flash(struct hcom_proxy_cmd_data *cmdData)
   snprintf(hostMsg, HCOM_PROXY_CMD_HOST_MSG_SIZE,
             "Verified %04d bytes (%d of %d sectors), found %d not erased.",
             sectorCounter * geo.erasesize, sectorCounter, geo.neraseblocks, notErasedSectors);
-  cmdData->send_host_text(hostMsg, 0, thisFile, __LINE__);
+  cmdData->send_host_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0, hostMsg,
+          thisFile, __LINE__);
 
   free(baseReference);
   free(readBuffer);
@@ -184,32 +189,35 @@ int hcom_exec_ex_flash_verify_ex_flash(struct hcom_proxy_cmd_data *cmdData)
 // userData contains the partition number, if partitioning is in use
 int hcom_exec_ex_flash_renew_file_system(struct hcom_proxy_cmd_data *cmdData)
 {
-  // int ret;
+  int ret;
   
-  // // Send the concluded message after recreating the file system and restarting Meadow
-  // hcom_utils_bbreg_set_bit(HCOM_BATTERY_BACKED_REG_BIT_FLAGS, HCOM_BBREG_RESTART_CONCLUDED_BIT_FLAG);
+  // Send the concluded message after recreating the file system and restarting Meadow
+  //hcom_utils_bbreg_set_bit(HCOM_BATTERY_BACKED_REG_BIT_FLAGS, HCOM_BBREG_RESTART_CONCLUDED_BIT_FLAG);
+  hcom_bb_reg_acc_set_bbr_bits(HCOM_BBREG_RESTART_INITIATED_BY_HOST_CMD_BIT);
 
-  // int sectorOffset = hcom_fs_1st_erase_sector_of_partition(partitionId);
+  // userData has partition id
+  int sectorOffset = hcom_fs_1st_erase_sector_of_partition(cmdData->userData);
 
-  // // Erase the first few sectors of the partition and restart the MCU
-  // ret = MTD_ERASE(_mtd, sectorOffset, 16);
-  // if (ret < 0)
-  // {
-  //   cmdData->logLevel = LOG_ERR;
-  //   cmdData->logLen = snprintf(cmdData->logMsg, HCOM_PROXY_CMD_LOG_MSG_SIZE,
-  //           "%s@%d-flash erase SectorOffset %d, err:%d\n", thisFile, __LINE__, sectorOffset, ret);
-  //   return ret;
-  // }
+  // Erase the first few sectors of the partition and restart the MCU
+  ret = MTD_ERASE(_mtd, sectorOffset, 16);
+  if (ret < 0)
+  {
+    cmdData->logLevel = LOG_ERR;
+    cmdData->logLen = snprintf(cmdData->logMsg, HCOM_PROXY_CMD_LOG_MSG_SIZE,
+            "%s@%d-flash erase SectorOffset %d, err:%d\n", thisFile, __LINE__, sectorOffset, ret);
+    return ret;
+  }
 
-  // char *sendMsgToHost = "File system renewed. Restarting F7 Micro";
-  // cmdData->send_host_text(hostMsg, 0, thisFile, __LINE__);
+  char *hostMsg = "File system renewed. Restarting F7 Micro";
+  cmdData->send_host_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0, hostMsg, 
+          thisFile, __LINE__);
 
-  // // Tell host to begin to reconnect
-  // hcom_comms_send_simple_string_msg(HCOM_HOST_REQUEST_TEXT_RECONNECT, 0, sendMsgToHost,
-  //          thisFile, __LINE__);
+  // Tell host to begin to reconnect
+  cmdData->send_host_msg(HCOM_HOST_REQUEST_TEXT_RECONNECT, 0, hostMsg,
+           thisFile, __LINE__);
 
-  // usleep(500 * 1000);
-  // up_systemreset();
+  usleep(500 * 1000);
+  up_systemreset();
 
   return OK;
 }
@@ -253,7 +261,8 @@ int hcom_exec_ex_flash_mono_flash(struct hcom_proxy_cmd_data *cmdData)
   _mtd->ioctl(_mtd, MTDIOC_GEOMETRY, (unsigned long)((uintptr_t)&geo));
 
   const char monoEraseFlashMsg[] = "Erasing mono flash memory.\n";
-  cmdData->send_host_text((char*)monoEraseFlashMsg, 0, thisFile, __LINE__);
+  cmdData->send_host_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0,
+          (char*)monoEraseFlashMsg, thisFile, __LINE__);
 
   size_t numBlocksToErase = fileSize / geo.erasesize;
   MTD_ERASE(_mtd, 0, numBlocksToErase);
@@ -287,7 +296,8 @@ int hcom_exec_ex_flash_mono_flash(struct hcom_proxy_cmd_data *cmdData)
       lastPercentSent = percentDone / 10;
 
       snprintf(hostMsg, HCOM_PROXY_CMD_HOST_MSG_SIZE, "Flashing %d%% complete", percentDone);
-      cmdData->send_host_text(hostMsg, 0, thisFile, __LINE__);
+      cmdData->send_host_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0,
+              hostMsg, thisFile, __LINE__);
     }
 
 #define MONO_VERIFY 0
@@ -305,7 +315,8 @@ int hcom_exec_ex_flash_mono_flash(struct hcom_proxy_cmd_data *cmdData)
 
   const char monoSuccessFlashMsg[] = "Mono runtime successfully flashed.\n";
   syslog(LOG_INFO, monoSuccessFlashMsg);
-  cmdData->send_host_text((char*)monoSuccessFlashMsg, 0, thisFile, __LINE__);
+  cmdData->send_host_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0,
+          (char*)monoSuccessFlashMsg, thisFile, __LINE__);
 
   cleanup:
     fclose(file);

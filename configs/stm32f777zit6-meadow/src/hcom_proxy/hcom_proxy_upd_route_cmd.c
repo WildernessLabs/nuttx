@@ -67,14 +67,15 @@ int hcom_developer_1(struct hcom_proxy_cmd_data *cmdData)
   snprintf(hostMsg, HCOM_PROXY_CMD_HOST_MSG_SIZE,
             "%s@%d-'Developer1 received userData:%d and command:0x%08x'.",
             thisFile, __LINE__, cmdData->userData, cmdData->proxyCmd);
-  cmdData->send_host_text(hostMsg, 0, thisFile, __LINE__);
+  cmdData->send_host_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0,
+          hostMsg, thisFile, __LINE__);
   return -1;
 }
 
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
-
+// This function routes the hcom commands to the approrate code to execute it
 int hcom_proxy_route_cli_command(struct hcom_proxy_cmd_data *cmdData)
 {
   int ret;
@@ -102,8 +103,7 @@ int hcom_proxy_route_cli_command(struct hcom_proxy_cmd_data *cmdData)
       return ret;
 
     case HCOM_MDOW_REQUEST_PART_RENEW_FILE_SYS:
-      // p-m implement
-      ret = OK;
+      ret = hcom_exec_ex_flash_renew_file_system(cmdData);
       return ret;
 
     default:

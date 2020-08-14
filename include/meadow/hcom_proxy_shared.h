@@ -91,7 +91,7 @@ struct hcom_proxy_cmd_data
   uint8_t logLevel;
   uint8_t logLen;
   char logMsg[HCOM_PROXY_CMD_LOG_MSG_SIZE + 1];
-  void (* send_host_text)(char *, uint32_t, char *, int);
+  void (* send_host_msg)(uint16_t, uint32_t, char *, char *, int);
 };
 
 struct hcom_proxy_upd_gpio_config_s

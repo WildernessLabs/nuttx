@@ -52,13 +52,11 @@
 // Battery Backed Register
 struct hcom_proxy_upd_bbr_value
 {
-  uint32_t bbr_id;
   uint32_t value;
 };
 
 struct hcom_proxy_upd_bbr_update
 {
-  uint32_t bbr_id;
   uint32_t clearBits;
   uint32_t setBits;
 };
@@ -132,30 +130,28 @@ struct hcom_proxy_upd_gpio_input_map_s
 
 // Augments the normal Nuttx LOG_XXXX list
 #define LOG_NONE                            0xff
+
 #define HCOM_PROXY_UPD_GPIO_CONFIG          11
 
 // These define GPIOs that cannot be access from
 // the apps side
-#define HCOM_PROXY_GPIO_CONFIG_INPUT        1
-#define HCOM_PROXY_GPIO_CONFIG_OUTPUT       0
-#define HCOM_PROXY_GPIO_CMD_VALUE_HIGH      1
-#define HCOM_PROXY_GPIO_CMD_VALUE_LOW       0
+#define HCOM_GPIO_DIGITAL_CONFIG_INPUT        1
+#define HCOM_GPIO_DIGITAL_CONFIG_OUTPUT       0
+#define HCOM_GPIO_DIGITAL_CMD_VALUE_HIGH      1
+#define HCOM_GPIO_DIGITAL_CMD_VALUE_LOW       0
 
-// The order here is imporatant because these are used as offsets
+// The order here is important because these are used as offsets
 // into hcom_proxy_udp
-enum HcomProxyGpioDefn
-{
-  HcomProxyGpioDefnEspReset,
-  HcomProxyGpioDefnEspBoot,
-  HcomProxyGpioDefnA0___01,
-  HcomProxyGpioDefnA1___02,
-  HcomProxyGpioDefnA2___03,
-  HcomProxyGpioDefnA3___04,
-  HcomProxyGpioDefnA4___05,
-  HcomProxyGpioDefnA5___06,
-  HcomProxyGpioDefnSCK__07,
-  HcomProxyGpioDefnMOSI_08,
-  HcomProxyGpioDefnMISO_09,
-};
+#define HCOM_GPIO_DIG_PROXY_ID_ESP_RESET  0
+#define HCOM_GPIO_DIG_PROXY_ID_ESP_BOOT   1
+#define HCOM_GPIO_DIG_PROXY_ID_A0___01    2
+#define HCOM_GPIO_DIG_PROXY_ID_A1___02    3
+#define HCOM_GPIO_DIG_PROXY_ID_A2___03    4
+#define HCOM_GPIO_DIG_PROXY_ID_A3___04    5
+#define HCOM_GPIO_DIG_PROXY_ID_A4___05    6
+#define HCOM_GPIO_DIG_PROXY_ID_A5___06    7
+#define HCOM_GPIO_DIG_PROXY_ID_SCK__07    8
+#define HCOM_GPIO_DIG_PROXY_ID_MOSI_08    9
+#define HCOM_GPIO_DIG_PROXY_ID_MISO_09    10
 
 #endif  // __INCLUDE_MEADOW_HCOM_PROXY_SHARED__H

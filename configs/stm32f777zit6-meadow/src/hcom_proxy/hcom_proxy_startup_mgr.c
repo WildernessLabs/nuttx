@@ -37,8 +37,12 @@
  * Included Files
  ****************************************************************************/
 #include "hcom_proxy_common.h"
+// #include <meadow/hcom_bbreg_defn.h>
 
 #include <assert.h>
+
+// #include <arch/board/board.h>
+// #include "stm32_gpio.h"
 
 #if defined (CONFIG_FS_PROCFS)
 #include "stm32f777zit6-meadow.h"
@@ -60,6 +64,7 @@ static char *thisFile = __FILE__;
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
+// Note: definition was added to stm32_boot.c
 int hcom_proxy_setup_mgr(FAR struct mtd_dev_s *mtd)
 {
   int ret;
@@ -69,50 +74,12 @@ int hcom_proxy_setup_mgr(FAR struct mtd_dev_s *mtd)
     return ERROR;
   }
 
-int syslogMask;
-#if defined(CONFIG_STM32F7_PWR)
-  // Check if this is a reboot or a power-on restart. The MCU at 
-  // Power-on (unless there's a coin cell) clears all 32 battery
-  // backed registers to 0.
-  int bbrValue = getreg32(HCOM_BATTERY_BACKED_REG_ADDRESS);
-  if(bbrValue == 0)
+  ret = hcom_utils_startup_handling_of_syslog_level();
+  if (ret < 0)
   {
-    // Power-on restart
-    // Set and save the syslog level to the default value
-    syslogMask = LOG_MASK(LOG_EMERG) | LOG_MASK(LOG_ALERT) | LOG_MASK(LOG_CRIT) |
-              LOG_MASK(LOG_ERR) | LOG_MASK(LOG_WARNING) |
-              LOG_MASK(LOG_NOTICE) /*| LOG_MASK(LOG_INFO) | LOG_MASK(LOG_DEBUG) */;
-
-    // Even though there are bits defined for other purposes, this works
-    // because we know that the entire register is 0.
-    putreg32(syslogMask, HCOM_BATTERY_BACKED_REG_ADDRESS);
+    syslog(LOG_ERR, "ERROR: Failed to initialize syslog level:%d\n", ret);
+    return ret;
   }
-  else
-  {
-    // Rebooted - it's safe to use the battery backed registers values
-    syslogMask = getreg32(HCOM_BATTERY_BACKED_REG_ADDRESS);
-    syslogMask &= 0x000000ff;   // LS 8 bits are syslog mask
-  }
-
-  // Save for emergency debugging :-)
-  // _syslogMask = LOG_MASK(LOG_EMERG) | LOG_MASK(LOG_ALERT) | LOG_MASK(LOG_CRIT) |
-  //             LOG_MASK(LOG_ERR) | LOG_MASK(LOG_WARNING) | LOG_MASK(LOG_NOTICE) | 
-  //             LOG_MASK(LOG_INFO);  // | LOG_MASK(LOG_DEBUG);
-
-  // Sets new mask and returns the previous syslog_mask
-  int syslogMaskPrev = setlogmask(syslogMask);
-  if (syslogMaskPrev < 0)
-  {
-    syslog(LOG_CRIT, "%s@%d-setlogmask err:0x%08x\n", thisFile, __LINE__, syslogMaskPrev);
-    return syslogMaskPrev;    // not old mask be error
-  }
-#else
-#warning "CONFIG_STM32F7_PWR not defined\n"
-  // Without battery backed registers the best we can do is defaults
-  syslogMask = LOG_MASK(LOG_EMERG) | LOG_MASK(LOG_ALERT) | LOG_MASK(LOG_CRIT) |
-              LOG_MASK(LOG_ERR) | LOG_MASK(LOG_WARNING);
-  syslogMaskPrev = setlogmask(_syslogMask);
-#endif
 
 #if (defined (CONFIG_FS_PROCFS) && defined (CONFIG_SYSTEM_NSH))
   ret = mount(NULL, STM32_PROCFS_MOUNTPOINT, "procfs", 0, NULL);
@@ -120,6 +87,7 @@ int syslogMask;
   {
     syslog(LOG_ERR, "ERROR: Failed to mount procfs at %s: %d\n",
             STM32_PROCFS_MOUNTPOINT, ret);
+    return ret;
   }
 #endif
 

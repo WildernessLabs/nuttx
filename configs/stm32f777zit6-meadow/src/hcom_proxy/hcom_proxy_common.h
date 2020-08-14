@@ -69,10 +69,14 @@
 
 #include <sys/mount.h>
 
-#include <arch/board/board.h>
-#include "chip/stm32_rtcc.h"    // battery backed registers and ram
-
 #include <meadow/hcom_proxy_shared.h>
+
+#if defined (CONFIG_ARCH_CHIP_STM32F7)
+#include "chip/stm32f76xx77xx_memorymap.h"
+#include "chip/stm32_rtcc.h"    // battery backed registers and ram
+#else
+#error "This implementation only designed to work with STM32F7"
+#endif
 
 #ifndef OK
   #define OK 0
@@ -111,14 +115,18 @@ extern "C"
 #define HCOM_FILE_MOUNT_FORCE_FORMAT "forceformat"
 #endif
 
-#define HCOM_BATTERY_BACKED_REG_ADDRESS STM32_RTC_BK31R
+// Define Battery Backed Registers so we know what each one does
+// This defines which BBR register to use. There are 32 (0-31) in
+// the stm32f7. Currently only one is used.
+// STM32_RTC_BK31R is defined in chip/stm32_rtcc.h
+#define HCOM_MEADOW_BATTERY_BACKED_REGISTER STM32_RTC_BK31R
 
 /****************************************************************************************************
  * Public Functions
  ****************************************************************************************************/
 
-  // int hcom_proxy_setup_mgr(FAR struct mtd_dev_s *mtd);   // called from stm32_boot.c
   int hcom_proxy_upd_initialize(void);
+  int hcom_utils_startup_handling_of_syslog_level(void);
 
   // HCOM command handling
   int hcom_proxy_route_cli_command(struct hcom_proxy_cmd_data *cmdData);
@@ -148,38 +156,6 @@ int hcom_fs_1st_erase_sector_of_partition(uint32_t partitionId);
 
   // Diagnostics
   void hcom_utils_diag_print_buffer(const uint8_t buffer[], const int bufLen, uint8_t msgPriority);
-
-#define HCOM_COMMON_UTILS_DIAG_PRINT_BUFFER 0
-#define HCOM_COMMON_UTILS_GPIO_A0_MISO_DOUT 1
-#define HCOM_COMMON_UTILS_GPIO_D00_D08_DOUT 0
-
-#if HCOM_COMMON_UTILS_GPIO_A0_MISO_DOUT > 0
-//=================================================================
-// These for testing only
-#define MEADOW_DIAG_GPIO_A0___01_OUTPUT  (GPIO_OUTPUT | GPIO_PORTA | GPIO_PIN4 | GPIO_FLOAT | GPIO_PUSHPULL | GPIO_SPEED_100MHz)
-#define MEADOW_DIAG_GPIO_A1___02_OUTPUT  (GPIO_OUTPUT | GPIO_PORTA | GPIO_PIN5 | GPIO_FLOAT | GPIO_PUSHPULL | GPIO_SPEED_100MHz)
-#define MEADOW_DIAG_GPIO_A2___03_OUTPUT  (GPIO_OUTPUT | GPIO_PORTA | GPIO_PIN3 | GPIO_FLOAT | GPIO_PUSHPULL | GPIO_SPEED_100MHz)
-#define MEADOW_DIAG_GPIO_A3___04_OUTPUT  (GPIO_OUTPUT | GPIO_PORTA | GPIO_PIN7 | GPIO_FLOAT | GPIO_PUSHPULL | GPIO_SPEED_100MHz)
-#define MEADOW_DIAG_GPIO_A4___05_OUTPUT  (GPIO_OUTPUT | GPIO_PORTC | GPIO_PIN0 | GPIO_FLOAT | GPIO_PUSHPULL | GPIO_SPEED_100MHz)
-#define MEADOW_DIAG_GPIO_A5___06_OUTPUT  (GPIO_OUTPUT | GPIO_PORTC | GPIO_PIN1 | GPIO_FLOAT | GPIO_PUSHPULL | GPIO_SPEED_100MHz)
-#define MEADOW_DIAG_GPIO_SCK__07_OUTPUT  (GPIO_OUTPUT | GPIO_PORTC | GPIO_PIN10| GPIO_FLOAT | GPIO_PUSHPULL | GPIO_SPEED_100MHz)
-#define MEADOW_DIAG_GPIO_MOSI_08_OUTPUT  (GPIO_OUTPUT | GPIO_PORTB | GPIO_PIN5 | GPIO_FLOAT | GPIO_PUSHPULL | GPIO_SPEED_100MHz)
-#define MEADOW_DIAG_GPIO_MISO_09_OUTPUT  (GPIO_OUTPUT | GPIO_PORTC | GPIO_PIN11| GPIO_FLOAT | GPIO_PUSHPULL | GPIO_SPEED_100MHz)
-#endif
-
-#if HCOM_COMMON_UTILS_GPIO_D00_D08_DOUT > 0
-//=================================================================
-// These for testing only
-#define MEADOW_DIAG_GPIO_D00__10_OUTPUT  (GPIO_OUTPUT | GPIO_PORTI | GPIO_PIN9 | GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
-#define MEADOW_DIAG_GPIO_D01__11_OUTPUT  (GPIO_OUTPUT | GPIO_PORTH | GPIO_PIN13| GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
-#define MEADOW_DIAG_GPIO_D02__12_OUTPUT  (GPIO_OUTPUT | GPIO_PORTC | GPIO_PIN6 | GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
-#define MEADOW_DIAG_GPIO_D03__13_OUTPUT  (GPIO_OUTPUT | GPIO_PORTB | GPIO_PIN8 | GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
-#define MEADOW_DIAG_GPIO_D04__14_OUTPUT  (GPIO_OUTPUT | GPIO_PORTB | GPIO_PIN9 | GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
-#define MEADOW_DIAG_GPIO_D05__15_OUTPUT  (GPIO_OUTPUT | GPIO_PORTC | GPIO_PIN7 | GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
-#define MEADOW_DIAG_GPIO_D06__16_OUTPUT  (GPIO_OUTPUT | GPIO_PORTB | GPIO_PIN0 | GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
-#define MEADOW_DIAG_GPIO_D07__17_OUTPUT  (GPIO_OUTPUT | GPIO_PORTB | GPIO_PIN7 | GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
-#define MEADOW_DIAG_GPIO_D08__18_OUTPUT  (GPIO_OUTPUT | GPIO_PORTB | GPIO_PIN6 | GPIO_PULLUP | GPIO_OPENDRAIN | GPIO_SPEED_100MHz)
-#endif
 
 #endif // __ASSEMBLY__
 

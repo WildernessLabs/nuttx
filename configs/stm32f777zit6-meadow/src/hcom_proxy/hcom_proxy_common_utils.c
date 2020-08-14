@@ -36,10 +36,16 @@
 /****************************************************************************
  * Included Files
  ****************************************************************************/
-#include "hcom_proxy_common.h"
-
 #include <nuttx/config.h>
 #include "syslog.h"
+
+#include "hcom_proxy_common.h"
+#include <meadow/hcom_bbreg_defn.h>
+
+#include <assert.h>
+
+#include <arch/board/board.h>
+#include "stm32_gpio.h"
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -50,12 +56,11 @@
 /****************************************************************************
  * Private Data
  ****************************************************************************/
-// static char *thisFile = __FILE__;
+static char *thisFile = __FILE__;
 
 /****************************************************************************
  * Private Function Prototypes
  ****************************************************************************/
-
 
 /****************************************************************************
  * Public Functions
@@ -81,6 +86,59 @@
 // }
 
 //============================================================================
+int hcom_utils_startup_handling_of_syslog_level()
+{
+  int syslogMask;
+
+#if defined(CONFIG_STM32F7_PWR)
+  // Check if this is a reboot or a power-on restart. The MCU at 
+  // Power-on (unless there's a coin cell) clears all 32 battery
+  // backed registers to 0.
+  int bbrValue = getreg32(HCOM_MEADOW_BATTERY_BACKED_REGISTER);
+  if(bbrValue == 0)
+  {
+    // Power-on restart
+    // Set and save the syslog level to the default value
+    syslogMask = LOG_MASK(LOG_EMERG) | LOG_MASK(LOG_ALERT) | LOG_MASK(LOG_CRIT) |
+              LOG_MASK(LOG_ERR) | LOG_MASK(LOG_WARNING) |
+              LOG_MASK(LOG_NOTICE) /*| LOG_MASK(LOG_INFO) | LOG_MASK(LOG_DEBUG) */;
+
+    // Even though there are bits defined for other purposes, this works
+    // because we know that the entire register is 0.
+    putreg32(syslogMask, HCOM_MEADOW_BATTERY_BACKED_REGISTER);
+  }
+  else
+  {
+    // Rebooted - it's safe to use the battery backed registers values
+    syslogMask = getreg32(HCOM_MEADOW_BATTERY_BACKED_REGISTER);
+    syslogMask &= 0x000000ff;   // LS 8 bits are syslog mask
+  }
+
+  // Save for emergency debugging :-)
+  // _syslogMask = LOG_MASK(LOG_EMERG) | LOG_MASK(LOG_ALERT) | LOG_MASK(LOG_CRIT) |
+  //             LOG_MASK(LOG_ERR) | LOG_MASK(LOG_WARNING) | LOG_MASK(LOG_NOTICE) | 
+  //             LOG_MASK(LOG_INFO);  // | LOG_MASK(LOG_DEBUG);
+
+  // Sets new mask and returns the previous syslog_mask
+  int syslogMaskPrev = setlogmask(syslogMask);
+  if (syslogMaskPrev < 0)
+  {
+    syslog(LOG_CRIT, "%s@%d-setlogmask err:0x%08x\n", thisFile, __LINE__, syslogMaskPrev);
+    return syslogMaskPrev;    // not old mask be error
+  }
+#else
+#warning "CONFIG_STM32F7_PWR not defined\n"
+  // Without battery backed registers the best we can do is defaults
+  syslogMask = LOG_MASK(LOG_EMERG) | LOG_MASK(LOG_ALERT) | LOG_MASK(LOG_CRIT) |
+              LOG_MASK(LOG_ERR) | LOG_MASK(LOG_WARNING);
+  syslogMaskPrev = setlogmask(_syslogMask);
+#endif
+  return OK;
+}
+
+//============================================================================
+// p-m There should be a #define to prevent this from being built
+// p-m This might be better in diag folder
 // For diagnostic use only
 void hcom_utils_diag_print_buffer(const uint8_t buffer[], const int bufLen, uint8_t msgPriority)
 {

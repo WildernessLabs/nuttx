@@ -1,7 +1,7 @@
   /****************************************************************************
- * ..\Meadow\Meadow.OS\nuttx\include\meadow\hcom_protocol.h
+ * \Meadow\Meadow.OS\nuttx\include\meadow\hcom_bbreg_defn.h
  * 
- *   Copyright (C) 2019 - 2020 Wilderness Labs. All rights reserved.
+ *   Copyright (C) 2020 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,11 +35,36 @@
 #ifndef __INCLUDE_MEADOW_HCOM_BBREG_DEFN__H
 #define __INCLUDE_MEADOW_HCOM_BBREG_DEFN__H
 
-//----------------------------------------------------------------
-// Redefine Battery Backed Registers so we know what each one does
-// This defines which BBR register to use. There are 32 (0-31) in
-// the stm32f7. Currently only one is used
-#define HCOM_BATTERY_BACKED_REGISTER_ID   31
+/****************************************************************************
+ * Included Files
+ ****************************************************************************/
+#include <nuttx/config.h>
+#include <ctype.h>
+#include <stdint.h>
+#include <stdbool.h>
+
+/****************************************************************************
+ * Pre-processor Definitions
+ ****************************************************************************/
+
+/* Configuration ************************************************************/
+/****************************************************************************
+ * Private Data
+ ****************************************************************************/
+
+/****************************************************************************
+ * Private Function Prototypes
+ ****************************************************************************/
+
+/****************************************************************************
+ * Public Functions
+ ****************************************************************************/
+
+// // Define Battery Backed Registers so we know what each one does
+// // This defines which BBR register to use. There are 32 (0-31) in
+// // the stm32f7. Currently only one is used.
+// // STM32_RTC_BK31R is defined in chip/stm32_rtcc.h
+// #define HCOM_MEADOW_BATTERY_BACKED_REGISTER STM32_RTC_BK31R
 
 #define HCOM_BBREG_RESTART_ALL_32_BITS_MASK 0xffffffff
 // This mask defines the syslog level
@@ -59,19 +84,14 @@
 
 // Diagnostic aids
 //=================================================================
-#define HCOM_INCLUDE_TESTS_BBR_IN_STARTUP 0
 
-#if HCOM_INCLUDE_TESTS_BBR_IN_STARTUP > 0
-void hcom_bbr_tests(void);
-#endif
-
-  uint32_t hcom_bb_reg_acc_read_bbr_and_right_justify(uint32_t bitMask);
-  uint32_t hcom_bb_reg_acc_read_bbr(void);
-  void hcom_bb_reg_acc_write_bbr(uint32_t value);
-  void hcom_bb_reg_acc_set_bbr_bits(uint32_t value);
-  void hcom_bb_reg_acc_clear_bbr_bits(uint32_t value);
-  void hcom_bb_reg_acc_clear_then_set_bbr_bits(uint32_t clearBits, uint32_t setBits);
-  bool hcom_bb_reg_acc_is_bbr_bits_set_n_clear(uint32_t value);
-  bool hcom_bb_reg_acc_is_bbr_bit_set(uint32_t value);
+uint32_t hcom_bb_reg_acc_read_bbr_and_right_justify(uint32_t bitMask);
+uint32_t hcom_bb_reg_acc_read_bbr(void);
+void hcom_bb_reg_acc_write_bbr(uint32_t value);
+void hcom_bb_reg_acc_set_bbr_bits(uint32_t value);
+void hcom_bb_reg_acc_clear_bbr_bits(uint32_t value);
+void hcom_bb_reg_acc_clear_then_set_bbr_bits(uint32_t clearBits, uint32_t setBits);
+bool hcom_bb_reg_acc_is_bbr_bits_set_n_clear(uint32_t value);
+bool hcom_bb_reg_acc_is_bbr_bit_set(uint32_t value);
 
 #endif  //__INCLUDE_MEADOW_HCOM_BBREG_DEFN__H

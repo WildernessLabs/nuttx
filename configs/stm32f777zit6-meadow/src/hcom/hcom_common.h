@@ -425,7 +425,6 @@ enum hcom_current_data_packet_activity
     uint32_t userData;
   } __attribute__((packed));
 
-
   struct host_com_cir_buffer_s
   {
     uint8_t *bottom;    // bottom of buffer

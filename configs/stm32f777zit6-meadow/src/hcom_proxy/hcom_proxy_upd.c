@@ -58,17 +58,16 @@
 
 #include <dirent.h>
 #include <sys/ioctl.h>
-
-#include "hcom_proxy_common.h"
-#include <meadow/hcom_proxy_shared.h>
-
-#include "chip/stm32f76xx77xx_memorymap.h"
-#include "chip/stm32_rtcc.h"    // battery backed registers and ram
 #include "stm32_uid.h"          // stm32_get_uniqueid()
 
 #include <nuttx/board.h>
 #include <arch/board/board.h>
 #include "stm32_gpio.h"
+
+#include "hcom_proxy_common.h"
+#include <meadow/hcom_proxy_shared.h>
+#include <meadow/hcom_bbreg_defn.h>
+#include "diag/hcom_proxy_diag.h"
 
 /****************************************************************************
  * Private Types
@@ -81,9 +80,9 @@
 static int hcom_upd_proxy_open(struct file *filep);
 static int hcom_upd_proxy_close(struct file *filep);
 static int hcom_upd_proxy_ioctl(FAR struct file *filep, int cmd, unsigned long arg);
-// Added read because open failed without it. The open flag O_RDONLY == 0.
+
+// Added read functionality because open failed without it. The open flag O_RDONLY == 0.
 static int hcom_upd_proxy_read(FAR struct file *filep, FAR char *buffer, size_t buflen);
-static uint32_t hcom_proxy_upd_find_bbr_addr(uint32_t bbrId);
 static int hcom_proxy_upd_execute_gpio_config(unsigned long arg);
 static int hcom_proxy_upd_execute_gpio_write(unsigned long arg);
 
@@ -100,13 +99,14 @@ static const struct file_operations g_hcom_proxy_operations =
   .ioctl = hcom_upd_proxy_ioctl
 };
 
-// These 2 table eliminate giant switch statements
-// The order of the entries must match the shared
-// related enumeration
+// The next 2 tables eliminate switch statements, by providing
+// a lookup table. The order of the entries matches their shared
+// values 0 - n (#define HCOM_GPIO_DIG_PROXY_ID_ESP_RESET 1)
 static struct hcom_proxy_upd_gpio_output_map_s gpioOutputDefnArray[] = 
 {
-  {MEADOW_ESP32_ONBOARD_RESET_PIN_OUTPUT},
-  {MEADOW_ESP32_ONBOARD_BOOT_PIN_OUTPUT},
+  {MEADOW_ESP32_ONBOARD_RESET_PIN_OUTPUT},    // defined in board.h
+  {MEADOW_ESP32_ONBOARD_BOOT_PIN_OUTPUT},     // defined in board.h
+#if HCOM_COMMON_UTILS_GPIO_A0_MISO_DOUT > 0
   {MEADOW_DIAG_GPIO_A0___01_OUTPUT},
   {MEADOW_DIAG_GPIO_A1___02_OUTPUT},
   {MEADOW_DIAG_GPIO_A2___03_OUTPUT},
@@ -116,14 +116,15 @@ static struct hcom_proxy_upd_gpio_output_map_s gpioOutputDefnArray[] =
   {MEADOW_DIAG_GPIO_SCK__07_OUTPUT},
   {MEADOW_DIAG_GPIO_MOSI_08_OUTPUT},
   {MEADOW_DIAG_GPIO_MISO_09_OUTPUT}
+#endif
 };
 
 #define HCOM_NUMBER_OF_GPIO_OUTPUT_MAP_ELEMENTS (sizeof(gpioOutputDefnArray)/sizeof(struct hcom_proxy_upd_gpio_output_map_s))
 
 static struct hcom_proxy_upd_gpio_input_map_s gpioInputDefnArray[] =
 {
-  {MEADOW_ESP32_ONBOARD_RESET_PIN_INPUT},
-  {MEADOW_ESP32_ONBOARD_BOOT_PIN_INPUT}
+  {MEADOW_ESP32_ONBOARD_RESET_PIN_INPUT},   // defined in board.h
+  {MEADOW_ESP32_ONBOARD_BOOT_PIN_INPUT}     // defined in board.h
 };
 
 #define HCOM_NUMBER_OF_GPIO_INPUT_MAP_ELEMENTS (sizeof(gpioInputDefnArray)/sizeof(struct hcom_proxy_upd_gpio_input_map_s))
@@ -152,7 +153,6 @@ int hcom_upd_proxy_read(FAR struct file *filep, FAR char *buffer, size_t buflen)
 static int hcom_upd_proxy_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 {
   uint32_t ret;
-  uint32_t tempData;
   struct hcom_proxy_upd_register_value *register_val;
   struct hcom_proxy_upd_register_update *register_update;
   struct hcom_proxy_upd_bbr_value *bbr_val;
@@ -180,16 +180,15 @@ static int hcom_upd_proxy_ioctl(FAR struct file *filep, int cmd, unsigned long a
       // This only works with Battery Backed Registers via 0-31 id value
     case HCOM_PROXY_UPD_SET_BBR_VALUE:
       bbr_val = (struct hcom_proxy_upd_bbr_value *)arg;
-      putreg32(bbr_val->value, hcom_proxy_upd_find_bbr_addr(bbr_val->bbr_id));
+      putreg32(bbr_val->value, HCOM_MEADOW_BATTERY_BACKED_REGISTER);
       return OK;
     case HCOM_PROXY_UPD_GET_BBR_VALUE:
       bbr_val = (struct hcom_proxy_upd_bbr_value *)arg;
-      bbr_val->value = getreg32(hcom_proxy_upd_find_bbr_addr(bbr_val->bbr_id));
+      bbr_val->value = getreg32(HCOM_MEADOW_BATTERY_BACKED_REGISTER);
       return OK;
     case HCOM_PROXY_UPD_UPDATE_BBR_VALUE:
       bbr_update = (struct hcom_proxy_upd_bbr_update *)arg;
-      tempData = hcom_proxy_upd_find_bbr_addr(bbr_update->bbr_id);
-      modifyreg32(tempData, bbr_update->clearBits, bbr_update->setBits);
+      modifyreg32(HCOM_MEADOW_BATTERY_BACKED_REGISTER, bbr_update->clearBits, bbr_update->setBits);
       return OK;
 
     case HCOM_PROXY_UPD_CLI_COMMAND:
@@ -247,7 +246,7 @@ int hcom_proxy_upd_execute_gpio_config(unsigned long arg)
 
   gpio_config = (struct hcom_proxy_upd_gpio_config_s*)arg;
 
-  if(gpio_config->configValue == HCOM_PROXY_GPIO_CONFIG_OUTPUT)
+  if(gpio_config->configValue == HCOM_GPIO_DIGITAL_CONFIG_OUTPUT)
   {
     if(gpio_config->gpioDefn > HCOM_NUMBER_OF_GPIO_OUTPUT_MAP_ELEMENTS)
     {
@@ -269,54 +268,6 @@ int hcom_proxy_upd_execute_gpio_config(unsigned long arg)
   ret = stm32_configgpio(gpioIODefn);
   gpio_config->result = ret;
   return ret;
-}
-
-// ====================================================================
-// Map battery backed register Note: at this time only #31 is used
-uint32_t hcom_proxy_upd_find_bbr_addr(uint32_t bbrId)
-{
-  uint32_t bbrAddr;
-
-  // A value 0 - 31 relates to Battery Backed Registers 1 - 31
-  DEBUGASSERT(bbrId >= 0 && bbrId < 32);
-  switch(bbrId)
-  {
-    case 0: bbrAddr = STM32_RTC_BK0R; break;
-    case 1: bbrAddr = STM32_RTC_BK1R; break;
-    case 2: bbrAddr = STM32_RTC_BK2R; break;
-    case 3: bbrAddr = STM32_RTC_BK3R; break;
-    case 4: bbrAddr = STM32_RTC_BK4R; break;
-    case 5: bbrAddr = STM32_RTC_BK5R; break;
-    case 6: bbrAddr = STM32_RTC_BK6R; break;
-    case 7: bbrAddr = STM32_RTC_BK7R; break;
-    case 8: bbrAddr = STM32_RTC_BK8R; break;
-    case 9: bbrAddr = STM32_RTC_BK9R; break;
-    case 10: bbrAddr = STM32_RTC_BK10R; break;
-    case 11: bbrAddr = STM32_RTC_BK11R; break;
-    case 12: bbrAddr = STM32_RTC_BK12R; break;
-    case 13: bbrAddr = STM32_RTC_BK13R; break;
-    case 14: bbrAddr = STM32_RTC_BK14R; break;
-    case 15: bbrAddr = STM32_RTC_BK15R; break;
-    case 16: bbrAddr = STM32_RTC_BK16R; break;
-    case 17: bbrAddr = STM32_RTC_BK17R; break;
-    case 18: bbrAddr = STM32_RTC_BK18R; break;
-    case 19: bbrAddr = STM32_RTC_BK19R; break;
-    case 20: bbrAddr = STM32_RTC_BK20R; break;
-    case 21: bbrAddr = STM32_RTC_BK21R; break;
-    case 22: bbrAddr = STM32_RTC_BK22R; break;
-    case 23: bbrAddr = STM32_RTC_BK23R; break;
-    case 24: bbrAddr = STM32_RTC_BK24R; break;
-    case 25: bbrAddr = STM32_RTC_BK25R; break;
-    case 26: bbrAddr = STM32_RTC_BK26R; break;
-    case 27: bbrAddr = STM32_RTC_BK27R; break;
-    case 28: bbrAddr = STM32_RTC_BK28R; break;
-    case 29: bbrAddr = STM32_RTC_BK29R; break;
-    case 30: bbrAddr = STM32_RTC_BK30R; break;
-    case 31: bbrAddr = STM32_RTC_BK31R; break;
-    default:
-    syslog(LOG_ERR, "%s@%d-unknown hcom proxy bbr id:%d\n", thisFile, __LINE__, bbrId);
-  }
-  return bbrAddr;
 }
 
 /****************************************************************************

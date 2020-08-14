@@ -36,10 +36,14 @@
 /****************************************************************************
  * Included Files
  ****************************************************************************/
-#include "hcom_proxy_common.h"
+#include <ctype.h>
+#include <stdint.h>
 
-//#include <ctype.h>
+#include "hcom_proxy_common.h"
 #include <meadow/hcom_bbreg_defn.h>
+
+#include <arch/board/board.h>
+#include "stm32_gpio.h"
 
 //===================================================================
 // This function takes a value (0-31) for the battery backed reg,
@@ -52,7 +56,7 @@ uint32_t hcom_bb_reg_acc_read_bbr_and_right_justify(uint32_t bitMask)
   if(bitMask == 0)
     return 0;
   
-  regValue = getreg32(HCOM_BATTERY_BACKED_REGISTER_ID);
+  regValue = getreg32(HCOM_MEADOW_BATTERY_BACKED_REGISTER);
   if(regValue == 0)
     return 0;
 
@@ -73,7 +77,7 @@ uint32_t hcom_bb_reg_acc_read_bbr_and_right_justify(uint32_t bitMask)
 // Reads any of the 32 battery backed registers
 uint32_t hcom_bb_reg_acc_read_bbr()
 {
-  uint32_t regValue = getreg32(HCOM_BATTERY_BACKED_REGISTER_ID);
+  uint32_t regValue = getreg32(HCOM_MEADOW_BATTERY_BACKED_REGISTER);
   return regValue;
 }
 
@@ -81,7 +85,7 @@ uint32_t hcom_bb_reg_acc_read_bbr()
 // Writes any of the 32 battery backed registers
 void hcom_bb_reg_acc_write_bbr(uint32_t value)
 {
-  putreg32(value, HCOM_BATTERY_BACKED_REGISTER_ID);
+  putreg32(value, HCOM_MEADOW_BATTERY_BACKED_REGISTER);
 }
 
 //===================================================================
@@ -91,8 +95,8 @@ bool hcom_bb_reg_acc_is_bbr_bits_set_n_clear(uint32_t value)
 {
   uint32_t regValue;
   
-  regValue = getreg32(HCOM_BATTERY_BACKED_REGISTER_ID);
-  putreg32(regValue & (~value), HCOM_BATTERY_BACKED_REGISTER_ID);
+  regValue = getreg32(HCOM_MEADOW_BATTERY_BACKED_REGISTER);
+  putreg32(regValue & (~value), HCOM_MEADOW_BATTERY_BACKED_REGISTER);
   return (value & regValue) != 0;
 }
 
@@ -101,7 +105,7 @@ bool hcom_bb_reg_acc_is_bbr_bits_set_n_clear(uint32_t value)
 bool hcom_bb_reg_acc_is_bbr_bit_set(uint32_t value)
 {
   uint32_t regValue;
-  regValue = getreg32(HCOM_BATTERY_BACKED_REGISTER_ID);
+  regValue = getreg32(HCOM_MEADOW_BATTERY_BACKED_REGISTER);
   return (value & regValue) != 0;
 }
 
@@ -109,19 +113,19 @@ bool hcom_bb_reg_acc_is_bbr_bit_set(uint32_t value)
 // Set bit(s) in any bit in battery backed register
 void hcom_bb_reg_acc_set_bbr_bits(uint32_t value)
 {
-  modifyreg32(HCOM_BATTERY_BACKED_REGISTER_ID, 0, value);
+  modifyreg32(HCOM_MEADOW_BATTERY_BACKED_REGISTER, 0, value);
 }
 
 //===================================================================
 // Clears the specified bits
 void hcom_bb_reg_acc_clear_bbr_bits(uint32_t value)
 {
-  modifyreg32(HCOM_BATTERY_BACKED_REGISTER_ID, value, 0);
+  modifyreg32(HCOM_MEADOW_BATTERY_BACKED_REGISTER, value, 0);
 }
 
 //===================================================================
 // Clears then sets the specified bits
 void hcom_bb_reg_acc_clear_then_set_bbr_bits(uint32_t clearBits, uint32_t setBits)
 {
-  modifyreg32(HCOM_BATTERY_BACKED_REGISTER_ID, clearBits, setBits);
+  modifyreg32(HCOM_MEADOW_BATTERY_BACKED_REGISTER, clearBits, setBits);
 }

@@ -81,6 +81,7 @@ ifeq ($(CONFIG_MEADOW_HCOM),y)
 CSRCS += hcom_proxy/hcom_proxy_upd.c \
 hcom_proxy/hcom_proxy_startup_mgr.c \
 hcom_proxy/hcom_proxy_common_utils.c \
+hcom_proxy/hcom_proxy_register_access.c \
 hcom_proxy/hcom_proxy_upd_route_cmd.c \
 hcom_proxy/commands/hcom_external_flash.c \
 hcom_proxy/create_fs/hcom_fs.c \

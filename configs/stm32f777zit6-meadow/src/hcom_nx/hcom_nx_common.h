@@ -1,5 +1,5 @@
 /****************************************************************************
- * configs\stm32f777zit6-meadow\src\hcom_proxy\hcom_proxy_common.h
+ * configs\stm32f777zit6-meadow\src\hcom_nx\hcom_nx_common.h
  *
  *   Copyright (C) 2019 - 2020 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs
@@ -32,8 +32,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
-#ifndef __CONFIGS_MEADOW_SRC_HCOM_PROXY_COMMON__H
-#define __CONFIGS_MEADOW_SRC_HCOM_PROXY_COMMON__H
+#ifndef __CONFIGS_MEADOW_SRC_HCOM_NX_COMMON__H
+#define __CONFIGS_MEADOW_SRC_HCOM_NX_COMMON__H
 
 /****************************************************************************
  * Included Files
@@ -69,7 +69,7 @@
 
 #include <sys/mount.h>
 
-#include <meadow/hcom_proxy_shared.h>
+#include <meadow/hcom_nx_shared.h>
 
 #if defined (CONFIG_ARCH_CHIP_STM32F7)
 #include "chip/stm32f76xx77xx_memorymap.h"
@@ -125,18 +125,18 @@ extern "C"
  * Public Functions
  ****************************************************************************************************/
 
-  int hcom_proxy_upd_initialize(void);
+  int hcom_nx_upd_initialize(void);
   int hcom_utils_startup_handling_of_syslog_level(void);
 
   // HCOM command handling
-  int hcom_proxy_route_cli_command(struct hcom_proxy_cmd_data *cmdData);
+  int hcom_nx_route_cli_command(struct hcom_nx_cmd_data *cmdData);
 
   // External flash
   int hcom_exec_ex_flash_setup(FAR struct mtd_dev_s *mtd);
-  int hcom_exec_ex_flash_mono_flash(struct hcom_proxy_cmd_data *cmd_data);
-  int hcom_exec_ex_flash_erase_ex_flash(struct hcom_proxy_cmd_data *cmdData);
-  int hcom_exec_ex_flash_verify_ex_flash(struct hcom_proxy_cmd_data *cmdData);
-  int hcom_exec_ex_flash_renew_file_system(struct hcom_proxy_cmd_data *cmdData);
+  int hcom_exec_ex_flash_mono_flash(struct hcom_nx_cmd_data *cmd_data);
+  int hcom_exec_ex_flash_erase_ex_flash(struct hcom_nx_cmd_data *cmdData);
+  int hcom_exec_ex_flash_verify_ex_flash(struct hcom_nx_cmd_data *cmdData);
+  int hcom_exec_ex_flash_renew_file_system(struct hcom_nx_cmd_data *cmdData);
 
   // Low-level file system
   int hcom_create_fs_initialize(FAR struct mtd_dev_s *mtd);
@@ -164,4 +164,4 @@ int hcom_fs_1st_erase_sector_of_partition(uint32_t partitionId);
 }
 #endif
 
-#endif // __CONFIGS_MEADOW_SRC_HCOM_PROXY_COMMON__H
+#endif // __CONFIGS_MEADOW_SRC_HCOM_NX_COMMON__H

@@ -37,7 +37,7 @@
  * Included Files
  ****************************************************************************/
 
-#include "../hcom_proxy_common.h"
+#include "../hcom_nx_common.h"
 
 #ifdef CONFIG_FS_LITTLEFS
 

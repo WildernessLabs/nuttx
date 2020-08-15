@@ -78,14 +78,15 @@ CSRCS += stm32_idle.c
 endif
 
 ifeq ($(CONFIG_MEADOW_HCOM),y)
-CSRCS += hcom_proxy/hcom_proxy_upd.c \
-hcom_proxy/hcom_proxy_startup_mgr.c \
-hcom_proxy/hcom_proxy_common_utils.c \
-hcom_proxy/hcom_proxy_register_access.c \
-hcom_proxy/hcom_proxy_upd_route_cmd.c \
-hcom_proxy/commands/hcom_external_flash.c \
-hcom_proxy/create_fs/hcom_fs.c \
-hcom_proxy/create_fs/hcom_fs_littlefs.c
+CSRCS += hcom_nx/hcom_nx_upd.c \
+hcom_nx/hcom_nx_startup_mgr.c \
+hcom_nx/hcom_nx_common_utils.c \
+hcom_nx/hcom_nx_bbreg_access.c \
+hcom_nx/hcom_nx_upd_route_cmd.c \
+hcom_nx/commands/hcom_nx_ex_flash.c \
+hcom_nx/create_fs/hcom_nx_fs.c \
+hcom_nx/create_fs/hcom_nx_fs_littlefs.c \
+hcom_nx/diag/hcom_nx_diag_misc.c
 
 ifeq ($(CONFIG_MEADOW_ESPCP_MANAGER),y)
 CSRCS += espcp/espcp_thread.c \

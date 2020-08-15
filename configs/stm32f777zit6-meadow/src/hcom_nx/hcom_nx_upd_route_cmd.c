@@ -1,5 +1,5 @@
 /****************************************************************************
- * configs\stm32f777zit6-meadow\src\hcom_proxy\hcom_proxy_startup_mgr.c
+ * configs\stm32f777zit6-meadow\src\hcom_nx\hcom_nx_startup_mgr.c
  * 
  *   Copyright (C) 2019 - 2020 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs
@@ -38,8 +38,8 @@
 /****************************************************************************
  * Included Files
  ****************************************************************************/
-#include "hcom_proxy_common.h"
-#include <meadow/hcom_proxy_shared.h>
+#include "hcom_nx_common.h"
+#include <meadow/hcom_nx_shared.h>
 #include <meadow/hcom_protocol.h>
 
 #include <assert.h>
@@ -56,17 +56,17 @@ static char *thisFile = __FILE__;
 /****************************************************************************
  * Private Function Prototypes
  ****************************************************************************/
-// Proxy playground
-int hcom_developer_1(struct hcom_proxy_cmd_data *cmdData)
+// NX playground
+int hcom_developer_1(struct hcom_nx_cmd_data *cmdData)
 {
   cmdData->logLevel = LOG_WARNING;
-  cmdData->logLen = snprintf(cmdData->logMsg, HCOM_PROXY_CMD_LOG_MSG_SIZE,
-            "%s@%d-Developer1 is not a real command:0x%08x.\n", thisFile, __LINE__, cmdData->proxyCmd);
+  cmdData->logLen = snprintf(cmdData->logMsg, HCOM_NX_CMD_LOG_MSG_SIZE,
+            "%s@%d-Developer1 is not a real command:0x%08x.\n", thisFile, __LINE__, cmdData->hcomCmd);
 
-  char hostMsg[HCOM_PROXY_CMD_HOST_MSG_SIZE];
-  snprintf(hostMsg, HCOM_PROXY_CMD_HOST_MSG_SIZE,
+  char hostMsg[HCOM_NX_CMD_HOST_MSG_SIZE];
+  snprintf(hostMsg, HCOM_NX_CMD_HOST_MSG_SIZE,
             "%s@%d-'Developer1 received userData:%d and command:0x%08x'.",
-            thisFile, __LINE__, cmdData->userData, cmdData->proxyCmd);
+            thisFile, __LINE__, cmdData->userData, cmdData->hcomCmd);
   cmdData->send_host_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0,
           hostMsg, thisFile, __LINE__);
   return -1;
@@ -76,7 +76,7 @@ int hcom_developer_1(struct hcom_proxy_cmd_data *cmdData)
  * Public Functions
  ****************************************************************************/
 // This function routes the hcom commands to the approrate code to execute it
-int hcom_proxy_route_cli_command(struct hcom_proxy_cmd_data *cmdData)
+int hcom_nx_route_cli_command(struct hcom_nx_cmd_data *cmdData)
 {
   int ret;
 
@@ -108,8 +108,8 @@ int hcom_proxy_route_cli_command(struct hcom_proxy_cmd_data *cmdData)
 
     default:
       cmdData->logLevel = LOG_ERR;
-      cmdData->logLen = snprintf(cmdData->logMsg, HCOM_PROXY_CMD_LOG_MSG_SIZE,
-              "%s@%d-Undefined command:0x%08x.\n", thisFile, __LINE__, cmdData->proxyCmd);
+      cmdData->logLen = snprintf(cmdData->logMsg, HCOM_NX_CMD_LOG_MSG_SIZE,
+              "%s@%d-Undefined command:0x%08x.\n", thisFile, __LINE__, cmdData->hcomCmd);
   }
   return -1;
 }

@@ -1,5 +1,5 @@
 /****************************************************************************
- * configs\stm32f777zit6-meadow\src\hcom_proxy\commands\hcom_external_flash.c
+ * configs\stm32f777zit6-meadow\src\hcom_nx\commands\hcom_external_flash.c
  * 
  *   Copyright (C) 2019 - 2020 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs
@@ -37,9 +37,9 @@
  * Included Files
  ****************************************************************************/
 
-#include "../hcom_proxy_common.h"
+#include "../hcom_nx_common.h"
 #include <meadow/hcom_protocol.h>
-#include <meadow/hcom_proxy_shared.h>
+#include <meadow/hcom_nx_shared.h>
 #include <meadow/hcom_bbreg_defn.h>
 
 #include <nuttx/arch.h>
@@ -78,7 +78,7 @@ int hcom_exec_ex_flash_setup(FAR struct mtd_dev_s *mtd)
 
 //=======================================================================================
 // Called from host PC
-int hcom_exec_ex_flash_erase_ex_flash(struct hcom_proxy_cmd_data *cmdData)
+int hcom_exec_ex_flash_erase_ex_flash(struct hcom_nx_cmd_data *cmdData)
 {
   int ret;
 
@@ -91,11 +91,11 @@ int hcom_exec_ex_flash_erase_ex_flash(struct hcom_proxy_cmd_data *cmdData)
   if (ret < 0)
   {
     cmdData->logLevel = LOG_ERR;
-    cmdData->logLen = snprintf(cmdData->logMsg, HCOM_PROXY_CMD_LOG_MSG_SIZE,
+    cmdData->logLen = snprintf(cmdData->logMsg, HCOM_NX_CMD_LOG_MSG_SIZE,
             "%s@%d-IOCTL MTDIOC_BULKERASE Err:%d\n", thisFile, __LINE__, ret);
 
-    char hostMsg[HCOM_PROXY_CMD_HOST_MSG_SIZE];
-    snprintf(hostMsg, HCOM_PROXY_CMD_HOST_MSG_SIZE,
+    char hostMsg[HCOM_NX_CMD_HOST_MSG_SIZE];
+    snprintf(hostMsg, HCOM_NX_CMD_HOST_MSG_SIZE,
               "Bulk Erase of QSPI Flash error:%d.", ret);
     cmdData->send_host_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0, hostMsg,
             thisFile, __LINE__);
@@ -111,7 +111,7 @@ int hcom_exec_ex_flash_erase_ex_flash(struct hcom_proxy_cmd_data *cmdData)
 
 //========================================================================
 // Called from host PC
-int hcom_exec_ex_flash_verify_ex_flash(struct hcom_proxy_cmd_data *cmdData)
+int hcom_exec_ex_flash_verify_ex_flash(struct hcom_nx_cmd_data *cmdData)
 {
   FAR struct mtd_geometry_s geo;
   int sectorCounter;
@@ -128,7 +128,7 @@ int hcom_exec_ex_flash_verify_ex_flash(struct hcom_proxy_cmd_data *cmdData)
   if (ret < 0)
   {
     cmdData->logLevel = LOG_ERR;
-    cmdData->logLen = snprintf(cmdData->logMsg, HCOM_PROXY_CMD_LOG_MSG_SIZE,
+    cmdData->logLen = snprintf(cmdData->logMsg, HCOM_NX_CMD_LOG_MSG_SIZE,
             "%s@%d-Read geo for MTD:%d\n", thisFile, __LINE__, ret);
     return ret;
   }
@@ -162,7 +162,7 @@ int hcom_exec_ex_flash_verify_ex_flash(struct hcom_proxy_cmd_data *cmdData)
       break; // End of data
 
     cmdData->logLevel = LOG_ERR;
-    cmdData->logLen = snprintf(cmdData->logMsg, HCOM_PROXY_CMD_LOG_MSG_SIZE,
+    cmdData->logLen = snprintf(cmdData->logMsg, HCOM_NX_CMD_LOG_MSG_SIZE,
             "%s@%d-Expected %d pages but read %d\n",
             thisFile, __LINE__, writeable_pages_per_sector, pagesRead);
     break;
@@ -173,8 +173,8 @@ int hcom_exec_ex_flash_verify_ex_flash(struct hcom_proxy_cmd_data *cmdData)
   syslog(LOG_NOTICE, "Verify complete, %d non-erased 4KB sectors\n\n", notErasedSectors);
 
   // Send text message to host
-  char hostMsg[HCOM_PROXY_CMD_HOST_MSG_SIZE];
-  snprintf(hostMsg, HCOM_PROXY_CMD_HOST_MSG_SIZE,
+  char hostMsg[HCOM_NX_CMD_HOST_MSG_SIZE];
+  snprintf(hostMsg, HCOM_NX_CMD_HOST_MSG_SIZE,
             "Verified %04d bytes (%d of %d sectors), found %d not erased.",
             sectorCounter * geo.erasesize, sectorCounter, geo.neraseblocks, notErasedSectors);
   cmdData->send_host_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0, hostMsg,
@@ -187,7 +187,7 @@ int hcom_exec_ex_flash_verify_ex_flash(struct hcom_proxy_cmd_data *cmdData)
 
 //=======================================================================================
 // userData contains the partition number, if partitioning is in use
-int hcom_exec_ex_flash_renew_file_system(struct hcom_proxy_cmd_data *cmdData)
+int hcom_exec_ex_flash_renew_file_system(struct hcom_nx_cmd_data *cmdData)
 {
   int ret;
   
@@ -203,7 +203,7 @@ int hcom_exec_ex_flash_renew_file_system(struct hcom_proxy_cmd_data *cmdData)
   if (ret < 0)
   {
     cmdData->logLevel = LOG_ERR;
-    cmdData->logLen = snprintf(cmdData->logMsg, HCOM_PROXY_CMD_LOG_MSG_SIZE,
+    cmdData->logLen = snprintf(cmdData->logMsg, HCOM_NX_CMD_LOG_MSG_SIZE,
             "%s@%d-flash erase SectorOffset %d, err:%d\n", thisFile, __LINE__, sectorOffset, ret);
     return ret;
   }
@@ -224,7 +224,7 @@ int hcom_exec_ex_flash_renew_file_system(struct hcom_proxy_cmd_data *cmdData)
 
 //======================================================================================
 // Called from host PC
-int hcom_exec_ex_flash_mono_flash(struct hcom_proxy_cmd_data *cmdData)
+int hcom_exec_ex_flash_mono_flash(struct hcom_nx_cmd_data *cmdData)
 {
   cmdData->userData = 0;
   int lastPercentSent = 0;
@@ -240,7 +240,7 @@ int hcom_exec_ex_flash_mono_flash(struct hcom_proxy_cmd_data *cmdData)
   if (file == NULL)
   {
     cmdData->logLevel = LOG_ERR;
-    cmdData->logLen = snprintf(cmdData->logMsg, HCOM_PROXY_CMD_LOG_MSG_SIZE,
+    cmdData->logLen = snprintf(cmdData->logMsg, HCOM_NX_CMD_LOG_MSG_SIZE,
             "%s@%d-Mono runtime was not found in %s.", thisFile, __LINE__, runtimePath);
     return -1;
   }
@@ -252,7 +252,7 @@ int hcom_exec_ex_flash_mono_flash(struct hcom_proxy_cmd_data *cmdData)
   if (fileSize != HCOM_FS_MONO_RAW_PARTITION_SIZE)
   {
     cmdData->logLevel = LOG_ERR;
-    cmdData->logLen = snprintf(cmdData->logMsg, HCOM_PROXY_CMD_LOG_MSG_SIZE,
+    cmdData->logLen = snprintf(cmdData->logMsg, HCOM_NX_CMD_LOG_MSG_SIZE,
             "%s@%d-Mono runtime binary has invalid size.", thisFile, __LINE__);
     return -1;
   }
@@ -274,7 +274,7 @@ int hcom_exec_ex_flash_mono_flash(struct hcom_proxy_cmd_data *cmdData)
     if (fread(buf, geo.blocksize, 1, file) != 1)
     {
       cmdData->logLevel = LOG_ERR;
-      cmdData->logLen = snprintf(cmdData->logMsg, HCOM_PROXY_CMD_LOG_MSG_SIZE,
+      cmdData->logLen = snprintf(cmdData->logMsg, HCOM_NX_CMD_LOG_MSG_SIZE,
               "%s@%d-Error reading from %s.\n", thisFile, __LINE__, HCOM_FS_MONO_RUNTIME_FILENAME);
       goto cleanup;
     }
@@ -283,7 +283,7 @@ int hcom_exec_ex_flash_mono_flash(struct hcom_proxy_cmd_data *cmdData)
     if (writtenBlocks != 1)
     {
       cmdData->logLevel = LOG_ERR;
-      cmdData->logLen = snprintf(cmdData->logMsg, HCOM_PROXY_CMD_LOG_MSG_SIZE,
+      cmdData->logLen = snprintf(cmdData->logMsg, HCOM_NX_CMD_LOG_MSG_SIZE,
               "%s@%d-Error while writing block %d to flash.\n", thisFile, __LINE__, i);
       goto cleanup;
     }
@@ -292,10 +292,10 @@ int hcom_exec_ex_flash_mono_flash(struct hcom_proxy_cmd_data *cmdData)
     int percentDone = (i * 100) / numBlocksToWrite;
     if(percentDone / 10 != lastPercentSent)
     {
-      char hostMsg[HCOM_PROXY_CMD_HOST_MSG_SIZE];
+      char hostMsg[HCOM_NX_CMD_HOST_MSG_SIZE];
       lastPercentSent = percentDone / 10;
 
-      snprintf(hostMsg, HCOM_PROXY_CMD_HOST_MSG_SIZE, "Flashing %d%% complete", percentDone);
+      snprintf(hostMsg, HCOM_NX_CMD_HOST_MSG_SIZE, "Flashing %d%% complete", percentDone);
       cmdData->send_host_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0,
               hostMsg, thisFile, __LINE__);
     }

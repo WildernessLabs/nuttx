@@ -1,5 +1,5 @@
 /****************************************************************************
- * configs\stm32f777zit6-meadow\src\hcom_proxy\hcom_proxy_startup_mgr.c
+ * configs\stm32f777zit6-meadow\src\hcom_nx\hcom_nx_startup_mgr.c
  * 
  *   Copyright (C) 2019 - 2020 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs
@@ -36,7 +36,7 @@
 /****************************************************************************
  * Included Files
  ****************************************************************************/
-#include "hcom_proxy_common.h"
+#include "hcom_nx_common.h"
 // #include <meadow/hcom_bbreg_defn.h>
 
 #include <assert.h>
@@ -65,7 +65,7 @@ static char *thisFile = __FILE__;
  * Public Functions
  ****************************************************************************/
 // Note: definition was added to stm32_boot.c
-int hcom_proxy_setup_mgr(FAR struct mtd_dev_s *mtd)
+int hcom_nx_setup_mgr(FAR struct mtd_dev_s *mtd)
 {
   int ret;
 
@@ -91,11 +91,11 @@ int hcom_proxy_setup_mgr(FAR struct mtd_dev_s *mtd)
   }
 #endif
 
-  // Initialize hcom proxy driver
-  ret = hcom_proxy_upd_initialize();
+  // Initialize hcom nuttx driver
+  ret = hcom_nx_upd_initialize();
   if (ret < 0)
   {
-    syslog(LOG_CRIT, "%s@%d-setup hcom proxy upd:%d\n", thisFile, __LINE__, ret);
+    syslog(LOG_CRIT, "%s@%d-setup hcom nuttx upd:%d\n", thisFile, __LINE__, ret);
     return ret;
   }
 

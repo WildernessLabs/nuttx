@@ -1,5 +1,5 @@
  /****************************************************************************
- * configs\stm32f777zit6-meadow\src\hcom_proxy\hcom_diag\hcom_proxy_diag.h
+ * configs\stm32f777zit6-meadow\src\hcom_nx\diag\hcom_nx_diag.h
  * 
  *   Copyright (C) 2020 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs
@@ -35,8 +35,8 @@
  Diagnostic aids
  ****************************************************************************/
 
-#ifndef __INCLUDE_MEADOW_HCOM_PROXY_DIAG__H
-#define __INCLUDE_MEADOW_HCOM_PROXY_DIAG__H
+#ifndef __INCLUDE_MEADOW_HCOM_NX_DIAG__H
+#define __INCLUDE_MEADOW_HCOM_NX_DIAG__H
 
 /****************************************************************************
  * Included Files
@@ -93,4 +93,4 @@
  ****************************************************************************/
 
 //=================================================================
-#endif    // __INCLUDE_MEADOW_HCOM_PROXY_DIAG__H
+#endif    // __INCLUDE_MEADOW_HCOM_NX_DIAG__H

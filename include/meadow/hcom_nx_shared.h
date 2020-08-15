@@ -1,5 +1,5 @@
 /****************************************************************************
- * ..\Meadow\Meadow.OS\nuttx\include\meadow\hcom_proxy_shared.h
+ * ..\Meadow\Meadow.OS\nuttx\include\meadow\hcom_nx_shared.h
  * 
  *   Copyright (C) 2020 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs
@@ -32,8 +32,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
-#ifndef __INCLUDE_MEADOW_HCOM_PROXY_SHARED__H
-#define __INCLUDE_MEADOW_HCOM_PROXY_SHARED__H
+#ifndef __INCLUDE_MEADOW_HCOM_NX_SHARED__H
+#define __INCLUDE_MEADOW_HCOM_NX_SHARED__H
 
 /****************************************************************************
  * Included Files
@@ -45,93 +45,92 @@
 // This header file contains those items that must be shared by apps/hcom
 // #include <string.h>
 
-#define HCOM_PROXY_UPD_DRIVER_NAME "/dev/proxyupd"
-#define HCOM_PROXY_CMD_HOST_MSG_SIZE 128
-#define HCOM_PROXY_CMD_LOG_MSG_SIZE 128
+#define HCOM_NX_UPD_DRIVER_NAME "/dev/nxupd"
+#define HCOM_NX_CMD_HOST_MSG_SIZE 128
+#define HCOM_NX_CMD_LOG_MSG_SIZE 128
 
 // Battery Backed Register
-struct hcom_proxy_upd_bbr_value
+struct hcom_nx_upd_bbr_value
 {
   uint32_t value;
 };
 
-struct hcom_proxy_upd_bbr_update
+struct hcom_nx_upd_bbr_update
 {
   uint32_t clearBits;
   uint32_t setBits;
 };
 
-struct hcom_proxy_upd_register_value
+struct hcom_nx_upd_register_value
 {
   uint32_t address;
   uint32_t value;
 };
 
-struct hcom_proxy_upd_register_update
+struct hcom_nx_upd_register_update
 {
   uint32_t address;
   uint32_t clearBits;
   uint32_t setBits;
 };
 
-struct hcom_proxy_upd_is_part_mounted
+struct hcom_nx_upd_is_part_mounted
 {
   uint32_t partitionId;
   bool isMounted;
 };
 
-struct hcom_proxy_cmd_data
+struct hcom_nx_cmd_data
 {
-  uint16_t hcomCmd;
-  uint32_t proxyCmd;
+  uint16_t hcomCmd;   // The orginal host command
   uint32_t userData;
 
   uint8_t logLevel;
   uint8_t logLen;
-  char logMsg[HCOM_PROXY_CMD_LOG_MSG_SIZE + 1];
+  char logMsg[HCOM_NX_CMD_LOG_MSG_SIZE + 1];
   void (* send_host_msg)(uint16_t, uint32_t, char *, char *, int);
 };
 
-struct hcom_proxy_upd_gpio_config_s
+struct hcom_nx_upd_gpio_config_s
 {
   uint8_t gpioDefn;     // 1- n
   uint8_t configValue;  // 1 = input, 0 = output
   int result;
 };
 
-struct hcom_proxy_upd_gpio_write_s
+struct hcom_nx_upd_gpio_write_s
 {
   uint8_t gpioDefn;   // 1- n
   uint8_t cmdValue;   // 1 = high, 0 = low
 };
 
-struct hcom_proxy_upd_gpio_output_map_s
+struct hcom_nx_upd_gpio_output_map_s
 {
   uint32_t gpio_output_defn;
 };
 
-struct hcom_proxy_upd_gpio_input_map_s
+struct hcom_nx_upd_gpio_input_map_s
 {
   uint32_t gpio_input_defn;
 };
 
 //==================================================
-// hcom proxy upd ioctl commands
-#define HCOM_PROXY_UPD_SET_REGISTER         1
-#define HCOM_PROXY_UPD_GET_REGISTER         2
-#define HCOM_PROXY_UPD_UPDATE_REGISTER      3
-#define HCOM_PROXY_UPD_SET_BBR_VALUE        4
-#define HCOM_PROXY_UPD_GET_BBR_VALUE        5
-#define HCOM_PROXY_UPD_UPDATE_BBR_VALUE     6
-#define HCOM_PROXY_UPD_CLI_COMMAND          7
-#define HCOM_PROXY_UPD_GET_MCU_ID           8
-#define HCOM_PROXY_UPD_IS_PART_MOUNTED      9
-#define HCOM_PROXY_UPD_GPIO_COMMAND         10
+// hcom nx upd ioctl commands
+#define HCOM_NX_UPD_SET_REGISTER         1
+#define HCOM_NX_UPD_GET_REGISTER         2
+#define HCOM_NX_UPD_UPDATE_REGISTER      3
+#define HCOM_NX_UPD_SET_BBR_VALUE        4
+#define HCOM_NX_UPD_GET_BBR_VALUE        5
+#define HCOM_NX_UPD_UPDATE_BBR_VALUE     6
+#define HCOM_NX_UPD_CLI_COMMAND          7
+#define HCOM_NX_UPD_GET_MCU_ID           8
+#define HCOM_NX_UPD_IS_PART_MOUNTED      9
+#define HCOM_NX_UPD_GPIO_COMMAND         10
 
 // Augments the normal Nuttx LOG_XXXX list
 #define LOG_NONE                            0xff
 
-#define HCOM_PROXY_UPD_GPIO_CONFIG          11
+#define HCOM_NX_UPD_GPIO_CONFIG          11
 
 // These define GPIOs that cannot be access from
 // the apps side
@@ -141,17 +140,17 @@ struct hcom_proxy_upd_gpio_input_map_s
 #define HCOM_GPIO_DIGITAL_CMD_VALUE_LOW       0
 
 // The order here is important because these are used as offsets
-// into hcom_proxy_udp
-#define HCOM_GPIO_DIG_PROXY_ID_ESP_RESET  0
-#define HCOM_GPIO_DIG_PROXY_ID_ESP_BOOT   1
-#define HCOM_GPIO_DIG_PROXY_ID_A0___01    2
-#define HCOM_GPIO_DIG_PROXY_ID_A1___02    3
-#define HCOM_GPIO_DIG_PROXY_ID_A2___03    4
-#define HCOM_GPIO_DIG_PROXY_ID_A3___04    5
-#define HCOM_GPIO_DIG_PROXY_ID_A4___05    6
-#define HCOM_GPIO_DIG_PROXY_ID_A5___06    7
-#define HCOM_GPIO_DIG_PROXY_ID_SCK__07    8
-#define HCOM_GPIO_DIG_PROXY_ID_MOSI_08    9
-#define HCOM_GPIO_DIG_PROXY_ID_MISO_09    10
+// into hcom_nx_udp
+#define HCOM_GPIO_DIG_NX_ID_ESP_RESET  0
+#define HCOM_GPIO_DIG_NX_ID_ESP_BOOT   1
+#define HCOM_GPIO_DIG_NX_ID_A0___01    2
+#define HCOM_GPIO_DIG_NX_ID_A1___02    3
+#define HCOM_GPIO_DIG_NX_ID_A2___03    4
+#define HCOM_GPIO_DIG_NX_ID_A3___04    5
+#define HCOM_GPIO_DIG_NX_ID_A4___05    6
+#define HCOM_GPIO_DIG_NX_ID_A5___06    7
+#define HCOM_GPIO_DIG_NX_ID_SCK__07    8
+#define HCOM_GPIO_DIG_NX_ID_MOSI_08    9
+#define HCOM_GPIO_DIG_NX_ID_MISO_09    10
 
-#endif  // __INCLUDE_MEADOW_HCOM_PROXY_SHARED__H
+#endif  // __INCLUDE_MEADOW_HCOM_NX_SHARED__H

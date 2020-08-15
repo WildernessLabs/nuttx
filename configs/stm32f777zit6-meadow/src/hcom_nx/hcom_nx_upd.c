@@ -1,5 +1,5 @@
 /****************************************************************************
- * configs\stm32f777zit6-meadow\src\hcom_proxy_upd.c
+ * configs\stm32f777zit6-meadow\src\hcom_nx_upd.c
  * 
  *   Copyright (C) 2020 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs
@@ -64,10 +64,10 @@
 #include <arch/board/board.h>
 #include "stm32_gpio.h"
 
-#include "hcom_proxy_common.h"
-#include <meadow/hcom_proxy_shared.h>
+#include "hcom_nx_common.h"
+#include <meadow/hcom_nx_shared.h>
 #include <meadow/hcom_bbreg_defn.h>
-#include "diag/hcom_proxy_diag.h"
+#include "diag/hcom_nx_diag.h"
 
 /****************************************************************************
  * Private Types
@@ -77,32 +77,32 @@
  * Private Function Prototypes
  ****************************************************************************/
 
-static int hcom_upd_proxy_open(struct file *filep);
-static int hcom_upd_proxy_close(struct file *filep);
-static int hcom_upd_proxy_ioctl(FAR struct file *filep, int cmd, unsigned long arg);
+static int hcom_upd_nx_open(struct file *filep);
+static int hcom_upd_nx_close(struct file *filep);
+static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg);
 
 // Added read functionality because open failed without it. The open flag O_RDONLY == 0.
-static int hcom_upd_proxy_read(FAR struct file *filep, FAR char *buffer, size_t buflen);
-static int hcom_proxy_upd_execute_gpio_config(unsigned long arg);
-static int hcom_proxy_upd_execute_gpio_write(unsigned long arg);
+static int hcom_upd_nx_read(FAR struct file *filep, FAR char *buffer, size_t buflen);
+static int hcom_nx_upd_execute_gpio_config(unsigned long arg);
+static int hcom_nx_upd_execute_gpio_write(unsigned long arg);
 
 /****************************************************************************
  * Private Data
  ****************************************************************************/
 static char *thisFile = __FILE__;
 
-static const struct file_operations g_hcom_proxy_operations =
+static const struct file_operations g_hcom_nx_operations =
 {
-  .open  = hcom_upd_proxy_open,
-  .close = hcom_upd_proxy_close,
-  .read  = hcom_upd_proxy_read,
-  .ioctl = hcom_upd_proxy_ioctl
+  .open  = hcom_upd_nx_open,
+  .close = hcom_upd_nx_close,
+  .read  = hcom_upd_nx_read,
+  .ioctl = hcom_upd_nx_ioctl
 };
 
-// The next 2 tables eliminate switch statements, by providing
+// The next 2 tables eliminate switch statements by providing
 // a lookup table. The order of the entries matches their shared
-// values 0 - n (#define HCOM_GPIO_DIG_PROXY_ID_ESP_RESET 1)
-static struct hcom_proxy_upd_gpio_output_map_s gpioOutputDefnArray[] = 
+// values 0 - n
+static struct hcom_nx_upd_gpio_output_map_s gpioOutputDefnArray[] = 
 {
   {MEADOW_ESP32_ONBOARD_RESET_PIN_OUTPUT},    // defined in board.h
   {MEADOW_ESP32_ONBOARD_BOOT_PIN_OUTPUT},     // defined in board.h
@@ -119,100 +119,100 @@ static struct hcom_proxy_upd_gpio_output_map_s gpioOutputDefnArray[] =
 #endif
 };
 
-#define HCOM_NUMBER_OF_GPIO_OUTPUT_MAP_ELEMENTS (sizeof(gpioOutputDefnArray)/sizeof(struct hcom_proxy_upd_gpio_output_map_s))
+#define HCOM_NUMBER_OF_GPIO_OUTPUT_MAP_ELEMENTS (sizeof(gpioOutputDefnArray)/sizeof(struct hcom_nx_upd_gpio_output_map_s))
 
-static struct hcom_proxy_upd_gpio_input_map_s gpioInputDefnArray[] =
+static struct hcom_nx_upd_gpio_input_map_s gpioInputDefnArray[] =
 {
   {MEADOW_ESP32_ONBOARD_RESET_PIN_INPUT},   // defined in board.h
   {MEADOW_ESP32_ONBOARD_BOOT_PIN_INPUT}     // defined in board.h
 };
 
-#define HCOM_NUMBER_OF_GPIO_INPUT_MAP_ELEMENTS (sizeof(gpioInputDefnArray)/sizeof(struct hcom_proxy_upd_gpio_input_map_s))
+#define HCOM_NUMBER_OF_GPIO_INPUT_MAP_ELEMENTS (sizeof(gpioInputDefnArray)/sizeof(struct hcom_nx_upd_gpio_input_map_s))
 
 // ====================================================================
-// Called when hcom proxy upd driver is opened
-int hcom_upd_proxy_open(struct file *filep)
+// Called when hcom nuttx upd driver is opened
+int hcom_upd_nx_open(struct file *filep)
 {
   return OK;
 }
 
 // ====================================================================
-// Called when hcom proxy upd driver is closed
-int hcom_upd_proxy_close(struct file *filep)
+// Called when hcom nuttx upd driver is closed
+int hcom_upd_nx_close(struct file *filep)
 {
   return OK;
 }
 
 // ====================================================================
-int hcom_upd_proxy_read(FAR struct file *filep, FAR char *buffer, size_t buflen)
+int hcom_upd_nx_read(FAR struct file *filep, FAR char *buffer, size_t buflen)
 {
   return OK;
 }
 
 // ====================================================================
-static int hcom_upd_proxy_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
+static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 {
   uint32_t ret;
-  struct hcom_proxy_upd_register_value *register_val;
-  struct hcom_proxy_upd_register_update *register_update;
-  struct hcom_proxy_upd_bbr_value *bbr_val;
-  struct hcom_proxy_upd_bbr_update *bbr_update;
-  struct hcom_proxy_cmd_data *cmdData;
-  struct hcom_proxy_upd_is_part_mounted *is_mounted;
+  struct hcom_nx_upd_register_value *register_val;
+  struct hcom_nx_upd_register_update *register_update;
+  struct hcom_nx_upd_bbr_value *bbr_val;
+  struct hcom_nx_upd_bbr_update *bbr_update;
+  struct hcom_nx_cmd_data *cmdData;
+  struct hcom_nx_upd_is_part_mounted *is_mounted;
 
   switch(cmd)
   {    
     // This work with any register
-    case HCOM_PROXY_UPD_SET_REGISTER:
-      register_val = (struct hcom_proxy_upd_register_value *)arg;
+    case HCOM_NX_UPD_SET_REGISTER:
+      register_val = (struct hcom_nx_upd_register_value *)arg;
       putreg32(register_val->value, register_val->address);
       return OK;
-    case HCOM_PROXY_UPD_GET_REGISTER:
-      register_val = (struct hcom_proxy_upd_register_value *)arg;
+    case HCOM_NX_UPD_GET_REGISTER:
+      register_val = (struct hcom_nx_upd_register_value *)arg;
       register_val->value = getreg32(register_val->address);
       return OK;
-    case HCOM_PROXY_UPD_UPDATE_REGISTER:
+    case HCOM_NX_UPD_UPDATE_REGISTER:
         // this does an atomic read/set/write of a register
-      register_update = (struct hcom_proxy_upd_register_update *)arg;
+      register_update = (struct hcom_nx_upd_register_update *)arg;
       modifyreg32(register_update->address, register_update->clearBits, register_update->setBits);
       return OK;
 
       // This only works with Battery Backed Registers via 0-31 id value
-    case HCOM_PROXY_UPD_SET_BBR_VALUE:
-      bbr_val = (struct hcom_proxy_upd_bbr_value *)arg;
+    case HCOM_NX_UPD_SET_BBR_VALUE:
+      bbr_val = (struct hcom_nx_upd_bbr_value *)arg;
       putreg32(bbr_val->value, HCOM_MEADOW_BATTERY_BACKED_REGISTER);
       return OK;
-    case HCOM_PROXY_UPD_GET_BBR_VALUE:
-      bbr_val = (struct hcom_proxy_upd_bbr_value *)arg;
+    case HCOM_NX_UPD_GET_BBR_VALUE:
+      bbr_val = (struct hcom_nx_upd_bbr_value *)arg;
       bbr_val->value = getreg32(HCOM_MEADOW_BATTERY_BACKED_REGISTER);
       return OK;
-    case HCOM_PROXY_UPD_UPDATE_BBR_VALUE:
-      bbr_update = (struct hcom_proxy_upd_bbr_update *)arg;
+    case HCOM_NX_UPD_UPDATE_BBR_VALUE:
+      bbr_update = (struct hcom_nx_upd_bbr_update *)arg;
       modifyreg32(HCOM_MEADOW_BATTERY_BACKED_REGISTER, bbr_update->clearBits, bbr_update->setBits);
       return OK;
 
-    case HCOM_PROXY_UPD_CLI_COMMAND:
-      cmdData = (struct hcom_proxy_cmd_data *)arg;
-      ret = hcom_proxy_route_cli_command(cmdData);
+    case HCOM_NX_UPD_CLI_COMMAND:
+      cmdData = (struct hcom_nx_cmd_data *)arg;
+      ret = hcom_nx_route_cli_command(cmdData);
       return ret;
 
-    case HCOM_PROXY_UPD_GET_MCU_ID:
+    case HCOM_NX_UPD_GET_MCU_ID:
       stm32_get_uniqueid((uint8_t *)arg);
       return OK;
 
-    case HCOM_PROXY_UPD_IS_PART_MOUNTED:
-      is_mounted = (struct hcom_proxy_upd_is_part_mounted *)arg;
+    case HCOM_NX_UPD_IS_PART_MOUNTED:
+      is_mounted = (struct hcom_nx_upd_is_part_mounted *)arg;
       is_mounted->isMounted = hcom_fs_is_mounted(is_mounted->partitionId);
       return OK;
 
-    case HCOM_PROXY_UPD_GPIO_COMMAND:
-      return hcom_proxy_upd_execute_gpio_write(arg);
+    case HCOM_NX_UPD_GPIO_COMMAND:
+      return hcom_nx_upd_execute_gpio_write(arg);
 
-    case HCOM_PROXY_UPD_GPIO_CONFIG:
-      return hcom_proxy_upd_execute_gpio_config(arg);
+    case HCOM_NX_UPD_GPIO_CONFIG:
+      return hcom_nx_upd_execute_gpio_config(arg);
 
     default:
-      syslog(LOG_ERR, "%s@%d-unknown hcom proxy upd command:%d\n", thisFile, __LINE__, cmd);
+      syslog(LOG_ERR, "%s@%d-unknown hcom nx upd command:%d\n", thisFile, __LINE__, cmd);
   }
 
   return ERROR;
@@ -220,11 +220,11 @@ static int hcom_upd_proxy_ioctl(FAR struct file *filep, int cmd, unsigned long a
 
 // ====================================================================
 // Execute a gpio digital write to output gpio 
-int hcom_proxy_upd_execute_gpio_write(unsigned long arg)
+int hcom_nx_upd_execute_gpio_write(unsigned long arg)
 {
-  struct hcom_proxy_upd_gpio_write_s *gpio_write;
+  struct hcom_nx_upd_gpio_write_s *gpio_write;
 
-  gpio_write = (struct hcom_proxy_upd_gpio_write_s*)arg;
+  gpio_write = (struct hcom_nx_upd_gpio_write_s*)arg;
 
   if(gpio_write->gpioDefn > HCOM_NUMBER_OF_GPIO_OUTPUT_MAP_ELEMENTS)
   {
@@ -238,13 +238,13 @@ int hcom_proxy_upd_execute_gpio_write(unsigned long arg)
 
 // ====================================================================
 // Configure a gpio
-int hcom_proxy_upd_execute_gpio_config(unsigned long arg)
+int hcom_nx_upd_execute_gpio_config(unsigned long arg)
 {
   int ret;
   uint32_t gpioIODefn;
-  struct hcom_proxy_upd_gpio_config_s *gpio_config;
+  struct hcom_nx_upd_gpio_config_s *gpio_config;
 
-  gpio_config = (struct hcom_proxy_upd_gpio_config_s*)arg;
+  gpio_config = (struct hcom_nx_upd_gpio_config_s*)arg;
 
   if(gpio_config->configValue == HCOM_GPIO_DIGITAL_CONFIG_OUTPUT)
   {
@@ -275,19 +275,19 @@ int hcom_proxy_upd_execute_gpio_config(unsigned long arg)
  ****************************************************************************/
 
 /****************************************************************************
- * Name: hcom_proxy_upd_initialize
+ * Name: hcom_nx_upd_initialize
  *
  * Description:
- *   Initialize hcom proxy upd
+ *   Initialize hcom nuttx upd
  *
  ****************************************************************************/
 
-int hcom_proxy_upd_initialize(void)
+int hcom_nx_upd_initialize(void)
 {
-  syslog(LOG_INFO, "+hcom_proxy_upd_initialize\n");
+  syslog(LOG_INFO, "+hcom_nx_upd_initialize\n");
   
   // register the driver, passing in our entry points
-  int ret = register_driver(HCOM_PROXY_UPD_DRIVER_NAME, &g_hcom_proxy_operations, 0666, NULL);
+  int ret = register_driver(HCOM_NX_UPD_DRIVER_NAME, &g_hcom_nx_operations, 0666, NULL);
   if (ret)
   {
     return ERROR;

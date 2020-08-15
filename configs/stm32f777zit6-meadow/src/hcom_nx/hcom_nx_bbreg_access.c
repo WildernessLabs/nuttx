@@ -1,5 +1,5 @@
 /****************************************************************************
- * Meadow\Meadow.OS\nuttx\configs\stm32f777zit6-meadow\src\hcom_proxy\hcom_proxy_register_access.c
+ * Meadow\Meadow.OS\nuttx\configs\stm32f777zit6-meadow\src\hcom_nx\hcom_nx_register_access.c
  * 
  *   Copyright (C) 2020 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs
@@ -39,7 +39,7 @@
 #include <ctype.h>
 #include <stdint.h>
 
-#include "hcom_proxy_common.h"
+#include "hcom_nx_common.h"
 #include <meadow/hcom_bbreg_defn.h>
 
 #include <arch/board/board.h>

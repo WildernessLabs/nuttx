@@ -74,7 +74,7 @@ int hcom_nx_setup_mgr(FAR struct mtd_dev_s *mtd)
     return ERROR;
   }
 
-  ret = hcom_utils_startup_handling_of_syslog_level();
+  ret = hcom_utils_startup_handling_of_trace_level();
   if (ret < 0)
   {
     syslog(LOG_ERR, "ERROR: Failed to initialize syslog level:%d\n", ret);

@@ -64,22 +64,16 @@
 
 #include <nuttx/arch.h>
 #include <nuttx/mtd/mtd.h>
-#include <nuttx/userspace.h>
-#include <nuttx/kthread.h>
 
 #include <sys/mount.h>
 
-#include <meadow/hcom_nx_shared.h>
+#include <meadow/hcom_udp_shared.h>
 
 #if defined (CONFIG_ARCH_CHIP_STM32F7)
 #include "chip/stm32f76xx77xx_memorymap.h"
 #include "chip/stm32_rtcc.h"    // battery backed registers and ram
 #else
 #error "This implementation only designed to work with STM32F7"
-#endif
-
-#ifndef OK
-  #define OK 0
 #endif
 
 #ifndef __ASSEMBLY__
@@ -106,9 +100,6 @@ extern "C"
 #define HCOM_FS_MONO_RAW_PARTITION_SIZE 0x200000 // 2MB
 #define HCOM_FS_MONO_RUNTIME_FILENAME "Meadow.OS.Runtime.bin"
 
-// "/meadow" is shared by all supported file systems
-#define HCOM_FILE_MOUNT_POINT_TARGET "/meadow"
-
 #ifdef CONFIG_FS_LITTLEFS
 #define HCOM_FILE_MOUNT_FILE_SYS_TYPE "littlefs"
 #define HCOM_FILE_MOUNT_POINT_SOURCE "/dev/little"
@@ -126,7 +117,7 @@ extern "C"
  ****************************************************************************************************/
 
   int hcom_nx_upd_initialize(void);
-  int hcom_utils_startup_handling_of_syslog_level(void);
+  int hcom_utils_startup_handling_of_trace_level(void);
 
   // HCOM command handling
   int hcom_nx_route_cli_command(struct hcom_nx_cmd_data *cmdData);
@@ -155,7 +146,11 @@ int hcom_fs_1st_erase_sector_of_partition(uint32_t partitionId);
 #endif
 
   // Diagnostics
+#define HCOM_NX_DIAG_MISC_PRINT_BUFFER 0
+
+#if HCOM_NX_DIAG_MISC_PRINT_BUFFER > 0
   void hcom_utils_diag_print_buffer(const uint8_t buffer[], const int bufLen, uint8_t msgPriority);
+#endif
 
 #endif // __ASSEMBLY__
 

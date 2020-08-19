@@ -39,7 +39,8 @@
  * Included Files
  ****************************************************************************/
 #include "hcom_nx_common.h"
-#include <meadow/hcom_nx_shared.h>
+#include <meadow/hcom_udp_shared.h>
+#include <meadow/hcom_shared_common.h>
 #include <meadow/hcom_protocol.h>
 
 #include <assert.h>

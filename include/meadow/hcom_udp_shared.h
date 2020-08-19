@@ -1,5 +1,5 @@
 /****************************************************************************
- * ..\Meadow\Meadow.OS\nuttx\include\meadow\hcom_nx_shared.h
+ * ..\Meadow\Meadow.OS\nuttx\include\meadow\hcom_udp_sharedd.h
  * 
  *   Copyright (C) 2020 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs
@@ -39,6 +39,8 @@
  * Included Files
  ****************************************************************************/
 
+#include <meadow/hcom_shared_common.h>
+
 /****************************************************************************
  * Private defines
  ****************************************************************************/
@@ -46,8 +48,6 @@
 // #include <string.h>
 
 #define HCOM_NX_UPD_DRIVER_NAME "/dev/nxupd"
-#define HCOM_NX_CMD_HOST_MSG_SIZE 128
-#define HCOM_NX_CMD_LOG_MSG_SIZE 128
 
 // Battery Backed Register
 struct hcom_nx_upd_bbr_value
@@ -126,10 +126,6 @@ struct hcom_nx_upd_gpio_input_map_s
 #define HCOM_NX_UPD_GET_MCU_ID           8
 #define HCOM_NX_UPD_IS_PART_MOUNTED      9
 #define HCOM_NX_UPD_GPIO_COMMAND         10
-
-// Augments the normal Nuttx LOG_XXXX list
-#define LOG_NONE                            0xff
-
 #define HCOM_NX_UPD_GPIO_CONFIG          11
 
 // These define GPIOs that cannot be access from
@@ -139,8 +135,9 @@ struct hcom_nx_upd_gpio_input_map_s
 #define HCOM_GPIO_DIGITAL_CMD_VALUE_HIGH      1
 #define HCOM_GPIO_DIGITAL_CMD_VALUE_LOW       0
 
-// The order here is important because these are used as offsets
-// into hcom_nx_udp
+// This are used by hcom and hcom_udd. In hcom it's
+// by the following names but in hcom_udp it is by
+// their numeric order as they are used as offsets.
 #define HCOM_GPIO_DIG_NX_ID_ESP_RESET  0
 #define HCOM_GPIO_DIG_NX_ID_ESP_BOOT   1
 #define HCOM_GPIO_DIG_NX_ID_A0___01    2

@@ -86,7 +86,7 @@ static char *thisFile = __FILE__;
 // }
 
 //============================================================================
-int hcom_utils_startup_handling_of_syslog_level()
+int hcom_utils_startup_handling_of_trace_level()
 {
   int syslogMask;
 

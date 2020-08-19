@@ -62,16 +62,16 @@
  * Public Functions
  ****************************************************************************/
 
-// p-m There should be a #define to prevent this from being built
-// p-m This might be better in diag folder
+#if HCOM_NX_DIAG_MISC_PRINT_BUFFER > 0
 // For diagnostic use only
 void hcom_utils_diag_print_buffer(const uint8_t buffer[], const int bufLen, uint8_t msgPriority)
 {
-#define HCOM_UTIL_BYTES_PER_LINE 16
-#define HCOM_UTIL_LEADING_SPACES 2
-#define HCOM_UTIL_HEXADECIMAL_OFFSET (8 + HCOM_UTIL_LEADING_SPACES)
-#define HCOM_UTIL_ASCII_OFFSET (57 + HCOM_UTIL_LEADING_SPACES)
-#define HCOM_UTIL_DISPLAY_LENGTH (HCOM_UTIL_ASCII_OFFSET + HCOM_UTIL_BYTES_PER_LINE + 3)
+
+  #define HCOM_UTIL_BYTES_PER_LINE 16
+  #define HCOM_UTIL_LEADING_SPACES 2
+  #define HCOM_UTIL_HEXADECIMAL_OFFSET (8 + HCOM_UTIL_LEADING_SPACES)
+  #define HCOM_UTIL_ASCII_OFFSET (57 + HCOM_UTIL_LEADING_SPACES)
+  #define HCOM_UTIL_DISPLAY_LENGTH (HCOM_UTIL_ASCII_OFFSET + HCOM_UTIL_BYTES_PER_LINE + 3)
 
   if(bufLen <= 0)
   {
@@ -140,3 +140,4 @@ void hcom_utils_diag_print_buffer(const uint8_t buffer[], const int bufLen, uint
   syslog(msgPriority, lineBuff);
   }
 }
+#endif

@@ -64,8 +64,8 @@
 #include <arch/board/board.h>
 #include "stm32_gpio.h"
 
+#include <meadow/hcom_udp_shared.h>
 #include "hcom_nx_common.h"
-#include <meadow/hcom_nx_shared.h>
 #include <meadow/hcom_bbreg_defn.h>
 #include "diag/hcom_nx_diag.h"
 
@@ -255,7 +255,7 @@ int hcom_nx_upd_execute_gpio_config(unsigned long arg)
     }
     gpioIODefn = gpioOutputDefnArray[gpio_config->gpioDefn].gpio_output_defn;
   }
-  else
+  else if(gpio_config->configValue == HCOM_GPIO_DIGITAL_CONFIG_INPUT)
   {
     if(gpio_config->gpioDefn > HCOM_NUMBER_OF_GPIO_INPUT_MAP_ELEMENTS)
     {
@@ -263,6 +263,12 @@ int hcom_nx_upd_execute_gpio_config(unsigned long arg)
       return -1;
     }
     gpioIODefn = gpioInputDefnArray[gpio_config->gpioDefn].gpio_input_defn;
+  }
+  else
+  {
+    syslog(LOG_ERR, "%s@%d-GPIO configure only supports digital input and output, invalid value:%d\n",
+              thisFile, __LINE__, gpio_config->gpioDefn);
+    return -1;
   }
 
   ret = stm32_configgpio(gpioIODefn);

@@ -75,4 +75,16 @@
 // Augments the normal Nuttx LOG_XXXX list
 #define LOG_NONE                         0xff
 
+// Diagnostic
+#define HCOM_INCLUDE_DIAGNOSTIC_GPIO          1
+
+#if HCOM_INCLUDE_DIAGNOSTIC_GPIO > 0
+  #define HCOM_COMMON_UTILS_GPIO_A0_MISO_DOUT   1
+#endif
+
+#if HCOM_COMMON_UTILS_GPIO_A0_MISO_DOUT == 0
+  #define HCOM_COMMON_UTILS_GPIO_A0_MISO_DOUT   0
+#endif
+#define HCOM_COMMON_UTILS_GPIO_D00_D08_DOUT   0
+
 #endif  // __INCLUDE_MEADOW_HCOM_SHARED_COMMON__H

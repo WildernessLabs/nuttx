@@ -226,12 +226,12 @@ int hcom_nx_upd_execute_gpio_write(unsigned long arg)
 
   gpio_write = (struct hcom_nx_upd_gpio_write_s*)arg;
 
-  if(gpio_write->gpioDefn > HCOM_NUMBER_OF_GPIO_OUTPUT_MAP_ELEMENTS)
+  if(gpio_write->gpioHcomId > HCOM_NUMBER_OF_GPIO_OUTPUT_MAP_ELEMENTS)
   {
-    syslog(LOG_ERR, "%s@%d-GPIO output defn:%d out of range\n", thisFile, __LINE__, gpio_write->gpioDefn);
+    syslog(LOG_ERR, "%s@%d-GPIO output defn:%d out of range\n", thisFile, __LINE__, gpio_write->gpioHcomId);
     return -1;
   }
-  uint32_t gpioOutputDefn = gpioOutputDefnArray[gpio_write->gpioDefn].gpio_output_defn;
+  uint32_t gpioOutputDefn = gpioOutputDefnArray[gpio_write->gpioHcomId].gpio_output_defn;
   stm32_gpiowrite(gpioOutputDefn, gpio_write->cmdValue);  
   return OK;
 }
@@ -248,26 +248,26 @@ int hcom_nx_upd_execute_gpio_config(unsigned long arg)
 
   if(gpio_config->configValue == HCOM_GPIO_DIGITAL_CONFIG_OUTPUT)
   {
-    if(gpio_config->gpioDefn > HCOM_NUMBER_OF_GPIO_OUTPUT_MAP_ELEMENTS)
+    if(gpio_config->gpioHcomId > HCOM_NUMBER_OF_GPIO_OUTPUT_MAP_ELEMENTS)
     {
-      syslog(LOG_ERR, "%s@%d-GPIO output defn:%d out of range\n", thisFile, __LINE__, gpio_config->gpioDefn);
+      syslog(LOG_ERR, "%s@%d-GPIO output defn:%d out of range\n", thisFile, __LINE__, gpio_config->gpioHcomId);
       return -1;
     }
-    gpioIODefn = gpioOutputDefnArray[gpio_config->gpioDefn].gpio_output_defn;
+    gpioIODefn = gpioOutputDefnArray[gpio_config->gpioHcomId].gpio_output_defn;
   }
   else if(gpio_config->configValue == HCOM_GPIO_DIGITAL_CONFIG_INPUT)
   {
-    if(gpio_config->gpioDefn > HCOM_NUMBER_OF_GPIO_INPUT_MAP_ELEMENTS)
+    if(gpio_config->gpioHcomId > HCOM_NUMBER_OF_GPIO_INPUT_MAP_ELEMENTS)
     {
-      syslog(LOG_ERR, "%s@%d-GPIO input defn:%d out of range\n", thisFile, __LINE__, gpio_config->gpioDefn);
+      syslog(LOG_ERR, "%s@%d-GPIO input defn:%d out of range\n", thisFile, __LINE__, gpio_config->gpioHcomId);
       return -1;
     }
-    gpioIODefn = gpioInputDefnArray[gpio_config->gpioDefn].gpio_input_defn;
+    gpioIODefn = gpioInputDefnArray[gpio_config->gpioHcomId].gpio_input_defn;
   }
   else
   {
     syslog(LOG_ERR, "%s@%d-GPIO configure only supports digital input and output, invalid value:%d\n",
-              thisFile, __LINE__, gpio_config->gpioDefn);
+              thisFile, __LINE__, gpio_config->gpioHcomId);
     return -1;
   }
 

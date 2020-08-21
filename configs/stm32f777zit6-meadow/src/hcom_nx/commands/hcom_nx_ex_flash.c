@@ -50,6 +50,8 @@
 #include <arch/board/boardctl.h>
 #include <sys/boardctl.h>
 
+#include <sys/stat.h>
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
@@ -227,6 +229,7 @@ int hcom_exec_ex_flash_renew_file_system(struct hcom_nx_cmd_data *cmdData)
 // Called from host PC
 int hcom_exec_ex_flash_mono_flash(struct hcom_nx_cmd_data *cmdData)
 {
+  int ret;
   cmdData->userData = 0;
   int lastPercentSent = 0;
   
@@ -237,19 +240,25 @@ int hcom_exec_ex_flash_mono_flash(struct hcom_nx_cmd_data *cmdData)
   const char runtimePath[] = "/meadow/" HCOM_FS_MONO_RUNTIME_FILENAME;
 #endif
 
-  FILE* file = fopen(runtimePath, "r");
-  if (file == NULL)
+  int filefd = open(runtimePath, O_RDONLY);
+  if (filefd == -1)
   {
     cmdData->logLevel = LOG_ERR;
     cmdData->logLen = snprintf(cmdData->logMsg, HCOM_NX_CMD_LOG_MSG_SIZE,
             "%s@%d-Mono runtime was not found in %s.", thisFile, __LINE__, runtimePath);
     return -1;
   }
+  
+  struct stat fileStatus;
+  ret = fstat(filefd, &fileStatus);
+  if (ret < 0)
+  {
+    syslog(LOG_ERR, "%s@%d-fstat of %s failed errno:%d\n",
+           thisFile, __LINE__, runtimePath, errno);
+    return -errno;
+  }
 
-  fseek(file, 0L, SEEK_END);
-  int fileSize = ftell(file);
-  fseek(file, 0L, SEEK_SET);
-
+  off_t fileSize = fileStatus.st_size;
   if (fileSize != HCOM_FS_MONO_RAW_PARTITION_SIZE)
   {
     cmdData->logLevel = LOG_ERR;
@@ -272,7 +281,7 @@ int hcom_exec_ex_flash_mono_flash(struct hcom_nx_cmd_data *cmdData)
   size_t numBlocksToWrite = fileSize / geo.blocksize;
   for (int i = 0; i < numBlocksToWrite; i++)
   {
-    if (fread(buf, geo.blocksize, 1, file) != 1)
+    if (read(filefd, buf, geo.blocksize) < 0)
     {
       cmdData->logLevel = LOG_ERR;
       cmdData->logLen = snprintf(cmdData->logMsg, HCOM_NX_CMD_LOG_MSG_SIZE,
@@ -320,7 +329,7 @@ int hcom_exec_ex_flash_mono_flash(struct hcom_nx_cmd_data *cmdData)
           (char*)monoSuccessFlashMsg, thisFile, __LINE__);
 
   cleanup:
-    fclose(file);
+    close(filefd);
     if(cmdData->logLevel != LOG_NONE)
       return -1;
     return OK;

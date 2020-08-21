@@ -93,14 +93,14 @@ struct hcom_nx_cmd_data
 
 struct hcom_nx_upd_gpio_config_s
 {
-  uint8_t gpioDefn;     // 1- n
+  uint8_t gpioHcomId;     // 1- n
   uint8_t configValue;  // 1 = input, 0 = output
   int result;
 };
 
 struct hcom_nx_upd_gpio_write_s
 {
-  uint8_t gpioDefn;   // 1- n
+  uint8_t gpioHcomId;   // 1- n
   uint8_t cmdValue;   // 1 = high, 0 = low
 };
 

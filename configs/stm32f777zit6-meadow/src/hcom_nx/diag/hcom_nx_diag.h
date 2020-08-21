@@ -48,8 +48,6 @@
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
-#define HCOM_COMMON_UTILS_GPIO_A0_MISO_DOUT   0
-#define HCOM_COMMON_UTILS_GPIO_D00_D08_DOUT   0
 
 #if HCOM_COMMON_UTILS_GPIO_A0_MISO_DOUT > 0
 //=================================================================

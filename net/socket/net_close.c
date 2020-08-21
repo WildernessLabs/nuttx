@@ -93,7 +93,7 @@ int psock_close(FAR struct socket *psock)
    * waiting in accept.
    */
 
-  if (psock->s_crefs <= 1 && psock->s_conn != NULL)
+  if (psock->s_crefs <= 1) // && psock->s_conn != NULL)
     {
       /* Let the address family's close() method handle the operation */
 

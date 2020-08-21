@@ -128,7 +128,7 @@ const struct sock_intf_s g_usrsock_sockif_esp32 =
     NULL,                             /* si_sendfile */
 #endif
     espcp_usrsock_recvfrom,           /* si_recvfrom */
-    espcp_usrsock_sockif_close,       /* si_close */
+    espcp_usrsock_close,       /* si_close */
     espcp_usrsock_ioctl,              /* si_ioctl */
     /*
       *  All of the above are from the generic usrsock project.
@@ -1138,7 +1138,7 @@ ssize_t espcp_usrsock_recvfrom(FAR struct socket *psock, FAR void *buffer, size_
             espcp_delete_message_and_payload(message);
         }
 
-        request->length = (amountRemaining > 4000) ? 4000 : amountRemaining;
+        request->length = (amountRemaining > MAXIMUM_READ_WRITE_BUFFER_SIZE) ? MAXIMUM_READ_WRITE_BUFFER_SIZE : amountRemaining;
         int payload_length = espcp_recv_from_request_buffer_size(request);
         uint8_t *payload = (uint8_t *) malloc(payload_length);
         if (payload == NULL)
@@ -1237,27 +1237,38 @@ ssize_t espcp_usrsock_sendto(FAR struct socket *psock, FAR const void *buffer,
     int32_t result = -1;
     espcp_message_t *message = NULL;
 
-    espcp_sock_addr_t *sa = (espcp_sock_addr_t *) malloc(sizeof(espcp_sock_addr_t));
-    if (sa == NULL)
+    espcp_sock_addr_t *sa;
+    uint8_t *encodedSockAddr;
+    int encodedSockAddrLen;
+    if (to != NULL)
     {
-        return(-1);
+        sa = (espcp_sock_addr_t *) malloc(sizeof(espcp_sock_addr_t));
+        if (sa == NULL)
+        {
+            return(-1);
+        }
+        //
+        //  TODO: Make this deal with send requests where the buffer is > 4000 bytes.
+        //
+        struct sockaddr_in *sin = (struct sockaddr_in *) to;
+        sa->family = sin->sin_family;
+        sa->port = sin->sin_port;
+        memcpy(&sa->ip4_address, &sin->sin_addr, sizeof(sin->sin_addr));
+        encodedSockAddr = (uint8_t *) malloc(espcp_sock_addr_buffer_size(sa));
+        if (encodedSockAddr == NULL)
+        {
+            free(sa);
+            return(-1);
+        }
+        espcp_encode_sock_addr(sa, encodedSockAddr);
+        encodedSockAddrLen = espcp_sock_addr_buffer_size(sa);
+        free(sa); 
     }
-    //
-    //  BUG: Need to deal with to == NULL & tolen == 0.
-    //  TODO: Make this deal with send requests where the buffer is > 4000 bytes.
-    //
-    struct sockaddr_in *sin = (struct sockaddr_in *) to;
-    sa->family = sin->sin_family;
-    sa->port = sin->sin_port;
-    memcpy(&sa->ip4_address, &sin->sin_addr, sizeof(sin->sin_addr));
-    uint8_t *encodedSockAddr = (uint8_t *) malloc(espcp_sock_addr_buffer_size(sa));
-    if (encodedSockAddr == NULL)
+    else
     {
-        free(sa);
-        return(-1);
+        encodedSockAddr = NULL;
+        encodedSockAddrLen = 0;
     }
-    espcp_encode_sock_addr(sa, encodedSockAddr);
-    free(sa); 
 
     espcp_send_to_request_t *request = (espcp_send_to_request_t *) malloc(sizeof(espcp_send_to_request_t));
     if (request == NULL)
@@ -1266,39 +1277,69 @@ ssize_t espcp_usrsock_sendto(FAR struct socket *psock, FAR const void *buffer,
         return(-1);
     }
     request->socket_handle = psock->s_esp32_sockfd;
-    request->buffer = (uint8_t *) buffer;
-    request->buffer_length = len;
-    request->length = len;
     request->flags = flags;
-    request->destination_address_length = espcp_sock_addr_buffer_size(sa);
+    request->destination_address_length = encodedSockAddrLen;
     request->destination_address = encodedSockAddr;
 
-    int payload_length = espcp_send_to_request_buffer_size(request);
-    uint8_t *payload = (uint8_t *) malloc(payload_length);
-    if (payload == NULL)
+    void *nextBlock = buffer;
+    int totalAmount = 0;
+    int amountRemaining = len;
+    bool sendingData = true;
+    while (sendingData)
     {
-        free(encodedSockAddr);
-        free(request);
-        return(-1);
-    }
-    else
-    {
+        if (message != NULL)
+        {
+            espcp_delete_message_and_payload(message);
+        }
+
+        request->length = (amountRemaining > MAXIMUM_READ_WRITE_BUFFER_SIZE) ? MAXIMUM_READ_WRITE_BUFFER_SIZE : amountRemaining;
+        request->buffer_length = request->length;
+        request->buffer = nextBlock;
+        int payload_length = espcp_send_to_request_buffer_size(request);
+        uint8_t *payload = (uint8_t *) malloc(payload_length);
+        if (payload == NULL)
+        {
+            if (encodedSockAddr != NULL)
+            {
+                free(encodedSockAddr);
+            }
+            errno = ENOMEM;
+            free(request);
+            return(-1);
+        }
         espcp_encode_send_to_request(request, payload);
-        free(encodedSockAddr);
-        free(request);
 
         message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi,
                                                espcp_wi_fi_function_send_to, espcp_status_codes_completed_ok,
                                                espcp_get_next_message_id(), payload, payload_length);
-
         if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
         {
             espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
             errno = response->response_errno;
             result = response->result;
+
+            if (result > 0)
+            {
+                int amount = (amountRemaining > response->result) ? response->result : amountRemaining;
+                totalAmount += amount;
+                amountRemaining -= amount;
+                nextBlock += amount;
+                sendingData = ((amountRemaining > 0) && (request->length == result));
+                result = totalAmount;
+            }
+            else
+            {
+                sendingData = false;
+            }
             free(response);
         }
     }
+
+    if (encodedSockAddr != NULL)
+    {
+        free(encodedSockAddr);
+    }
+    free(request);
 
     espcp_delete_message_and_payload(message);
     return (result);
@@ -1632,6 +1673,6 @@ int espcp_usrsock_getaddrinfo(FAR const char *hostname, FAR const char *servname
 
 void espcp_usrsock_not_implemented(const char *source)
 {
-    hcom_utils_f7syslog(LOG_CRIT, "%s@%d %s not implemented.\n", _thisFile, __LINE__, source);
+    syslog(LOG_CRIT, "%s@%d %s not implemented.\n", _thisFile, __LINE__, source);
 }
 

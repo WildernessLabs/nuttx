@@ -102,11 +102,6 @@ static char *_thisFile = __FILE__;
 
 static gl_linked_list_t *g_addrinfo_mappings = NULL;
 
-lib_external_handlers_t _libc_netdev_handlers = 
-{
-  espcp_getaddrinfo       /* getaddrinfo */
-};
-
 /****************************************************************************
  * Function Implementation
  ****************************************************************************/
@@ -131,7 +126,6 @@ lib_external_handlers_t _libc_netdev_handlers =
 void espcp_posix_network_init(void)
 {
     g_addrinfo_mappings = gl_create_empty_linked_list();
-    netdev_register_external_handler(&_libc_netdev_handlers);
 }
 
 /****************************************************************************

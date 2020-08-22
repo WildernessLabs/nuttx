@@ -135,19 +135,4 @@ struct hcom_nx_upd_gpio_input_map_s
 #define HCOM_GPIO_DIGITAL_CMD_VALUE_HIGH      1
 #define HCOM_GPIO_DIGITAL_CMD_VALUE_LOW       0
 
-// This are used by hcom and hcom_udd. In hcom it's
-// by the following names but in hcom_udp it is by
-// their numeric order as they are used as offsets.
-#define HCOM_GPIO_DIG_NX_ID_ESP_RESET  0
-#define HCOM_GPIO_DIG_NX_ID_ESP_BOOT   1
-#define HCOM_GPIO_DIG_NX_ID_A0___01    2
-#define HCOM_GPIO_DIG_NX_ID_A1___02    3
-#define HCOM_GPIO_DIG_NX_ID_A2___03    4
-#define HCOM_GPIO_DIG_NX_ID_A3___04    5
-#define HCOM_GPIO_DIG_NX_ID_A4___05    6
-#define HCOM_GPIO_DIG_NX_ID_A5___06    7
-#define HCOM_GPIO_DIG_NX_ID_SCK__07    8
-#define HCOM_GPIO_DIG_NX_ID_MOSI_08    9
-#define HCOM_GPIO_DIG_NX_ID_MISO_09    10
-
 #endif  // __INCLUDE_MEADOW_HCOM_NX_SHARED__H

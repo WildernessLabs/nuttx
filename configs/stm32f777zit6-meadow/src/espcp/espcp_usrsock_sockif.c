@@ -128,7 +128,7 @@ const struct sock_intf_s g_usrsock_sockif_esp32 =
     NULL,                             /* si_sendfile */
 #endif
     espcp_usrsock_recvfrom,           /* si_recvfrom */
-    espcp_usrsock_close,       /* si_close */
+    espcp_usrsock_close,              /* si_close */
     espcp_usrsock_ioctl,              /* si_ioctl */
     /*
       *  All of the above are from the generic usrsock project.

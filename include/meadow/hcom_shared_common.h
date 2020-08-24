@@ -70,21 +70,23 @@
 #define MONO_MEADOW_EXECUTABLE_PARTITION_NAME "/meadow"
 #define MONO_MEADOW_EXECUTABLE_APP_EXE "/meadow/App.exe"
 #endif
+
 //==================================================
 // hcom nx upd ioctl commands
 // Augments the normal Nuttx LOG_XXXX list
 #define LOG_NONE                         0xff
 
 // Diagnostic
-#define HCOM_INCLUDE_DIAGNOSTIC_GPIO          1
+#define HCOM_INCLUDE_DIAGNOSTIC_GPIO_CODE          1
 
-#if HCOM_INCLUDE_DIAGNOSTIC_GPIO > 0
+#if HCOM_INCLUDE_DIAGNOSTIC_GPIO_CODE > 0
   #define HCOM_COMMON_UTILS_GPIO_A0_MISO_DOUT   1
 #endif
 
 #if HCOM_COMMON_UTILS_GPIO_A0_MISO_DOUT == 0
   #define HCOM_COMMON_UTILS_GPIO_A0_MISO_DOUT   0
 #endif
+
 #define HCOM_COMMON_UTILS_GPIO_D00_D08_DOUT   0
 
 // This are used by hcom and hcom_nx.

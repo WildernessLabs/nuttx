@@ -72,7 +72,7 @@
 #include "chip/stm32f76xx77xx_memorymap.h"
 #include "chip/stm32_rtcc.h"    // battery backed registers and ram
 
-#include "hcom_mono_main.h"
+// #include "hcom_mono_main.h"
 
 #ifndef OK
   #define OK 0

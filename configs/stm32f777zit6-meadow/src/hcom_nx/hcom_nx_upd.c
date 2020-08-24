@@ -105,18 +105,20 @@ static const struct file_operations g_hcom_nx_operations =
 // values 0 - n
 static struct hcom_nx_upd_gpio_output_map_s gpioOutputDefnArray[] = 
 {
-  {MEADOW_ESP32_ONBOARD_RESET_PIN_OUTPUT},    // defined in board.h
-  {MEADOW_ESP32_ONBOARD_BOOT_PIN_OUTPUT},     // defined in board.h
+  // defined in board.h                     // defined in hcom_shared_common.h
+  {MEADOW_ESP32_ONBOARD_RESET_PIN_OUTPUT},  // HCOM_GPIO_DIG_NX_ID_ESP_RESET
+  {MEADOW_ESP32_ONBOARD_BOOT_PIN_OUTPUT},   // HCOM_GPIO_DIG_NX_ID_ESP_BOOT
 #if HCOM_COMMON_UTILS_GPIO_A0_MISO_DOUT > 0
-  {MEADOW_DIAG_GPIO_A0___01_OUTPUT},
-  {MEADOW_DIAG_GPIO_A1___02_OUTPUT},
-  {MEADOW_DIAG_GPIO_A2___03_OUTPUT},
-  {MEADOW_DIAG_GPIO_A3___04_OUTPUT},
-  {MEADOW_DIAG_GPIO_A4___05_OUTPUT},
-  {MEADOW_DIAG_GPIO_A5___06_OUTPUT},
-  {MEADOW_DIAG_GPIO_SCK__07_OUTPUT},
-  {MEADOW_DIAG_GPIO_MOSI_08_OUTPUT},
-  {MEADOW_DIAG_GPIO_MISO_09_OUTPUT}
+  // defined in hcom_nx_diag.h
+  {MEADOW_DIAG_GPIO_A0___01_OUTPUT},        // HCOM_GPIO_DIG_NX_ID_A0___01
+  {MEADOW_DIAG_GPIO_A1___02_OUTPUT},        // HCOM_GPIO_DIG_NX_ID_A1___02
+  {MEADOW_DIAG_GPIO_A2___03_OUTPUT},        // HCOM_GPIO_DIG_NX_ID_A2___03
+  {MEADOW_DIAG_GPIO_A3___04_OUTPUT},        // HCOM_GPIO_DIG_NX_ID_A3___04
+  {MEADOW_DIAG_GPIO_A4___05_OUTPUT},        // HCOM_GPIO_DIG_NX_ID_A4___05
+  {MEADOW_DIAG_GPIO_A5___06_OUTPUT},        // HCOM_GPIO_DIG_NX_ID_A5___06
+  {MEADOW_DIAG_GPIO_SCK__07_OUTPUT},        // HCOM_GPIO_DIG_NX_ID_SCK__07
+  {MEADOW_DIAG_GPIO_MOSI_08_OUTPUT},        // HCOM_GPIO_DIG_NX_ID_MOSI_08
+  {MEADOW_DIAG_GPIO_MISO_09_OUTPUT}         // HCOM_GPIO_DIG_NX_ID_MISO_09
 #endif
 };
 
@@ -291,7 +293,7 @@ int hcom_nx_upd_execute_gpio_config(unsigned long arg)
 
 int hcom_nx_upd_initialize(void)
 {
-  syslog(LOG_INFO, "+hcom_nx_upd_initialize\n");
+  syslog(LOG_DEBUG, "+hcom_nx_upd_initialize\n");
   
   // register the driver, passing in our entry points
   int ret = register_driver(HCOM_NX_UPD_DRIVER_NAME, &g_hcom_nx_operations, 0666, NULL);

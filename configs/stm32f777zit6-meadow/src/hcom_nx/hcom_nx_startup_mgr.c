@@ -1,5 +1,5 @@
 /****************************************************************************
- * configs\stm32f777zit6-meadow\src\hcom_nx\hcom_nx_startup_mgr.c
+ * \configs\stm32f777zit6-meadow\src\hcom_nx\hcom_nx_startup_mgr.c
  * 
  *   Copyright (C) 2019 - 2020 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs
@@ -33,16 +33,13 @@
  *
  ****************************************************************************/
 
+// This module is called during nuttx startup
+
 /****************************************************************************
  * Included Files
  ****************************************************************************/
 #include "hcom_nx_common.h"
-// #include <meadow/hcom_bbreg_defn.h>
-
 #include <assert.h>
-
-// #include <arch/board/board.h>
-// #include "stm32_gpio.h"
 
 #if defined (CONFIG_FS_PROCFS)
 #include "stm32f777zit6-meadow.h"
@@ -107,24 +104,6 @@ int hcom_nx_setup_mgr(FAR struct mtd_dev_s *mtd)
     return ret;
   }
 
-//   // Sets the MTD for the file system
-//   // Note: the calling thread is the nuttx startup thread. Any activity here may delay the
-//   //  remainder of nuttx from starting, which may be determined to be a good thing.
-//   ret = hcom_exec_flash_fs_setup(mtd);
-//   if (ret < 0)
-//   {
-//     syslog(LOG_CRIT, "%s@%d-setup F/S %d\n", thisFile, __LINE__, ret);
-//     return ret;
-//   }
-
-//   // Sets a few internal variable states
-//   ret = hcom_file_commands_setup();
-//   if (ret < 0)
-//   {
-//     syslog(LOG_CRIT, "%s@%d-setup file cmds %d\n", thisFile, __LINE__, ret);
-//     return ret;
-//   }
-
 // Initialize the file system as needed
 #if defined(CONFIG_HCOM_FILESYSTEM_INIT)    // defined in menuconfig
   ret = hcom_create_fs_initialize(mtd);
@@ -134,15 +113,6 @@ int hcom_nx_setup_mgr(FAR struct mtd_dev_s *mtd)
     return ret;
   }
 #endif
-
-// #if defined(CONFIG_HCOM_MTD_STRESS_TEST)
-//   ret = hcom_exec_rqst_testing_setup(mtd);
-//   if (ret < 0)
-//   {
-//     syslog(LOG_CRIT, "%s@%d-setup testing %d\n", thisFile, __LINE__, ret);
-//     return ret;
-//   }
-// #endif
 
   return OK;
 }

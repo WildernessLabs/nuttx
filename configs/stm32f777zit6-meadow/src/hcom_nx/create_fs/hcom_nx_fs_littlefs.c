@@ -1,5 +1,5 @@
 /****************************************************************************
- * configs/stm32f777-zit6-meadow/src/hcom/hcom_fs_littlefs.c
+ * \configs\stm32f777zit6-meadow\src\hcom_nx\create_fs\hcom_nx_fs_littlefs.c
  * 
  *   Copyright (C) 2019 - 2020 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs
@@ -32,6 +32,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
+
+// This module contains code to support LittleFS
 
 /****************************************************************************
  * Included Files

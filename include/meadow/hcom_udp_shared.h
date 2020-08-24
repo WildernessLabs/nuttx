@@ -1,5 +1,5 @@
 /****************************************************************************
- * ..\Meadow\Meadow.OS\nuttx\include\meadow\hcom_udp_sharedd.h
+ * \include\meadow\hcom_udp_shared.h
  * 
  *   Copyright (C) 2020 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs

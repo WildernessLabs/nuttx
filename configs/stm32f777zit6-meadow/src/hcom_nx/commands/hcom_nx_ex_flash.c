@@ -1,5 +1,5 @@
 /****************************************************************************
- * configs\stm32f777zit6-meadow\src\hcom_nx\commands\hcom_external_flash.c
+ * \configs\stm32f777zit6-meadow\src\hcom_nx\commands\hcom_nx_ex_flash.c
  * 
  *   Copyright (C) 2019 - 2020 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs
@@ -32,6 +32,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
+
+// This module contains code that access the external (i.e. not part of
+// the STM32F7) flash memory
 
 /****************************************************************************
  * Included Files

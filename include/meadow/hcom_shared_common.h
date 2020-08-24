@@ -1,5 +1,5 @@
 /****************************************************************************
- * ..\Meadow\Meadow.OS\nuttx\include\meadow\hcom_udp_shared.h
+ * \include\meadow\hcom_shared_common.h
  * 
  *   Copyright (C) 2020 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs
@@ -87,8 +87,8 @@
 #endif
 #define HCOM_COMMON_UTILS_GPIO_D00_D08_DOUT   0
 
-// This are used by hcom and hcom_upd. In hcom it's by the following
-// names. In hcom_udp it is by this numeric values define the order
+// This are used by hcom and hcom_nx.
+// Note:In hcom_nx the numeric values define the order these appear
 // in an array (they are used as offsets).
 #define HCOM_GPIO_DIG_NX_ID_ESP_RESET  0
 #define HCOM_GPIO_DIG_NX_ID_ESP_BOOT   1
@@ -103,14 +103,14 @@
 #define HCOM_GPIO_DIG_NX_ID_MISO_09    10
 
 // Simplify the naming of the test GPIOs
-#define HCOM_GPIO_1 HCOM_GPIO_DIG_NX_ID_A0___01
-#define HCOM_GPIO_2 HCOM_GPIO_DIG_NX_ID_A1___02
-#define HCOM_GPIO_3 HCOM_GPIO_DIG_NX_ID_A2___03
-#define HCOM_GPIO_4 HCOM_GPIO_DIG_NX_ID_A3___04
-#define HCOM_GPIO_5 HCOM_GPIO_DIG_NX_ID_A4___05
-#define HCOM_GPIO_6 HCOM_GPIO_DIG_NX_ID_A5___06
-#define HCOM_GPIO_7 HCOM_GPIO_DIG_NX_ID_SCK__07
-#define HCOM_GPIO_8 HCOM_GPIO_DIG_NX_ID_MOSI_08
-#define HCOM_GPIO_9 HCOM_GPIO_DIG_NX_ID_MISO_09
+#define HCOM_GPIO_1   HCOM_GPIO_DIG_NX_ID_A0___01
+#define HCOM_GPIO_2   HCOM_GPIO_DIG_NX_ID_A1___02
+#define HCOM_GPIO_3   HCOM_GPIO_DIG_NX_ID_A2___03
+#define HCOM_GPIO_4   HCOM_GPIO_DIG_NX_ID_A3___04
+#define HCOM_GPIO_5   HCOM_GPIO_DIG_NX_ID_A4___05
+#define HCOM_GPIO_6   HCOM_GPIO_DIG_NX_ID_A5___06
+#define HCOM_GPIO_7   HCOM_GPIO_DIG_NX_ID_SCK__07
+#define HCOM_GPIO_8   HCOM_GPIO_DIG_NX_ID_MOSI_08
+#define HCOM_GPIO_9   HCOM_GPIO_DIG_NX_ID_MISO_09
 
 #endif  // __INCLUDE_MEADOW_HCOM_SHARED_COMMON__H

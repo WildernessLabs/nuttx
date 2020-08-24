@@ -1,5 +1,5 @@
   /****************************************************************************
- * \Meadow\Meadow.OS\nuttx\include\meadow\hcom_bbreg_defn.h
+ * \include\meadow\hcom_bbreg_defn.h
  * 
  *   Copyright (C) 2020 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs

@@ -1,5 +1,5 @@
 /****************************************************************************
- * configs\stm32f777zit6-meadow\src\hcom_nx_upd.c
+ * \configs\stm32f777zit6-meadow\src\hcom_nx\hcom_nx_upd.c
  * 
  *   Copyright (C) 2020 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs
@@ -35,6 +35,7 @@
 
 // This file was inspired by (and copied from) Chris Tacke's
 // 'Universal Platform Driver' (Meadow-upd.c). Thanks Chris!
+// This allows the apps side to call the nuttx side safely.
 
 /****************************************************************************
  * Included Files

@@ -1,5 +1,5 @@
 /****************************************************************************
- * ..\Meadow\Meadow.OS\nuttx\include\meadow\hcom_protocol.h
+ * \include\meadow\hcom_protocol.h
  * 
  *   Copyright (C) 2019 - 2020 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs

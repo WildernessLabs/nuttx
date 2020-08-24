@@ -524,13 +524,17 @@ static int upd_close(struct file *filep)
 int upd_handle_esp32_command(struct upd_esp32_command *data)
 {
   int result = OK;
+  uint8_t *payload = NULL;
 
-  uint8_t *payload = (uint8_t *) malloc(data->payload_length);
-  if (payload == NULL)
+  if (data->payload_length != 0)
   {
-    return ERROR;
+    payload = (uint8_t *) malloc(data->payload_length);
+    if (payload == NULL)
+    {
+      return ERROR;
+    }
+    memcpy(payload, data->payload, data->payload_length);
   }
-  memcpy(payload, data->payload, data->payload_length);
   
   espcp_message_t *message = espcp_create_message_on_heap(espcp_message_types_header,
     data->interface, data->function, 0, espcp_get_next_message_id(),

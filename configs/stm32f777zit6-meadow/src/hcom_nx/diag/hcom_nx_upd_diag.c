@@ -76,6 +76,7 @@
  * Private Function Prototypes
  ****************************************************************************/
 
+#if HCOM_INCLUDE_IN_BUILD_DIAGNOSTIC_GPIO_CODE > 0
 /****************************************************************************
  * Private Data
  ****************************************************************************/
@@ -207,3 +208,4 @@ int hcom_nx_upd_diag_gpio_write_byte(unsigned long arg)
   }
   return OK;
 }
+#endif

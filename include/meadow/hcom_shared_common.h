@@ -76,20 +76,32 @@
 // Augments the normal Nuttx LOG_XXXX list
 #define LOG_NONE                         0xff
 
-// Diagnostic
-#define HCOM_INCLUDE_DIAGNOSTIC_GPIO_CODE         1
-#define HCOM_COMMON_UTILS_GPIO_D00_D15_DOUT       1
-#define HCOM_DIAG_GPIO_DIAGNOSTIC_PERSERVE_UARTS  1
+//--------------------------------------------------------------------
+// Things that can be excluded from a build but are needed
+#define HCOM_VS_REMOTE_DEBUGGING_INCLUDE_IN_BUILD     1
+#define HCOM_STDOUT_REDIRECT_INCLUDE_IN_BUILD         1
 
-#if HCOM_INCLUDE_DIAGNOSTIC_GPIO_CODE > 0
-  #define HCOM_COMMON_UTILS_GPIO_A0_MISO_DOUT   1
-#endif
+// Things only needed for diagnostic reasons
+#define HCOM_NUTT_SHELL_LAUNCHER_INCLUDE_IN_BUILD     0   // Requires nsh to be defined
+#define HCOM_ESP32_PROCESS_CR_LF_ENDLESS_TEXT         0
+#define HCOM_OUTPUT_DATA_BUFFER_INFO_VIA_SYSLOG       0
+#define HCOM_INCLUDE_DIAG_PRINT_BUFFER_CODE           0
+// The F7's GPIOs can be used for diagnostics
+#define HCOM_INCLUDE_IN_BUILD_DIAGNOSTIC_GPIO_CODE    0
+// UART1 & UART 4 are sometimes used for diagnostic
+// purposes. This define prevents these from being used
+// by diagnostic code
+#define HCOM_DIAG_GPIO_DIAGNOSTIC_PERSERVE_UARTS      0
+ 
+// Test code
+#define HCOM_VS_DEBUGGING_TESTS_INCLUDE_IN_BUILD      0 // was 1 not working
+#define HCOM_INCLUDE_BATTERY_BACKED_REG_TEST          0 // was 0 not working
 
-#if HCOM_COMMON_UTILS_GPIO_A0_MISO_DOUT == 0
-  #define HCOM_COMMON_UTILS_GPIO_A0_MISO_DOUT   0
-#endif
+// The code not compiled by this #define should be removed
+// and removed from CLI at the same time
+#define HCOM_IGNORE_UNNECESSARY_FILE_SYSTEM_COMMANDS  0
 
-
+//---------------------------------------------------------------------
 // Because it is difficult to discover the GPIO definition
 // on the /apps side these provide a mapping between the
 // GPIO definition and a numeric value that can easily be

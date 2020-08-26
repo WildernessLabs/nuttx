@@ -207,6 +207,7 @@ static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
     case HCOM_NX_UPD_GPIO_CONFIG:
       return hcom_nx_upd_execute_gpio_config(arg);
 
+#if HCOM_INCLUDE_IN_BUILD_DIAGNOSTIC_GPIO_CODE > 0
     case HCOM_NX_UPD_DIAG_GPIO_COMMAND:
       return hcom_nx_upd_diag_gpio_write(arg);
 
@@ -215,7 +216,7 @@ static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
       
     case HCOM_NX_UPD_DIAG_GPIO_SET_BYTE:
       return hcom_nx_upd_diag_gpio_write_byte(arg);
-
+#endif
     default:
       syslog(LOG_ERR, "%s@%d-unknown hcom nx upd command:%d\n", thisFile, __LINE__, cmd);
   }

@@ -1,4 +1,4 @@
-/****************************************************************************
+/*************************************************************************
  * \include\meadow\hcom_shared_common.h
  * 
  *   Copyright (C) 2020 Wilderness Labs. All rights reserved.
@@ -77,7 +77,9 @@
 #define LOG_NONE                         0xff
 
 // Diagnostic
-#define HCOM_INCLUDE_DIAGNOSTIC_GPIO_CODE          1
+#define HCOM_INCLUDE_DIAGNOSTIC_GPIO_CODE         1
+#define HCOM_COMMON_UTILS_GPIO_D00_D15_DOUT       1
+#define HCOM_DIAG_GPIO_DIAGNOSTIC_PERSERVE_UARTS  1
 
 #if HCOM_INCLUDE_DIAGNOSTIC_GPIO_CODE > 0
   #define HCOM_COMMON_UTILS_GPIO_A0_MISO_DOUT   1
@@ -87,33 +89,44 @@
   #define HCOM_COMMON_UTILS_GPIO_A0_MISO_DOUT   0
 #endif
 
-#define HCOM_COMMON_UTILS_GPIO_D00_D08_DOUT   0
 
-// This are used by hcom and hcom_nx.
-// Note:In hcom_nx the numeric values define the order these appear
-// in an array (they are used as offsets).
+// Because it is difficult to discover the GPIO definition
+// on the /apps side these provide a mapping between the
+// GPIO definition and a numeric value that can easily be
+// used on both nuttx and apps sides.
+// The following can be used by hcom and hcom_nx.
+// Note:In hcom_nx_upd.c the numeric values define the order
+// these appear in an array (they are used as offsets).
 #define HCOM_GPIO_DIG_NX_ID_ESP_RESET  0
 #define HCOM_GPIO_DIG_NX_ID_ESP_BOOT   1
 #define HCOM_GPIO_DIG_NX_ID_BLUE_LED   2
-#define HCOM_GPIO_DIG_NX_ID_A0___01    3
-#define HCOM_GPIO_DIG_NX_ID_A1___02    4
-#define HCOM_GPIO_DIG_NX_ID_A2___03    5
-#define HCOM_GPIO_DIG_NX_ID_A3___04    6
-#define HCOM_GPIO_DIG_NX_ID_A4___05    7
-#define HCOM_GPIO_DIG_NX_ID_A5___06    8
-#define HCOM_GPIO_DIG_NX_ID_SCK__07    9
-#define HCOM_GPIO_DIG_NX_ID_MOSI_08    10
-#define HCOM_GPIO_DIG_NX_ID_MISO_09    11
 
-// Simplify the naming of the test GPIOs
-#define HCOM_GPIO_1   HCOM_GPIO_DIG_NX_ID_A0___01
-#define HCOM_GPIO_2   HCOM_GPIO_DIG_NX_ID_A1___02
-#define HCOM_GPIO_3   HCOM_GPIO_DIG_NX_ID_A2___03
-#define HCOM_GPIO_4   HCOM_GPIO_DIG_NX_ID_A3___04
-#define HCOM_GPIO_5   HCOM_GPIO_DIG_NX_ID_A4___05
-#define HCOM_GPIO_6   HCOM_GPIO_DIG_NX_ID_A5___06
-#define HCOM_GPIO_7   HCOM_GPIO_DIG_NX_ID_SCK__07
-#define HCOM_GPIO_8   HCOM_GPIO_DIG_NX_ID_MOSI_08
-#define HCOM_GPIO_9   HCOM_GPIO_DIG_NX_ID_MISO_09
+// Simplify naming of meadow GPIOs for diagnostics
+#define HCOM_DIAG_GPIO_A0     0
+#define HCOM_DIAG_GPIO_A1     1
+#define HCOM_DIAG_GPIO_A2     2
+#define HCOM_DIAG_GPIO_A3     3
+#define HCOM_DIAG_GPIO_A4     4
+#define HCOM_DIAG_GPIO_A5     5
+#define HCOM_DIAG_GPIO_SCK    6
+#define HCOM_DIAG_GPIO_MOSI   7
+#define HCOM_DIAG_GPIO_MISO   8
+#define HCOM_DIAG_GPIO_D00    9
+#define HCOM_DIAG_GPIO_D01   10
+#define HCOM_DIAG_GPIO_D02   11
+#define HCOM_DIAG_GPIO_D03   12
+#define HCOM_DIAG_GPIO_D04   13
+#define HCOM_DIAG_GPIO_D05   14
+#define HCOM_DIAG_GPIO_D06   15
+#define HCOM_DIAG_GPIO_D07   16
+#define HCOM_DIAG_GPIO_D08   17
+#define HCOM_DIAG_GPIO_D09   18
+#define HCOM_DIAG_GPIO_D10   19
+#define HCOM_DIAG_GPIO_D11   20
+#define HCOM_DIAG_GPIO_D12   21
+#define HCOM_DIAG_GPIO_D13   22
+#define HCOM_DIAG_GPIO_D14   23
+#define HCOM_DIAG_GPIO_D15   24
+
 
 #endif  // __INCLUDE_MEADOW_HCOM_SHARED_COMMON__H

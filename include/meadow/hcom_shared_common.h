@@ -77,7 +77,7 @@
 #define LOG_NONE                         0xff
 
 //--------------------------------------------------------------------
-// These features can be excluded from a build but are needed
+// These needed Meadow features can be excluded from a build
 #define HCOM_VS_REMOTE_DEBUGGING_INCLUDE_IN_BUILD     1
 #define HCOM_STDOUT_REDIRECT_INCLUDE_IN_BUILD         1
 
@@ -97,7 +97,7 @@
 #define HCOM_ESP32_PROCESS_CR_LF_ENDLESS_TEXT         0
 // The F7's GPIOs can be used for diagnostics. Especially useful
 // when debugging within the syslog code
-#define HCOM_INCLUDE_IN_BUILD_DIAGNOSTIC_GPIO_CODE    1
+#define HCOM_INCLUDE_IN_BUILD_DIAGNOSTIC_GPIO_CODE    0
 // UART1 & UART 4 are sometimes used for diagnostic
 // purposes. This define prevents these from being used
 // by diagnostic code

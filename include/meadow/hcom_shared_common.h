@@ -82,7 +82,11 @@
 #define HCOM_STDOUT_REDIRECT_INCLUDE_IN_BUILD         1
 
 //--------------------------------------------------------------------
-// Things only needed for diagnostic reasons
+// The following control things needed for diagnostic reasons
+#define HCOM_FORCE_SYSLOG_MASK_F7_AND_UART1           1
+
+//--------------------------------------------------------------------
+// The following control code built for diagnostic reasons
 // Used to disable all uses of the following
 #define HCOM_OUTPUT_DATA_BUFFER_INFO_VIA_SYSLOG       0
 // Allow the build to include the ability to print a buffer

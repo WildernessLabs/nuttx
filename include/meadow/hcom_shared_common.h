@@ -42,7 +42,8 @@
 /****************************************************************************
  * Private defines
  ****************************************************************************/
-// This header file contains those items that must be shared by apps/hcom
+// This header file contains those items that must be shared between apps and
+// nuttx sides
 
 #ifndef OK
   #define OK 0

@@ -83,8 +83,11 @@
 #define HCOM_STDOUT_REDIRECT_INCLUDE_IN_BUILD         1
 
 //--------------------------------------------------------------------
-// The following control things needed for diagnostic reasons
-#define HCOM_FORCE_SYSLOG_MASK_F7_AND_UART1           1
+// The following control things needed for diagnostic reasons.
+// When set to 1 the syslog mask is set to everything but debug
+// and at startup syslog messages are routed to UART1 without
+// the need to send the Uart1Trace command.
+#define HCOM_FORCE_SYSLOG_MASK_F7_AND_UART1           0
 
 //--------------------------------------------------------------------
 // The following control code built for diagnostic reasons

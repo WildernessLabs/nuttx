@@ -44,6 +44,8 @@
  ****************************************************************************/
 // This header file contains those items that must be shared by apps/hcom
 
+#define MEADOW_OS_VERSION 0x00040101
+
 #ifndef OK
   #define OK 0
 #endif

@@ -70,6 +70,11 @@
  ****************************************************************************/
 
 /**
+ *  name of this files (used in debugging messages).
+ */
+static char *_thisFile = __FILE__;
+
+/**
  *  Mutex used to ensure exclusive access to the message ID.
  */
 static pthread_mutex_t g_message_id_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -731,7 +736,7 @@ int espcp_send_message(espcp_configuration_t *configuration, espcp_message_t *me
       result = espcp_send_header(configuration, message);
       if (result != espcp_status_codes_completed_ok)
       {
-        syslog(LOG_INFO, "%s TODO: unexpected result %d\n", __func__, result);
+        syslog(LOG_INFO, "%s@%d TODO: unexpected result.\n", _thisFile, __LINE__);
         return(result);
       }
       result = espcp_get_message_header_acknowledgement(configuration, message);
@@ -746,7 +751,7 @@ int espcp_send_message(espcp_configuration_t *configuration, espcp_message_t *me
           //
           return(espcp_status_codes_completed_ok);
         }
-        syslog(LOG_INFO, "%s TODO: unexpected result %d\n", __func__, result);
+        syslog(LOG_INFO, "%s@%d TODO: unexpected result.\n", _thisFile, __LINE__);
         return(result);
       }
 
@@ -759,7 +764,7 @@ int espcp_send_message(espcp_configuration_t *configuration, espcp_message_t *me
         result = espcp_send_message_body(configuration, message);
         if (result != espcp_status_codes_completed_ok)
         {
-          syslog(LOG_INFO, "%s TODO: unexpected result %d\n", __func__, result);
+          syslog(LOG_INFO, "%s@%d TODO: unexpected result.\n", _thisFile, __LINE__);
           return(result);
         }
       }
@@ -786,7 +791,7 @@ int espcp_send_message(espcp_configuration_t *configuration, espcp_message_t *me
 
   if (result != espcp_status_codes_completed_ok)
   {
-    syslog(LOG_INFO, "%s TODO: unexpected result %d\n", __func__, result);
+    syslog(LOG_INFO, "%s@%d TODO: unexpected result.\n", _thisFile, __LINE__);
   }
 
   EXIT_MESSAGE(__func__);

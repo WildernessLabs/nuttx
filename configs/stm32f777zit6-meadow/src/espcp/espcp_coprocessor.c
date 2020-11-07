@@ -135,7 +135,9 @@ espcp_configuration_t *espcp_get_default_configuration(void)
   {
     memset(config, 0, sizeof(espcp_configuration_t));
     sem_init(&config->lock, 0, 1);
+    sem_setprotocol(&config->lock, SEM_PRIO_NONE);
     sem_init(&config->spi_lock, 0, 1);
+    sem_setprotocol(&config->spi_lock, SEM_PRIO_NONE);
     config->thread_running = false;
     config->esp_not_responding = true;
     config->send_data_to_esp32 = espcp_send_data_over_spi;
@@ -572,7 +574,6 @@ int espcp_enter_run_mode(void)
   //  
   espcp_reset();
   usleep(1000);
-  stm32_gpiosetevent(ESP32CP_SPI_MESSAGE_WAITING_PIN_INPUT, /*risingedge=*/false, /*fallingedge=*/true, true, espcp_queue_send_response_message, 0);
   stm32_gpiosetevent(ESP32CP_SPI_READY_PIN_INPUT, /*risingedge=*/true, /*fallingedge=*/false, true, espcp_spi_ready, 0);
 
   return(OK);
@@ -611,6 +612,11 @@ int espcp_spi_ready(int irq, void *context, void *arg)
     syslog(LOG_CRIT, "%s@%d Disabling SPI Ready interrupt result:%d\n", _thisFile, __LINE__, result);
     return(-1);
   }
+  //
+  //  Once the SPI interface has indicated that it is ready (on the ESP) then
+  //  we need to setup the Message Waiting interrupt.
+  //
+  stm32_gpiosetevent(ESP32CP_SPI_MESSAGE_WAITING_PIN_INPUT, /*risingedge=*/false, /*fallingedge=*/true, true, espcp_queue_send_response_message, 0);
 
   sem_post(&g_espcp_configuration->spi_lock);
   return(OK);

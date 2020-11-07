@@ -85,7 +85,7 @@
 /*
  *  Object holding the configuration of the ESP32 coprocessor system.
  */
-static espcp_configuration_t *g_espcp_configuration; 
+static espcp_configuration_t *g_espcp_configuration;
 
 /*
  *  Object holding the SPI configuration.
@@ -130,35 +130,35 @@ static char *_thisFile = __FILE__;
  ****************************************************************************/
 espcp_configuration_t *espcp_get_default_configuration(void)
 {
-  espcp_configuration_t *config = (espcp_configuration_t *) malloc(sizeof(espcp_configuration_t));
-  if (config != NULL)
-  {
-    memset(config, 0, sizeof(espcp_configuration_t));
-    sem_init(&config->lock, 0, 1);
-    sem_setprotocol(&config->lock, SEM_PRIO_NONE);
-    sem_init(&config->spi_lock, 0, 1);
-    sem_setprotocol(&config->spi_lock, SEM_PRIO_NONE);
-    config->thread_running = false;
-    config->esp_not_responding = true;
-    config->send_data_to_esp32 = espcp_send_data_over_spi;
-    config->header_only_buffer_size = espcp_calculate_spi_buffer_size(ESPCP_MESSAGE_HEADER_SIZE);
-    //
-    //  TODO: Replace #ifndef when config file is available.
-    //
-#if defined(CONFIG_MEADOW_ESPCP_RESET_ESP32_AT_STARTUP)
-    config->reset_esp_at_startup = true;
-#else
-    config->reset_esp_at_startup = false;
-#endif
-    config->header = (uint8_t *) malloc(config->header_only_buffer_size);
-    if (config->header == NULL)
+    espcp_configuration_t *config = (espcp_configuration_t *)malloc(sizeof(espcp_configuration_t));
+    if (config != NULL)
     {
-      free(config);
-      config = NULL;
+        memset(config, 0, sizeof(espcp_configuration_t));
+        sem_init(&config->lock, 0, 1);
+        sem_setprotocol(&config->lock, SEM_PRIO_NONE);
+        sem_init(&config->spi_lock, 0, 1);
+        sem_setprotocol(&config->spi_lock, SEM_PRIO_NONE);
+        config->thread_running = false;
+        config->esp_not_responding = true;
+        config->send_data_to_esp32 = espcp_send_data_over_spi;
+        config->header_only_buffer_size = espcp_calculate_spi_buffer_size(ESPCP_MESSAGE_HEADER_SIZE);
+        //
+        //  TODO: Replace #ifndef when config file is available.
+        //
+#if defined(CONFIG_MEADOW_ESPCP_RESET_ESP32_AT_STARTUP)
+        config->reset_esp_at_startup = true;
+#else
+        config->reset_esp_at_startup = false;
+#endif
+        config->header = (uint8_t *)malloc(config->header_only_buffer_size);
+        if (config->header == NULL)
+        {
+            free(config);
+            config = NULL;
+        }
+        config->esp_config = NULL;
     }
-    config->esp_config = NULL;
-  }
-  return(config);
+    return (config);
 }
 
 /****************************************************************************
@@ -179,7 +179,7 @@ espcp_configuration_t *espcp_get_default_configuration(void)
  ****************************************************************************/
 void espcp_config_lock(espcp_configuration_t *config)
 {
-  sem_wait(&config->lock);
+    sem_wait(&config->lock);
 }
 
 /****************************************************************************
@@ -200,7 +200,7 @@ void espcp_config_lock(espcp_configuration_t *config)
  ****************************************************************************/
 void espcp_config_unlock(espcp_configuration_t *config)
 {
-  sem_post(&config->lock);
+    sem_post(&config->lock);
 }
 
 /****************************************************************************
@@ -221,29 +221,28 @@ void espcp_config_unlock(espcp_configuration_t *config)
  ****************************************************************************/
 int espcp_spi_setup()
 {
-  int result;
+    int result;
 
-  result = stm32_configgpio(ESP32CP_SPI_CS_PIN_OUTPUT);
-  if (result < 0)
-  {
-    syslog(LOG_CRIT, "%s@%d Config SPI CS GPIO failed result:%d\n", _thisFile, __LINE__, result);
-    return(-1);
-  }
-  stm32_gpiowrite(ESP32CP_SPI_CS_PIN_OUTPUT, true);    // SPI CS is active low so deselect SPI.
+    result = stm32_configgpio(ESP32CP_SPI_CS_PIN_OUTPUT);
+    if (result < 0)
+    {
+        syslog(LOG_CRIT, "%s@%d Config SPI CS GPIO failed result:%d\n", _thisFile, __LINE__, result);
+        return (-1);
+    }
+    stm32_gpiowrite(ESP32CP_SPI_CS_PIN_OUTPUT, true); // SPI CS is active low so deselect SPI.
 
+    g_esp_spi_dev = stm32_spibus_initialize(ESP32CP_SPI_COMMS_PORT);
+    if (g_esp_spi_dev == 0)
+    {
+        syslog(LOG_CRIT, "%s@%d Error:Failed init ESP32 SPI port %d\n", _thisFile, __LINE__, result);
+        return (-1);
+    }
 
-  g_esp_spi_dev = stm32_spibus_initialize(ESP32CP_SPI_COMMS_PORT);
-  if (g_esp_spi_dev == 0)
-  {
-    syslog(LOG_CRIT, "%s@%d Error:Failed init ESP32 SPI port %d\n", _thisFile, __LINE__, result);
-    return(-1);
-  }
+    SPI_SETFREQUENCY(g_esp_spi_dev, ESP32CP_SPI_COMMS_FREQUENCY);
+    SPI_SETBITS(g_esp_spi_dev, 8);
+    SPI_SETMODE(g_esp_spi_dev, SPIDEV_MODE3); /* CPOL=1 CHPHA=1 */
 
-  SPI_SETFREQUENCY(g_esp_spi_dev, ESP32CP_SPI_COMMS_FREQUENCY);
-  SPI_SETBITS(g_esp_spi_dev, 8);
-  SPI_SETMODE(g_esp_spi_dev, SPIDEV_MODE3); /* CPOL=1 CHPHA=1 */
-
-  return OK;
+    return OK;
 }
 
 /****************************************************************************
@@ -267,14 +266,14 @@ int espcp_spi_setup()
  ****************************************************************************/
 void espcp_wait_for_message_waiting_signal(void)
 {
-  while (!stm32_gpioread(ESP32CP_SPI_MESSAGE_WAITING_PIN_INPUT))
-  {
-    usleep(500);
-  }
-  while (stm32_gpioread(ESP32CP_SPI_MESSAGE_WAITING_PIN_INPUT))
-  {
-    usleep(500);
-  }
+    while (!stm32_gpioread(ESP32CP_SPI_MESSAGE_WAITING_PIN_INPUT))
+    {
+        usleep(500);
+    }
+    while (stm32_gpioread(ESP32CP_SPI_MESSAGE_WAITING_PIN_INPUT))
+    {
+        usleep(500);
+    }
 }
 
 /****************************************************************************
@@ -302,13 +301,13 @@ void espcp_wait_for_message_waiting_signal(void)
  ****************************************************************************/
 void espcp_send_data_over_spi(void *tx, void *rx, size_t buffer_length)
 {
-  if ((tx == NULL) && (rx == NULL))
-  {
-    return;
-  }
-  stm32_gpiowrite(ESP32CP_SPI_CS_PIN_OUTPUT, false);
+    if ((tx == NULL) && (rx == NULL))
+    {
+        return;
+    }
+    stm32_gpiowrite(ESP32CP_SPI_CS_PIN_OUTPUT, false);
 
-  /*
+    /*
    *  The ESP takes some time to initialise the SPI interface. A low signal
    *  on the SPI ready line indicates that it is still preparing the interface.
    *  The line will go high when it is ready to communicate.
@@ -317,32 +316,34 @@ void espcp_send_data_over_spi(void *tx, void *rx, size_t buffer_length)
    *  uses a loop for simplicity and also because the ESP should respond in a
    *  short time period so impact should be low.
    */
-  while (!stm32_gpioread(ESP32CP_SPI_READY_PIN_INPUT));
+    while (!stm32_gpioread(ESP32CP_SPI_READY_PIN_INPUT))
+        ;
 
-  if (tx == NULL)
-  {
-    SPI_RECVBLOCK(g_esp_spi_dev, rx, buffer_length);
-  }
-  else
-  {
-    if (rx == NULL)
+    if (tx == NULL)
     {
-      SPI_SNDBLOCK(g_esp_spi_dev, tx, buffer_length);
+        SPI_RECVBLOCK(g_esp_spi_dev, rx, buffer_length);
     }
     else
     {
-      SPI_EXCHANGE(g_esp_spi_dev, tx, rx, buffer_length);
+        if (rx == NULL)
+        {
+            SPI_SNDBLOCK(g_esp_spi_dev, tx, buffer_length);
+        }
+        else
+        {
+            SPI_EXCHANGE(g_esp_spi_dev, tx, rx, buffer_length);
+        }
     }
-  }
 
-  stm32_gpiowrite(ESP32CP_SPI_CS_PIN_OUTPUT, true);
-  /*
+    stm32_gpiowrite(ESP32CP_SPI_CS_PIN_OUTPUT, true);
+    /*
    *  There is a small delay between the end of message transmission and
    *  the ESP dropping the SPI Ready line in the post SPI callback.  This
    *  can (in certain circumstances) mean the STM starts the next transaction
    *  before the ESP has completed the current transaction.
    */
-  while (stm32_gpioread(ESP32CP_SPI_READY_PIN_INPUT));
+    while (stm32_gpioread(ESP32CP_SPI_READY_PIN_INPUT))
+        ;
 }
 
 /****************************************************************************
@@ -370,11 +371,11 @@ void espcp_send_data_over_spi(void *tx, void *rx, size_t buffer_length)
  ****************************************************************************/
 bool espcp_should_reset_at_startup(void)
 {
-  espcp_configuration_t *config = espcp_get_configuration();
-  espcp_config_lock(config);
-  bool perform_reset = espcp_get_configuration()->reset_esp_at_startup;
-  espcp_config_unlock(config);
-  return(perform_reset);
+    espcp_configuration_t *config = espcp_get_configuration();
+    espcp_config_lock(config);
+    bool perform_reset = espcp_get_configuration()->reset_esp_at_startup;
+    espcp_config_unlock(config);
+    return (perform_reset);
 }
 
 /****************************************************************************
@@ -398,14 +399,14 @@ bool espcp_should_reset_at_startup(void)
  ****************************************************************************/
 void espcp_reset(void)
 {
-  if (espcp_should_reset_at_startup())
-  {
-    espcp_hold_in_reset();
-    //  TODO: Need to investgate the power on cycle for the ESP32 as it can sometimes appear to take a while to reset.
-    usleep(10000);
-    stm32_gpiowrite(ESP32CP_RESET_PIN_OUTPUT, true);
-    stm32_unconfiggpio(ESP32CP_RESET_PIN_OUTPUT);
-  }
+    if (espcp_should_reset_at_startup())
+    {
+        espcp_hold_in_reset();
+        //  TODO: Need to investgate the power on cycle for the ESP32 as it can sometimes appear to take a while to reset.
+        usleep(10000);
+        stm32_gpiowrite(ESP32CP_RESET_PIN_OUTPUT, true);
+        stm32_unconfiggpio(ESP32CP_RESET_PIN_OUTPUT);
+    }
 }
 
 /****************************************************************************
@@ -430,16 +431,16 @@ void espcp_reset(void)
  ****************************************************************************/
 void espcp_hold_in_reset(void)
 {
-  if (espcp_should_reset_at_startup())
-  {
-    int result = stm32_configgpio(ESP32CP_RESET_PIN_OUTPUT);
-    if (result < 0)
+    if (espcp_should_reset_at_startup())
     {
-      syslog(LOG_CRIT, "%s@%d Config Reset GPIO failed result:%d\n", _thisFile, __LINE__, result);
-      return;
+        int result = stm32_configgpio(ESP32CP_RESET_PIN_OUTPUT);
+        if (result < 0)
+        {
+            syslog(LOG_CRIT, "%s@%d Config Reset GPIO failed result:%d\n", _thisFile, __LINE__, result);
+            return;
+        }
+        stm32_gpiowrite(ESP32CP_RESET_PIN_OUTPUT, false);
     }
-    stm32_gpiowrite(ESP32CP_RESET_PIN_OUTPUT, false);
-  }
 }
 
 /****************************************************************************
@@ -464,23 +465,23 @@ void espcp_hold_in_reset(void)
  ****************************************************************************/
 void espcp_release_shared_gpio(void)
 {
-  int result = stm32_gpiosetevent(ESP32CP_SPI_MESSAGE_WAITING_PIN_INPUT, /*risingedge=*/false, /*fallingedge=*/ false, true, NULL, 0);
-  if (result < 0)
-  {
-    syslog(LOG_CRIT, "%s@%d Disabling Message Waiting interrupt result:%d\n", _thisFile, __LINE__, result);
-    return;
-  }
-  result = stm32_gpiosetevent(ESP32CP_SPI_READY_PIN_INPUT, /*risingedge=*/false, /*fallingedge=*/ false, true, NULL, 0);
-  if (result < 0)
-  {
-    syslog(LOG_CRIT, "%s@%d Disabling SPI Ready interrupt result:%d\n", _thisFile, __LINE__, result);
-    return;
-  }
-  stm32_unconfiggpio(ESP32CP_SPI_MESSAGE_WAITING_PIN_INPUT);
-  stm32_unconfiggpio(ESP32CP_SPI_READY_PIN_INPUT);
-  stm32_unconfiggpio(ESP32CP_BOOT_PIN_OUTPUT);
-  stm32_unconfiggpio(GPIO_UART5_TX);
-  stm32_unconfiggpio(GPIO_UART5_RX);
+    int result = stm32_gpiosetevent(ESP32CP_SPI_MESSAGE_WAITING_PIN_INPUT, /*risingedge=*/false, /*fallingedge=*/false, true, NULL, 0);
+    if (result < 0)
+    {
+        syslog(LOG_CRIT, "%s@%d Disabling Message Waiting interrupt result:%d\n", _thisFile, __LINE__, result);
+        return;
+    }
+    result = stm32_gpiosetevent(ESP32CP_SPI_READY_PIN_INPUT, /*risingedge=*/false, /*fallingedge=*/false, true, NULL, 0);
+    if (result < 0)
+    {
+        syslog(LOG_CRIT, "%s@%d Disabling SPI Ready interrupt result:%d\n", _thisFile, __LINE__, result);
+        return;
+    }
+    stm32_unconfiggpio(ESP32CP_SPI_MESSAGE_WAITING_PIN_INPUT);
+    stm32_unconfiggpio(ESP32CP_SPI_READY_PIN_INPUT);
+    stm32_unconfiggpio(ESP32CP_BOOT_PIN_OUTPUT);
+    stm32_unconfiggpio(GPIO_UART5_TX);
+    stm32_unconfiggpio(GPIO_UART5_RX);
 }
 
 /****************************************************************************
@@ -504,23 +505,23 @@ void espcp_release_shared_gpio(void)
  ****************************************************************************/
 void espcp_enter_programming_mode(void)
 {
-  espcp_release_shared_gpio();
-  //
-  //  Now reconfigure the needed resources.
-  //
-  stm32_configgpio(GPIO_UART5_TX);
-  stm32_configgpio(GPIO_UART5_RX);
-  int result = stm32_configgpio(ESP32CP_BOOT_PIN_OUTPUT);
-  if (result < 0)
-  {
-    syslog(LOG_CRIT, "%s@%d Config Boot pin as output result:%d\n", _thisFile, __LINE__, result);
-    return;
-  }
-  usleep(20 * 1000);
-  stm32_gpiowrite(ESP32CP_BOOT_PIN_OUTPUT, false);
-  espcp_reset();
-  usleep(20 * 1000);
-  stm32_gpiowrite(ESP32CP_BOOT_PIN_OUTPUT, true);
+    espcp_release_shared_gpio();
+    //
+    //  Now reconfigure the needed resources.
+    //
+    stm32_configgpio(GPIO_UART5_TX);
+    stm32_configgpio(GPIO_UART5_RX);
+    int result = stm32_configgpio(ESP32CP_BOOT_PIN_OUTPUT);
+    if (result < 0)
+    {
+        syslog(LOG_CRIT, "%s@%d Config Boot pin as output result:%d\n", _thisFile, __LINE__, result);
+        return;
+    }
+    usleep(20 * 1000);
+    stm32_gpiowrite(ESP32CP_BOOT_PIN_OUTPUT, false);
+    espcp_reset();
+    usleep(20 * 1000);
+    stm32_gpiowrite(ESP32CP_BOOT_PIN_OUTPUT, true);
 }
 
 /****************************************************************************
@@ -541,42 +542,42 @@ void espcp_enter_programming_mode(void)
  ****************************************************************************/
 int espcp_enter_run_mode(void)
 {
-  espcp_release_shared_gpio();
-  //
-  //  Input pins, one indicating that ESP32 SPI transaction can start (ESP32 SPI interface is ready)
-  //  and one to indicate that the ESP32 has a response to a request from the STM32 or some other
-  //  event has ocurred that the STM32 should be aware of.
-  //
-  int result = stm32_configgpio(ESP32CP_SPI_READY_PIN_INPUT);
-  if (result < 0)
-  {
-    syslog(LOG_CRIT, "%s@%d Config SPI Ready pin failed result: %d\n", _thisFile, __LINE__, result);
-    return -1;
-  }
+    espcp_release_shared_gpio();
+    //
+    //  Input pins, one indicating that ESP32 SPI transaction can start (ESP32 SPI interface is ready)
+    //  and one to indicate that the ESP32 has a response to a request from the STM32 or some other
+    //  event has ocurred that the STM32 should be aware of.
+    //
+    int result = stm32_configgpio(ESP32CP_SPI_READY_PIN_INPUT);
+    if (result < 0)
+    {
+        syslog(LOG_CRIT, "%s@%d Config SPI Ready pin failed result: %d\n", _thisFile, __LINE__, result);
+        return -1;
+    }
 
-  result = stm32_configgpio(ESP32CP_SPI_MESSAGE_WAITING_PIN_INPUT);
-  if (result < 0)
-  {
-    syslog(LOG_CRIT, "%s@%d Config Message Waiting pin failed result: %d\n", _thisFile, __LINE__, result);
-    return -1;
-  }
-  //
-  //  Lock the SPI interface so that the thread processing the message cannot continue
-  //  until the SPI interface and signalling has entered a known good configuration.
-  //
-  espcp_configuration_t *config = espcp_get_configuration();
-  espcp_config_lock(config);
-  sem_wait(&config->spi_lock);
-  espcp_config_unlock(config);
-  //
-  //  We reset the chip and then pause for 1 ms to let the ESP lines stabilise before we attach
-  //  the interrupt handlers.
-  //  
-  espcp_reset();
-  usleep(1000);
-  stm32_gpiosetevent(ESP32CP_SPI_READY_PIN_INPUT, /*risingedge=*/true, /*fallingedge=*/false, true, espcp_spi_ready, 0);
+    result = stm32_configgpio(ESP32CP_SPI_MESSAGE_WAITING_PIN_INPUT);
+    if (result < 0)
+    {
+        syslog(LOG_CRIT, "%s@%d Config Message Waiting pin failed result: %d\n", _thisFile, __LINE__, result);
+        return -1;
+    }
+    //
+    //  Lock the SPI interface so that the thread processing the message cannot continue
+    //  until the SPI interface and signalling has entered a known good configuration.
+    //
+    espcp_configuration_t *config = espcp_get_configuration();
+    espcp_config_lock(config);
+    sem_wait(&config->spi_lock);
+    espcp_config_unlock(config);
+    //
+    //  We reset the chip and then pause for 1 ms to let the ESP lines stabilise before we attach
+    //  the interrupt handlers.
+    //
+    espcp_reset();
+    usleep(1000);
+    stm32_gpiosetevent(ESP32CP_SPI_READY_PIN_INPUT, /*risingedge=*/true, /*fallingedge=*/false, true, espcp_spi_ready, 0);
 
-  return(OK);
+    return (OK);
 }
 
 /****************************************************************************
@@ -601,25 +602,25 @@ int espcp_enter_run_mode(void)
  ****************************************************************************/
 int espcp_spi_ready(int irq, void *context, void *arg)
 {
-  //
-  //  We are only interested in the first interrupt on this pin.  It indicates
-  //  the completion of the reset process and the ESP has completed the
-  //  initialisation of the SPI interface and can now receive messages.
-  //
-  int result = stm32_gpiosetevent(ESP32CP_SPI_READY_PIN_INPUT, /*risingedge=*/false, /*fallingedge=*/ false, true, NULL, 0);
-  if (result < 0)
-  {
-    syslog(LOG_CRIT, "%s@%d Disabling SPI Ready interrupt result:%d\n", _thisFile, __LINE__, result);
-    return(-1);
-  }
-  //
-  //  Once the SPI interface has indicated that it is ready (on the ESP) then
-  //  we need to setup the Message Waiting interrupt.
-  //
-  stm32_gpiosetevent(ESP32CP_SPI_MESSAGE_WAITING_PIN_INPUT, /*risingedge=*/false, /*fallingedge=*/true, true, espcp_queue_send_response_message, 0);
+    //
+    //  We are only interested in the first interrupt on this pin.  It indicates
+    //  the completion of the reset process and the ESP has completed the
+    //  initialisation of the SPI interface and can now receive messages.
+    //
+    int result = stm32_gpiosetevent(ESP32CP_SPI_READY_PIN_INPUT, /*risingedge=*/false, /*fallingedge=*/false, true, NULL, 0);
+    if (result < 0)
+    {
+        syslog(LOG_CRIT, "%s@%d Disabling SPI Ready interrupt result:%d\n", _thisFile, __LINE__, result);
+        return (-1);
+    }
+    //
+    //  Once the SPI interface has indicated that it is ready (on the ESP) then
+    //  we need to setup the Message Waiting interrupt.
+    //
+    stm32_gpiosetevent(ESP32CP_SPI_MESSAGE_WAITING_PIN_INPUT, /*risingedge=*/false, /*fallingedge=*/true, true, espcp_queue_send_response_message, 0);
 
-  sem_post(&g_espcp_configuration->spi_lock);
-  return(OK);
+    sem_post(&g_espcp_configuration->spi_lock);
+    return (OK);
 }
 
 /****************************************************************************
@@ -640,61 +641,59 @@ int espcp_spi_ready(int irq, void *context, void *arg)
  ****************************************************************************/
 espcp_configuration_t *espcp_get_configuration(void)
 {
-  return g_espcp_configuration;
+    return g_espcp_configuration;
 }
 
 /****************************************************************************
- * Name: espcp_init
+ *  Name: espcp_init
  *
- * Description:
- *  Initialise the ESP32 coprocessor system
+ *  Description:
+ *      Initialise the ESP32 coprocessor system
  *
- * Input Parameters:
- *  None
+ *  Input Parameters:
+ *      None
  *
- * Returned Value:
- *  Result of starting the thread or -ENETDOWN if there is an error.
+ *  Returned Value:
+ *      Result of starting the thread or -ENETDOWN if there is an error.
  *
- * Assumptions/Limitations:
- *  None
+ *  Assumptions/Limitations:
+ *      None
  *
  ****************************************************************************/
 int espcp_init(void)
 {
-  int result = OK;
+    int result = OK;
 
-  g_espcp_configuration = espcp_get_default_configuration();
-  if (g_espcp_configuration != NULL)
-  {
-    /*
-    *  The message queue must be created before the message handler thread as the
-    *  message processor will wait on the message queue looking for messages.
-    */
-    mqd_t queue_id = espcp_create_message_queue(ESPCP_MESSAGE_QUEUE_NAME);
-    espcp_config_lock(g_espcp_configuration);
-    g_espcp_configuration->request_queue = queue_id;
-    espcp_config_unlock(g_espcp_configuration);
-
-    if (queue_id < 0)
+    g_espcp_configuration = espcp_get_default_configuration();
+    if (g_espcp_configuration != NULL)
     {
-      syslog(LOG_CRIT, "%s@%d Error creating ESP32 message queue result: %d\n", _thisFile, __LINE__, queue_id);
-      result = -ENETDOWN;
+        /*
+         *  The message queue must be created before the message handler thread as the
+         *  message processor will wait on the message queue looking for messages.
+         */
+        mqd_t queue_id = espcp_create_message_queue(ESPCP_MESSAGE_QUEUE_NAME);
+        espcp_config_lock(g_espcp_configuration);
+        g_espcp_configuration->request_queue = queue_id;
+        espcp_config_unlock(g_espcp_configuration);
+
+        if (queue_id < 0)
+        {
+            syslog(LOG_CRIT, "%s@%d Error creating ESP32 message queue result: %d\n", _thisFile, __LINE__, queue_id);
+            result = -ENETDOWN;
+        }
+        else
+        {
+            espcp_setup_message_dispatcher();
+            espcp_usrsock_init();
+            espcp_posix_network_init();
+            espcp_spi_setup();
+            result = espcp_thread_start(g_espcp_configuration);
+        }
     }
     else
     {
-      espcp_setup_message_dispatcher();
-      espcp_usrsock_init();
-      espcp_posix_network_init();
-      espcp_spi_setup();
-      result = espcp_thread_start(g_espcp_configuration);
-      espcp_enter_run_mode();
+        result = -ENETDOWN;
     }
-  }
-  else
-  {
-    result = -ENETDOWN;
-  }
 
-  return result;
+    return result;
 }
-

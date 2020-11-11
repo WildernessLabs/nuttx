@@ -36,8 +36,6 @@
 #ifndef __CONFIGS_MEADOW_SRC_MEADOW_CONFIG__H
 #define __CONFIGS_MEADOW_SRC_MEADOW_CONFIG__H
 
-#define MEADOW_CONFIG_FILE_FULL_NAME "/meadow0/meadow.cfg"
-
 int meadow_config_find_value_from_key(const char *sectionName, const char *keyName,
     char returnValueBuf[], int returnBufLen);
 

@@ -73,6 +73,9 @@
 #endif
 
 //==================================================
+// Default name of meadow configuration file
+#define MEADOW_CONFIG_FILE_FULL_NAME "/meadow0/meadow.cfg"
+
 // Errors from configuration file processing
 // -1 no key match was found
 // -2 config file could not be opened / found
@@ -81,7 +84,7 @@
 // -5 config file line too long
 #define MEADOW_CONFIG_ERROR_NO_KEY_FOUND -1
 #define MEADOW_CONFIG_ERROR_CFG_FILE_OPEN -2
-#define MEADOW_CONFIG_ERROR_DEST_BUF_TOO_SMALL -3
+#define MEADOW_CONFIG_ERROR_PROVIDED_BUF_TOO_SMALL -3
 #define MEADOW_CONFIG_ERROR_MEM_ALLOC_ERROR -4
 #define MEADOW_CONFIG_ERROR_CFG_LINE_TOO_LONG -5
 #define MEADOW_CONFIG_ERROR_CFG_FILE_READ_ERR -6

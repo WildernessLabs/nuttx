@@ -33,6 +33,12 @@
  *
  ****************************************************************************/
 
+// Could:
+// 1. Enhance to return more information like line number of parsing error
+// 2. Allow caller to provide the name of the configuration file
+// 3. Store in graph. Top node 'config file name', next 'section', next 'key'
+//    Top 2 nodes contain array of next level nodes
+
 /****************************************************************************
  * Included Files
  ****************************************************************************/
@@ -50,6 +56,7 @@
 // This option is not needed at this time
 #define MEADOW_CONFIG_USE_INI_PARSE_STRING 0
 #define MEADOW_CONFIG_MAX_BUFFER_SPACE 256
+
 /****************************************************************************
  * Private Types
  ****************************************************************************/
@@ -102,7 +109,7 @@ int initialize_meadow_config(void)
 //=====================================================
 // 0 = success, returnValueBuf holds the value
 // 1-n Configuration file parsing error and the return value is the line number
-// -1 - n specific errors defined in meadow/hcom_shared_common.h
+// -1-n specific errors defined in meadow/hcom_shared_common.h
 int meadow_config_find_value_from_key(const char *sectionName, const char *keyName,
                                       char returnValueBuf[], int returnBufLen)
 {
@@ -127,48 +134,71 @@ int meadow_config_find_value_from_key(const char *sectionName, const char *keyNa
   find_data.cfgReturnBufLen = returnBufLen;
   find_data.cfgNeededLength = 0;
 
-  syslog(1, "---> Calling ini_parse, Section:%s, Key:%s, ValBuf:%p, BufLen:%d\n",
+    syslog(LOG_ERR, "%s@%d-cir buf alloc\n", thisFile, __LINE__);
+
+  syslog(LOG_DEBUG, "%s@%d----> Calling ini_parse, Section:%s, Key:%s, ValBuf:%p, BufLen:%d\n", thisFile, __LINE__,
          find_data.cfgSectionName, find_data.cfgKeyName,
          find_data.cfgValueBuf, find_data.cfgReturnBufLen);
-  usleep(20 * 1000);
-
-  syslog(1, "---> In ini_parse_stream() INI_USE_STACK:%d\n", INI_USE_STACK);
 
   ret = ini_parse(MEADOW_CONFIG_FILE_FULL_NAME, callbackChkSectionKey, &find_data);
 
   if (find_data.cfgNeededLength)
-    ret = MEADOW_CONFIG_ERROR_DEST_BUF_TOO_SMALL;
+    ret = MEADOW_CONFIG_ERROR_PROVIDED_BUF_TOO_SMALL;
 
   if (ret == OK)
   {
-    syslog(1, "SUCCESS returning a value of:'%s' from section:%s and key:%s\n",
+    syslog(LOG_INFO, "%s@%d-Config returning a value of:'%s' from section:%s and key:%s\n", thisFile, __LINE__,
         find_data.cfgValueBuf, find_data.cfgSectionName, find_data.cfgKeyName);
-    usleep(20 * 1000);
     return ret;
   }
   
-  if (ret == MEADOW_CONFIG_ERROR_NO_KEY_FOUND)
-    syslog(1, "No matching key found:%d\n", ret);
-  else if (ret == MEADOW_CONFIG_ERROR_CFG_FILE_OPEN)
-    syslog(1, "File could not be opened:%d\n", ret);
-  else if (ret == MEADOW_CONFIG_ERROR_DEST_BUF_TOO_SMALL)
-    syslog(1, "Buffer too small, truncated results:%d\n", ret);
-  else if (ret == MEADOW_CONFIG_ERROR_MEM_ALLOC_ERROR)
-    syslog(1, "Memory allocation error:%d\n", ret);
-  else if (ret == MEADOW_CONFIG_ERROR_CFG_LINE_TOO_LONG)
-    syslog(1, "Line within file too long:%d\n", ret);
-  else if (ret == MEADOW_CONFIG_ERROR_CFG_FILE_READ_ERR)
-    syslog(1, "File read error:%d\n", ret);
+  if (ret > 0)
+  {
+    syslog(LOG_ERR, "%s@%d-Encountered a parsing error on line:%d of config file\n", thisFile, __LINE__, ret);
+  }
   else
-    syslog(1, "Encountered a parsing error on line:%d\n", ret);
+  {
+    switch(ret)
+    {
+      case MEADOW_CONFIG_ERROR_NO_KEY_FOUND:
+        syslog(LOG_ERR, "%s@%d-No matching key found:%d\n", thisFile, __LINE__, ret);
+        break;
 
-  usleep(20 * 1000);
+      case MEADOW_CONFIG_ERROR_CFG_FILE_OPEN:
+        syslog(LOG_ERR, "%s@%d-File could not be opened:%d\n", thisFile, __LINE__, ret);
+        break;
+
+      case MEADOW_CONFIG_ERROR_PROVIDED_BUF_TOO_SMALL:
+        syslog(LOG_ERR, "%s@%d-Provided buffer too small. Need %d bytes min. Results truncated:%d\n", thisFile, __LINE__,
+              find_data.cfgNeededLength, ret);
+        break;
+
+      case MEADOW_CONFIG_ERROR_MEM_ALLOC_ERROR:
+        syslog(LOG_ERR, "%s@%d-Memory allocation error:%d\n", thisFile, __LINE__, ret);
+        break;
+
+      case MEADOW_CONFIG_ERROR_CFG_LINE_TOO_LONG:
+        syslog(LOG_ERR, "%s@%d-Line within file too long:%d\n", thisFile, __LINE__, ret);
+        break;
+
+      case MEADOW_CONFIG_ERROR_CFG_FILE_READ_ERR:
+        syslog(LOG_ERR, "%s@%d-File read error:%d\n", thisFile, __LINE__, ret);
+        break;
+      default:
+        syslog(LOG_ERR, "%s@%d-Unknown error:%d\n", thisFile, __LINE__, ret);
+      
+    }
+  }
+
   return ret;
 }
 
 //=====================================================
 // Find the first/next line
-int meadow_config_get_next_line(int filefd, uint8_t *line, size_t maxLine)
+// Returns number of characters on the line returned. On error
+// returns a negative number. A return of '0' indicates that the
+// end of file has been reached and there is no line to return.
+int meadow_config_get_next_line(int filefd, uint8_t *lineBuf, size_t maxLine)
 {
   int ret;
   int cirBufReturn;
@@ -177,29 +207,17 @@ int meadow_config_get_next_line(int filefd, uint8_t *line, size_t maxLine)
 
   for (;;)
   {
-    // The circular buffer sees a line as a packet
-    cirBufReturn = hcom_cirbuf_get_next_packet(_config_cbuf, line,
+    cirBufReturn = hcom_cirbuf_get_next_packet(_config_cbuf, lineBuf,
                                                maxLine, &actualLen);
     if (cirBufReturn == HCOM_CIR_BUF_GET_FOUND_MSG)
     {
-      // Strip off 0x0d & 0x0a at the end and shorten length accordingly
-      if(line[actualLen - 1] == 0x0a || line[actualLen - 1] == 0x0d)
-        actualLen--;
-      if(line[actualLen - 1] == 0x0a || line[actualLen - 1] == 0x0d)
-        actualLen--;
-      if(actualLen == 0)
-      {
-        syslog(1, "---> Blank Line\n");
-        continue;
-      }
-      line[actualLen] = '\0';
-      syslog(1, "---> Normal path, cirbuf found:'%s'\n", line);
+      lineBuf[actualLen] = '\0';    // null terminate line
       return actualLen;
     }
 
     if (cirBufReturn == HCOM_CIR_BUF_GET_DEST_NO_ROOM)
     {
-      // Line too big to fit in line. this is an error
+      // String too long to fit in line buffer. this is an error
       // The field actualLen contains the needed size of buffer
       return MEADOW_CONFIG_ERROR_CFG_LINE_TOO_LONG;
     }
@@ -214,30 +232,17 @@ int meadow_config_get_next_line(int filefd, uint8_t *line, size_t maxLine)
 
       while ((roomInCir = hcom_cirbuf_avail_space(_config_cbuf)) > 0)
       {
-        if (roomInCir == 0)
-        {
-          syslog(1, "---> This should never happen\n");
-          break; // cirbuf totally full
-        }
-        else if (roomInCir < 64)
+        if (roomInCir < 64)
           readSize = roomInCir;
         else
           readSize = 64;
 
-        // return 1-n=number read, 0=EOF, -1-n error
         bytesRead = read(filefd, tempBuf, readSize);
         if (bytesRead < 0)
-        {
-          // error
           return MEADOW_CONFIG_ERROR_CFG_FILE_READ_ERR;
-          //return -errno;
-        }
 
         if (bytesRead == 0)
-        {
-          // End of file reached. Exit this loop and read
-          break;
-        }
+          break;          // End of file reached. Exit this loop and read
 
         // Successful read
         ret = hcom_cirbuf_add_bytes(_config_cbuf, tempBuf, bytesRead);
@@ -248,32 +253,27 @@ int meadow_config_get_next_line(int filefd, uint8_t *line, size_t maxLine)
         totalAdded += bytesRead;
       } // while()
 
-      // No characters available, reached end of file etc.
+      // No characters available, reached end of file etc. Conclusion
+      // no matching key found.
       if (totalAdded == 0)
-      {
-        syslog(1, "---> totalAdded == 0 time to exit loop, no key\n");
         return MEADOW_CONFIG_ERROR_NO_KEY_FOUND;
-      }
 
-      if (bytesRead == 0)
-      {
-        // EOF reached, no need to read the file any more but
-        // there must be buffered characters since totalAdded > 0
-        syslog(1, "---> Reached EOF, but there are charcters\n");
-      }
+      // if (bytesRead == 0)
+      // {
+      //   // EOF reached, no need to read the file any more but
+      //   // there must be buffered characters since totalAdded > 0
+      //   // syslog(1, "---> Reached EOF, there are charcters though\n");
+      // }
 
-      if (roomInCir == 0)
-      {
-        // Totally full cirbuf. So, get next line
-        syslog(1, "---> CirBuf is totally full\n");
-      }
+      // if (roomInCir == 0)
+      // {
+      //   // Totally full cirbuf. So, get next line
+      //   // syslog(1, "---> CirBuf is totally full\n");
+      // }
 
-      // This can be reached if reach EOF and we didn't fill the cirbuf
-      syslog(1, "---> Can this location be reached? bytesRead:%d, roomInCir:%d\n",
-             bytesRead, roomInCir);
-    } // none found
-
-    // 'continue' by default.
+      // // This can be reached if reach EOF and we didn't fill the cirbuf
+      // syslog(1, "---> bytesRead:%d, roomInCir:%d\n", bytesRead, roomInCir);
+    }
   } // for(;;)
 }
 
@@ -298,7 +298,7 @@ int callbackChkSectionKey(void *user, const char *section, const char *key,
       return 1; // Tell parser to keep looking
   }
 
-  // Matching entry. Insure it fit in the provided buffer?
+  // Found match! Insure it fit in the provided buffer?
   size_t neededLength = strlen(value) + 1;
   if (neededLength > find_data->cfgReturnBufLen)
   {
@@ -415,8 +415,8 @@ static char *strncpy0(char *dest, const char *src, size_t size)
 /* See documentation in header file. */
 int ini_parse_stream(int filefd, ini_handler handler, void *user)
 {
-  syslog(1, "---x Entered ini_parse_stream() 1\n");
-  usleep(20 * 1000);
+  // syslog(1, "---x Entered ini_parse_stream()\n");
+  // usleep(20 * 1000);
 
   /* Uses a fair bit of stack (use heap instead if you need to) */
 #if INI_USE_STACK
@@ -441,17 +441,16 @@ int ini_parse_stream(int filefd, ini_handler handler, void *user)
   int error = 0;
 
 #if !INI_USE_STACK
-
-  syslog(1, "---x In ini_parse_stream() alloc line 2\n");
-  usleep(20 * 1000);
+  // syslog(1, "---x In ini_parse_stream() alloc line buffer\n");
+  // usleep(20 * 1000);
   line = (char *)ini_malloc(INI_INITIAL_ALLOC);
   if (!line)
   {
     return MEADOW_CONFIG_ERROR_MEM_ALLOC_ERROR;
   }
 #endif
-  syslog(1, "---x In ini_parse_stream() alloc SUCCESS 3\n");
-  usleep(20 * 1000);
+  // syslog(1, "---x In ini_parse_stream() alloc SUCCESS 3\n");
+  // usleep(20 * 1000);
 
 #if INI_HANDLER_LINENO
 #define HANDLER(u, s, n, v) handler(u, s, n, v, lineno)
@@ -459,19 +458,18 @@ int ini_parse_stream(int filefd, ini_handler handler, void *user)
 #define HANDLER(u, s, n, v) handler(u, s, n, v)
 #endif
 
-  syslog(1, "---x In ini_parse_stream() Entering while loop 4\n");
-  usleep(20 * 1000);
+  // syslog(1, "---x In ini_parse_stream() Entering while loop 4\n");
+  // usleep(20 * 1000);
 
   /* Scan through stream line by line */
-  int iniLoopCount = 0;
+  // int iniLoopCount = 0;
   int readReturn;
 
   while ((readReturn = meadow_config_get_next_line(filefd,
                             (uint8_t *)line, (size_t)max_line)) > 0)
   {
-    syslog(1, "---x In ini_parse_stream-within while loop:%d, %s\n",
-           ++iniLoopCount, line);
-    usleep(20 * 1000);
+    // syslog(1, "---x In ini_parse_stream-within while loop:%d, %s\n", ++iniLoopCount, line);
+    // usleep(20 * 1000);
 
 #if INI_ALLOW_REALLOC && !INI_USE_STACK
     offset = strlen(line);
@@ -572,6 +570,7 @@ int ini_parse_stream(int filefd, ini_handler handler, void *user)
         if (!HANDLER(user, section, name, NULL) && !error)
           break; // done
 #else
+        // syslog(1, "---x Exiting ini_parse_stream() left while loop after:%d, error:%d\n", iniLoopCount, error);
         error = lineno;
 #endif
       }
@@ -583,25 +582,20 @@ int ini_parse_stream(int filefd, ini_handler handler, void *user)
 #endif
   } // end while
 
-  // Reached EOF and no match found?
-  if (readReturn == 0)
-    return MEADOW_CONFIG_ERROR_NO_KEY_FOUND;
-
-  if (readReturn < 0)
-  {
-    syslog(1, "---x In ini_parse_stream() left while loop after:%d\n", iniLoopCount);
-  }
-
-  syslog(1, "---x In ini_parse_stream() left while loop after:%d\n", iniLoopCount);
-  usleep(20 * 1000);
-
 #if !INI_USE_STACK
-  syslog(1, "---x In ini_parse_stream() about to free 6\n");
+  // syslog(1, "---x In ini_parse_stream() about to free 6\n");
   ini_free(line);
 #endif
 
-  syslog(1, "---x Exiting ini_parse_stream() left while loop\n");
-  usleep(20 * 1000);
+  // Did meadow_config_get_next_line report an error?
+  if (readReturn < 0)
+  {
+    // syslog(1, "---x meadow_config_get_next_line() report:%d\n", readReturn);
+    return readReturn;
+  }
+
+  syslog(1, "---x Exiting ini_parse_stream() left while loop, error:%d\n", error);
+  // usleep(20 * 1000);
   return error; // Actually line number
 }
 
@@ -620,17 +614,17 @@ int ini_parse(const char *filename, ini_handler handler, void *user)
   filefd = open(filename, O_RDONLY);
   if (filefd == -1)
   {
-    syslog(LOG_ERR, "%s@%d-file %s not found, errno:%d.", thisFile, __LINE__,
+    syslog(LOG_ERR, "%s@%d-file %s not found, errno:%d\n", thisFile, __LINE__,
            filename, errno);
-    return -1;
+    return MEADOW_CONFIG_ERROR_CFG_FILE_OPEN;
   }
 
   // Do the work
   error = ini_parse_file(filefd, handler, user);
   close(filefd);
 
-  syslog(1, "---x Exiting ini_parse() returning:%d\n", error);
-  usleep(20 * 1000);
+  // syslog(1, "---x Exiting ini_parse() returning:%d\n", error);
+  // usleep(20 * 1000);
   return error;
 }
 

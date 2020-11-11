@@ -73,6 +73,20 @@
 #endif
 
 //==================================================
+// Errors from configuration file processing
+// -1 no key match was found
+// -2 config file could not be opened / found
+// -3 supplied buffer too small for value, returned string value truncated.
+// -4 memory allocation error
+// -5 config file line too long
+#define MEADOW_CONFIG_ERROR_NO_KEY_FOUND -1
+#define MEADOW_CONFIG_ERROR_CFG_FILE_OPEN -2
+#define MEADOW_CONFIG_ERROR_DEST_BUF_TOO_SMALL -3
+#define MEADOW_CONFIG_ERROR_MEM_ALLOC_ERROR -4
+#define MEADOW_CONFIG_ERROR_CFG_LINE_TOO_LONG -5
+#define MEADOW_CONFIG_ERROR_CFG_FILE_READ_ERR -6
+
+//==================================================
 // hcom nx upd ioctl commands
 // Augments the normal Nuttx LOG_XXXX list
 #define LOG_NONE                         0xff
@@ -116,9 +130,10 @@
 #define HCOM_DIAG_OUTPUT_SYSLOG_PID_OF_NEW_THREADS    0
 
 //-------------------------------------------------------------------
-// Test code
+// Include/exclude test code
 #define HCOM_VS_DEBUGGING_TESTS_INCLUDE_IN_BUILD      0
 #define HCOM_INCLUDE_BATTERY_BACKED_REG_TEST          0
+#define HCOM_INCLUDE_CONFIG_FILE_KVP_TESTS            1
 
 //---------------------------------------------------------------------
 // Because it is difficult to discover the GPIO definition

@@ -1,5 +1,5 @@
 /****************************************************************************
- * nuttx\configs\stm32f777zit6-meadow\src\meadow-config.h
+ * nuttx\include\meadow\meadow_cirbuf.h
  * 
  *   Copyright (C) 2020 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs
@@ -33,10 +33,45 @@
  *
  ****************************************************************************/
 
-#ifndef __CONFIGS_MEADOW_SRC_MEADOW_CONFIG__H
-#define __CONFIGS_MEADOW_SRC_MEADOW_CONFIG__H
+#ifndef __CONFIGS_MEADOW_SRC_MEADOW_CIRCULAR_BUFFER__H
+#define __CONFIGS_MEADOW_SRC_MEADOW_CIRCULAR_BUFFER__H
 
-int meadow_config_find_value_from_key(const char *sectionName, const char *keyName,
-    char returnValueBuf[], int returnBufLen);
+#include <nuttx/config.h>
 
-#endif // __CONFIGS_MEADOW_SRC_MEADOW_CONFIG__H
+#include <sys/types.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+
+struct host_com_cir_buffer_s
+{
+  uint8_t *bottom;    // bottom of buffer
+  uint8_t *top;       // top end of buffer
+  uint8_t *head;      // add data here
+  uint8_t *tail;      // remove from here
+  uint8_t delimiter;  // custom message delimiter
+};
+
+// Circular buffer return values
+enum hcom_comms_recv_buffer_return
+{
+  HCOM_CIR_BUF_INIT_OK,
+  HCOM_CIR_BUF_INIT_FAILED,
+
+  HCOM_CIR_BUF_ADD_SUCCESS,
+  HCOM_CIR_BUF_ADD_WONT_FIT,
+  HCOM_CIR_BUF_ADD_BAD_ARG,
+
+  HCOM_CIR_BUF_GET_FOUND_MSG,
+  HCOM_CIR_BUF_GET_NONE_FOUND,
+  HCOM_CIR_BUF_GET_DEST_NO_ROOM
+};
+
+int hcom_cirbuf_init(struct host_com_cir_buffer_s *hcom_cbuf, size_t totalCapacity, uint8_t delimiter);
+size_t hcom_cirbuf_avail_space(struct host_com_cir_buffer_s *hcom_cbuf);
+int hcom_cirbuf_add_bytes(struct host_com_cir_buffer_s *hcom_cbuf, uint8_t *newBytes, uint32_t bytesToAdd);
+int hcom_cirbuf_get_next_packet(struct host_com_cir_buffer_s *hcom_cbuf, uint8_t *packetBuffer,
+                                size_t packetBufferSize, size_t *packetLength);
+int hcom_cirbuf_release_memory(struct host_com_cir_buffer_s *hcom_cbuf);
+
+#endif  // __CONFIGS_MEADOW_SRC_MEADOW_CIRCULAR_BUFFER__H

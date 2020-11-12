@@ -1,5 +1,5 @@
 /****************************************************************************
- * nuttx\configs\stm32f777zit6-meadow\src\meadow-config.c
+ * nuttx\configs\stm32f777zit6-meadow\src\meadow_inicfg.c
  * 
  *   Copyright (C) 2020 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs
@@ -32,288 +32,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
+#include "meadow_ini.h"
 
-// Could:
-// 1. Enhance to return more information like line number of parsing error
-// 2. Allow caller to provide the name of the configuration file
-// 3. Store in graph. Top node 'config file name', next 'section', next 'key'
-//    Top 2 nodes contain array of next level nodes
-
-/****************************************************************************
- * Included Files
- ****************************************************************************/
-#include <stdio.h>
-#include <ctype.h>
-#include <string.h>
-
-#include <nuttx/mm/mm.h>
-#include <meadow/hcom_shared_common.h>
-#include <fcntl.h>
-
-#include "meadow-config.h"
-#include "meadow-config-internal.h"
-
-// This option is not needed at this time
 #define MEADOW_CONFIG_USE_INI_PARSE_STRING 0
-#define MEADOW_CONFIG_MAX_BUFFER_SPACE 256
-
-/****************************************************************************
- * Private Types
- ****************************************************************************/
-
-/****************************************************************************
- * Private Function Prototypes
- ****************************************************************************/
-static int callbackChkSectionKey(void *user, const char *section, const char *key, const char *value);
-
-/****************************************************************************
- * Private Data
- ****************************************************************************/
-static char *thisFile = __FILE__;
-
-static bool isInitialized = false;
-static struct host_com_cir_buffer_s *_config_cbuf;
-
-typedef struct
-{
-  const char *cfgSectionName;
-  const char *cfgKeyName;
-  char *cfgValueBuf;
-  int cfgReturnBufLen;
-  int cfgNeededLength;
-} meadow_config_find_data;
-
-//=====================================================
-// Not a lot to configure
-int initialize_meadow_config(void)
-{
-  // Create a circular buffer to manage configuration file
-  _config_cbuf = (struct host_com_cir_buffer_s *)malloc(sizeof(struct host_com_cir_buffer_s));
-  if (_config_cbuf == NULL)
-  {
-    syslog(LOG_ERR, "%s@%d-cir buf alloc\n", thisFile, __LINE__);
-    return -1;
-  }
-
-  // Allocate a buffer for the data
-  int result = hcom_cirbuf_init(_config_cbuf, MEADOW_CONFIG_MAX_BUFFER_SPACE, 0x0a); // 0x0a line feed
-
-  if (result == HCOM_CIR_BUF_INIT_FAILED)
-  {
-    syslog(LOG_ERR, "%s@%d-cirbuf_init\n", thisFile, __LINE__);
-    return -1;
-  }
-  return OK;
-}
-
-//=====================================================
-// 0 = success, returnValueBuf holds the value
-// 1-n Configuration file parsing error and the return value is the line number
-// -1-n specific errors defined in meadow/hcom_shared_common.h
-int meadow_config_find_value_from_key(const char *sectionName, const char *keyName,
-                                      char returnValueBuf[], int returnBufLen)
-{
-  int ret;
-  meadow_config_find_data find_data;
-
-  if (!isInitialized)
-  {
-    ret = initialize_meadow_config();
-    if (ret < 0)
-    {
-      return ret;
-    }
-
-    isInitialized = true;
-  }
-
-  // Prep request
-  find_data.cfgSectionName = sectionName;
-  find_data.cfgKeyName = keyName;
-  find_data.cfgValueBuf = returnValueBuf;
-  find_data.cfgReturnBufLen = returnBufLen;
-  find_data.cfgNeededLength = 0;
-
-    syslog(LOG_ERR, "%s@%d-cir buf alloc\n", thisFile, __LINE__);
-
-  syslog(LOG_DEBUG, "%s@%d----> Calling ini_parse, Section:%s, Key:%s, ValBuf:%p, BufLen:%d\n", thisFile, __LINE__,
-         find_data.cfgSectionName, find_data.cfgKeyName,
-         find_data.cfgValueBuf, find_data.cfgReturnBufLen);
-
-  ret = ini_parse(MEADOW_CONFIG_FILE_FULL_NAME, callbackChkSectionKey, &find_data);
-
-  if (find_data.cfgNeededLength)
-    ret = MEADOW_CONFIG_ERROR_PROVIDED_BUF_TOO_SMALL;
-
-  if (ret == OK)
-  {
-    syslog(LOG_INFO, "%s@%d-Config returning a value of:'%s' from section:%s and key:%s\n", thisFile, __LINE__,
-        find_data.cfgValueBuf, find_data.cfgSectionName, find_data.cfgKeyName);
-    return ret;
-  }
-  
-  if (ret > 0)
-  {
-    syslog(LOG_ERR, "%s@%d-Encountered a parsing error on line:%d of config file\n", thisFile, __LINE__, ret);
-  }
-  else
-  {
-    switch(ret)
-    {
-      case MEADOW_CONFIG_ERROR_NO_KEY_FOUND:
-        syslog(LOG_ERR, "%s@%d-No matching key found:%d\n", thisFile, __LINE__, ret);
-        break;
-
-      case MEADOW_CONFIG_ERROR_CFG_FILE_OPEN:
-        syslog(LOG_ERR, "%s@%d-File could not be opened:%d\n", thisFile, __LINE__, ret);
-        break;
-
-      case MEADOW_CONFIG_ERROR_PROVIDED_BUF_TOO_SMALL:
-        syslog(LOG_ERR, "%s@%d-Provided buffer too small. Need %d bytes min. Results truncated:%d\n", thisFile, __LINE__,
-              find_data.cfgNeededLength, ret);
-        break;
-
-      case MEADOW_CONFIG_ERROR_MEM_ALLOC_ERROR:
-        syslog(LOG_ERR, "%s@%d-Memory allocation error:%d\n", thisFile, __LINE__, ret);
-        break;
-
-      case MEADOW_CONFIG_ERROR_CFG_LINE_TOO_LONG:
-        syslog(LOG_ERR, "%s@%d-Line within file too long:%d\n", thisFile, __LINE__, ret);
-        break;
-
-      case MEADOW_CONFIG_ERROR_CFG_FILE_READ_ERR:
-        syslog(LOG_ERR, "%s@%d-File read error:%d\n", thisFile, __LINE__, ret);
-        break;
-      default:
-        syslog(LOG_ERR, "%s@%d-Unknown error:%d\n", thisFile, __LINE__, ret);
-      
-    }
-  }
-
-  return ret;
-}
-
-//=====================================================
-// Find the first/next line
-// Returns number of characters on the line returned. On error
-// returns a negative number. A return of '0' indicates that the
-// end of file has been reached and there is no line to return.
-int meadow_config_get_next_line(int filefd, uint8_t *lineBuf, size_t maxLine)
-{
-  int ret;
-  int cirBufReturn;
-  size_t actualLen;
-  size_t totalAdded = 0;
-
-  for (;;)
-  {
-    cirBufReturn = hcom_cirbuf_get_next_packet(_config_cbuf, lineBuf,
-                                               maxLine, &actualLen);
-    if (cirBufReturn == HCOM_CIR_BUF_GET_FOUND_MSG)
-    {
-      lineBuf[actualLen] = '\0';    // null terminate line
-      return actualLen;
-    }
-
-    if (cirBufReturn == HCOM_CIR_BUF_GET_DEST_NO_ROOM)
-    {
-      // String too long to fit in line buffer. this is an error
-      // The field actualLen contains the needed size of buffer
-      return MEADOW_CONFIG_ERROR_CFG_LINE_TOO_LONG;
-    }
-
-    if (cirBufReturn == HCOM_CIR_BUF_GET_NONE_FOUND)
-    {
-      // Need to read from file and add to cirbuf
-      size_t roomInCir;
-      size_t readSize;
-      uint8_t tempBuf[64];
-      ssize_t bytesRead;
-
-      while ((roomInCir = hcom_cirbuf_avail_space(_config_cbuf)) > 0)
-      {
-        if (roomInCir < 64)
-          readSize = roomInCir;
-        else
-          readSize = 64;
-
-        bytesRead = read(filefd, tempBuf, readSize);
-        if (bytesRead < 0)
-          return MEADOW_CONFIG_ERROR_CFG_FILE_READ_ERR;
-
-        if (bytesRead == 0)
-          break;          // End of file reached. Exit this loop and read
-
-        // Successful read
-        ret = hcom_cirbuf_add_bytes(_config_cbuf, tempBuf, bytesRead);
-        DEBUGASSERT(ret == HCOM_CIR_BUF_ADD_SUCCESS);
-        DEBUGASSERT(ret != HCOM_CIR_BUF_ADD_WONT_FIT);
-        DEBUGASSERT(ret != HCOM_CIR_BUF_ADD_BAD_ARG);
-
-        totalAdded += bytesRead;
-      } // while()
-
-      // No characters available, reached end of file etc. Conclusion
-      // no matching key found.
-      if (totalAdded == 0)
-        return MEADOW_CONFIG_ERROR_NO_KEY_FOUND;
-
-      // if (bytesRead == 0)
-      // {
-      //   // EOF reached, no need to read the file any more but
-      //   // there must be buffered characters since totalAdded > 0
-      //   // syslog(1, "---> Reached EOF, there are charcters though\n");
-      // }
-
-      // if (roomInCir == 0)
-      // {
-      //   // Totally full cirbuf. So, get next line
-      //   // syslog(1, "---> CirBuf is totally full\n");
-      // }
-
-      // // This can be reached if reach EOF and we didn't fill the cirbuf
-      // syslog(1, "---> bytesRead:%d, roomInCir:%d\n", bytesRead, roomInCir);
-    }
-  } // for(;;)
-}
-
-//=====================================================
-// CAllback for each section/key pair located. This function looks
-// for the matching one
-int callbackChkSectionKey(void *user, const char *section, const char *key,
-                          const char *value)
-{
-  meadow_config_find_data *find_data = (meadow_config_find_data *)user;
-
-  // Ignore section?
-  if (find_data->cfgSectionName == NULL)
-  {
-    if (strcmp(find_data->cfgKeyName, key) != 0)
-      return 1; // Tell parser to keep looking
-  }
-  else
-  {
-    if ((strcmp(find_data->cfgSectionName, section) != 0) ||
-        (strcmp(find_data->cfgKeyName, key) != 0))
-      return 1; // Tell parser to keep looking
-  }
-
-  // Found match! Insure it fit in the provided buffer?
-  size_t neededLength = strlen(value) + 1;
-  if (neededLength > find_data->cfgReturnBufLen)
-  {
-    find_data->cfgNeededLength = neededLength;
-    neededLength = find_data->cfgReturnBufLen - 1;
-  }
-
-  strncpy(find_data->cfgValueBuf, value, neededLength);
-  find_data->cfgValueBuf[neededLength] = '\0';
-  return 0; // Tell parser to exit with success
-}
 
 // Original Code here:https://github.com/benhoyt/inih
 // Cloned 6-Nov-2020
 // Modifications made by Peter Moody, Wilderness Labs Inc.
+// This option is not needed at this time
+
 // Start of original code vvvv
 //--------------------------------------------------------------
 /* inih -- simple .INI file parser
@@ -594,7 +321,7 @@ int ini_parse_stream(int filefd, ini_handler handler, void *user)
     return readReturn;
   }
 
-  syslog(1, "---x Exiting ini_parse_stream() left while loop, error:%d\n", error);
+  // syslog(1, "---x Exiting ini_parse_stream() left while loop, error:%d\n", error);
   // usleep(20 * 1000);
   return error; // Actually line number
 }
@@ -614,7 +341,7 @@ int ini_parse(const char *filename, ini_handler handler, void *user)
   filefd = open(filename, O_RDONLY);
   if (filefd == -1)
   {
-    syslog(LOG_ERR, "%s@%d-file %s not found, errno:%d\n", thisFile, __LINE__,
+    syslog(LOG_ERR, "%s@%d-file %s not found, errno:%d\n", __FILE__, __LINE__,
            filename, errno);
     return MEADOW_CONFIG_ERROR_CFG_FILE_OPEN;
   }

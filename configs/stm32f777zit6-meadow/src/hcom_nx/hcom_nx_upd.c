@@ -73,7 +73,7 @@
 #include "hcom_nx_common.h"
 #include <meadow/hcom_bbreg_defn.h>
 #include <meadow/hcom_nuttx_shared.h>
-#include "meadow-config.h"
+#include "../inicfg/meadow_inicfg.h"
 
 #include "diag/hcom_nx_diag.h"
 #include "../espcp/espcp_coprocessor.h"

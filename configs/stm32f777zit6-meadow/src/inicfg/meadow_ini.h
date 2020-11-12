@@ -1,5 +1,5 @@
 /****************************************************************************
- * nuttx\configs\stm32f777zit6-meadow\src\meadow-config-internal.h
+ * nuttx\configs\stm32f777zit6-meadow\src\inicfg\meadow_ini.h
  * 
  *   Copyright (C) 2020 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs
@@ -33,17 +33,19 @@
  *
  ****************************************************************************/
 
-#ifndef __CONFIGS_MEADOW_SRC_MEADOW_CONFIG_INTERNAL__H
-#define __CONFIGS_MEADOW_SRC_MEADOW_CONFIG_INTERNAL__H
+#ifndef __CONFIGS_MEADOW_SRC_MEADOW_INI__H
+#define __CONFIGS_MEADOW_SRC_MEADOW_INI__H
 
 #include <stdio.h>
-#include "meadow-circular-buffer.h"
+#include <string.h>
+#include <fcntl.h>
+#include <ctype.h>
 
-// Original Code part of the project here:https://github.com/benhoyt/inih
-// Cloned 6-Nov-2020
-// Some modifications made by Peter Moody, Wilderness Labs Inc.
+#include <meadow/hcom_shared_common.h>
 
-// Start of original version
+// This replaces fgets in the original. Needed because nuttx has a bug
+// that prevents pthreads from calling fclose().
+int meadow_config_get_next_line(int filefd, uint8_t *lineBuf, size_t maxLine);
 
 /* inih -- simple .INI file parser
 
@@ -62,9 +64,9 @@ https://github.com/benhoyt/inih
 // #define INI_H
 
 // /* Make this header file easier to include in C++ code */
-// #ifdef __cplusplus
-// extern "C" {
-// #endif
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* Nonzero if ini_handler callback should accept lineno parameter. */
 #ifndef INI_HANDLER_LINENO
@@ -193,8 +195,8 @@ int ini_parse_stream(int filefd, ini_handler handler, void* user);
 #define INI_CUSTOM_ALLOCATOR 0
 #endif
 
-// #ifdef __cplusplus
-// }
-// #endif
+#ifdef __cplusplus
+}
+#endif
 
-#endif // __CONFIGS_MEADOW_SRC_MEADOW_CONFIG_INTERNAL__H
+#endif // __CONFIGS_MEADOW_SRC_MEADOW_INI__H

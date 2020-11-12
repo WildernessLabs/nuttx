@@ -57,6 +57,9 @@
 #  define MAX(a,b) (((a) > (b)) ? (a) : (b))
 #endif
 
+// Error returned value for functions that return an int
+#define MEADOW_ERROR_RETURN_WHEN_INT_EXPECTED (0x80000000)    // Largest possible negative int
+
 #define HCOM_NX_CMD_HOST_MSG_SIZE 128
 #define HCOM_NX_CMD_LOG_MSG_SIZE  128
 
@@ -74,7 +77,8 @@
 
 //==================================================
 // Default name of meadow configuration file
-#define MEADOW_CONFIG_FILE_FULL_NAME "/meadow0/meadow.cfg"
+#define MEADOW_DEFAULT_CONFIG_FILE_NAME "/meadow0/meadow.cfg"
+#define MEADOW_DEFAULT_INI_CFG_BUF_LEN  32
 
 // Errors from configuration file processing
 // -1 no key match was found
@@ -136,7 +140,7 @@
 // Include/exclude test code
 #define HCOM_VS_DEBUGGING_TESTS_INCLUDE_IN_BUILD      0
 #define HCOM_INCLUDE_BATTERY_BACKED_REG_TEST          0
-#define HCOM_INCLUDE_INI_CFG_FILE_BASIC_TESTS            0
+#define HCOM_INCLUDE_INI_CFG_TESTS_IN_BUILD           0
 
 //---------------------------------------------------------------------
 // Because it is difficult to discover the GPIO definition

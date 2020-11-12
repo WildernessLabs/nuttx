@@ -138,6 +138,7 @@ struct hcom_nx_upd_mcu_ser_numb_s
 
 struct hcom_nx_upd_ini_cfg_get_value_s
 {
+  char *file_name;
   char *section_name;
   char *key_name;
   char *return_value;

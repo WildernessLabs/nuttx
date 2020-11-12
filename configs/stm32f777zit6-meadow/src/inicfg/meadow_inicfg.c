@@ -105,15 +105,61 @@ int initialize_meadow_config(void)
   return OK;
 }
 
+/****************************************************************************
+ * Public Functions
+ ****************************************************************************/
+// If fileName is NULL the default 'meadow.cfg' will be used
+// If section is NULL the sections will be ignored and only the key will be used
+// Return true/false if match == value found by key
+bool meadow_ini_cfg_is_match(const char *fileName, const char *section,
+                                  const char *key, const char *match)
+{
+  int ret;
+  char returnValueBuf[MEADOW_DEFAULT_INI_CFG_BUF_LEN];
+
+  ret = meadow_config_find_value_from_key(fileName, section, key, returnValueBuf,
+                  MEADOW_DEFAULT_INI_CFG_BUF_LEN);
+
+  if(ret == OK && strcmp(returnValueBuf, match) == 0)
+  {
+    return true;
+  }
+  
+  return false;
+}
+
+//===================================================================
+// Return interger value found by key
+// If fileName is NULL the default 'meadow.cfg' will be used
+// If section is NULL the sections will be ignored and only the key will be used
+int meadow_ini_cfg_get_int(const char *fileName, const char *section, const char *key)
+{
+  int ret;
+  char returnValueBuf[MEADOW_DEFAULT_INI_CFG_BUF_LEN];
+
+  ret = meadow_config_find_value_from_key(fileName, section, key, returnValueBuf,
+                  MEADOW_DEFAULT_INI_CFG_BUF_LEN);
+  if(ret < 0)
+  {
+    syslog(LOG_ERR, "%s@%d-For section:%s, key:%s returned:%d\n", thisFile, __LINE__,
+                    section, key, ret);
+
+    // This could be a valid return value???
+    return MEADOW_ERROR_RETURN_WHEN_INT_EXPECTED;
+  }
+  
+  return atoi(returnValueBuf);
+}
+
 //=====================================================
+// Main entry point for checking a configuration file
 // 0 = success, returnValueBuf holds the value
 // 1-n Configuration file parsing error and the return value is the line number
 // -1-n specific errors defined in meadow/hcom_shared_common.h
-int meadow_config_find_value_from_key(const char *sectionName, const char *keyName,
+int meadow_config_find_value_from_key(const char *fileName, const char *sectionName, const char *keyName,
                                       char returnValueBuf[], int returnBufLen)
 {
   int ret;
-  meadow_config_find_data find_data;
 
   if (!isInitialized)
   {
@@ -126,31 +172,37 @@ int meadow_config_find_value_from_key(const char *sectionName, const char *keyNa
     isInitialized = true;
   }
 
+  char *useFileName;
+  if(fileName == NULL)
+    useFileName = MEADOW_DEFAULT_CONFIG_FILE_NAME;
+  else
+    useFileName = fileName;
+
+  syslog(LOG_DEBUG, "%s@%d-Calling ini_parse, FileName:%s, Section:%s, Key:%s, ValBufAddr:%p, BufLen:%d\n",
+            thisFile, __LINE__, useFileName, sectionName, keyName, returnValueBuf, returnBufLen);
+
   // Prep request
+  meadow_config_find_data find_data;
   find_data.cfgSectionName = sectionName;
   find_data.cfgKeyName = keyName;
   find_data.cfgValueBuf = returnValueBuf;
   find_data.cfgReturnBufLen = returnBufLen;
   find_data.cfgNeededLength = 0;
 
-    syslog(LOG_ERR, "%s@%d-cir buf alloc\n", thisFile, __LINE__);
-
-  syslog(LOG_DEBUG, "%s@%d----> Calling ini_parse, Section:%s, Key:%s, ValBuf:%p, BufLen:%d\n", thisFile, __LINE__,
-         find_data.cfgSectionName, find_data.cfgKeyName,
-         find_data.cfgValueBuf, find_data.cfgReturnBufLen);
-
-  ret = ini_parse(MEADOW_CONFIG_FILE_FULL_NAME, callbackChkSectionKey, &find_data);
+  ret = ini_parse(useFileName, callbackChkSectionKey, &find_data);
 
   if (find_data.cfgNeededLength)
     ret = MEADOW_CONFIG_ERROR_PROVIDED_BUF_TOO_SMALL;
 
   if (ret == OK)
   {
-    syslog(LOG_INFO, "%s@%d-Config returning a value of:'%s' from section:%s and key:%s\n", thisFile, __LINE__,
-        find_data.cfgValueBuf, find_data.cfgSectionName, find_data.cfgKeyName);
+    syslog(LOG_DEBUG, "%s@%d-Config returning a value of:'%s' from FileName:%s, section:%s and key:%s\n",
+            thisFile, __LINE__, useFileName, find_data.cfgValueBuf, find_data.cfgSectionName,
+            find_data.cfgKeyName);
     return ret;
   }
 
+  // Greater than zero means parsing error
   if (ret > 0)
   {
     syslog(LOG_ERR, "%s@%d-Encountered a parsing error on line:%d of config file\n", thisFile, __LINE__, ret);
@@ -260,8 +312,8 @@ int meadow_config_get_next_line(int filefd, uint8_t *lineBuf, size_t maxLine)
 }
 
 //=====================================================
-// CAllback for each section/key pair located. This function looks
-// for the matching one
+// Callback for each section/key pair located. This function looks
+// for the desired match
 int callbackChkSectionKey(void *user, const char *section, const char *key,
                           const char *value)
 {

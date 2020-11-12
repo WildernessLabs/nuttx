@@ -341,7 +341,7 @@ int ini_parse(const char *filename, ini_handler handler, void *user)
   filefd = open(filename, O_RDONLY);
   if (filefd == -1)
   {
-    syslog(LOG_ERR, "%s@%d-file %s not found, errno:%d\n", __FILE__, __LINE__,
+    syslog(LOG_ERR, "%s@%d-file '%s' open failed, errno:%d\n", __FILE__, __LINE__,
            filename, errno);
     return MEADOW_CONFIG_ERROR_CFG_FILE_OPEN;
   }

@@ -36,7 +36,11 @@
 #ifndef __CONFIGS_MEADOW_SRC_MEADOW_INICFG__H
 #define __CONFIGS_MEADOW_SRC_MEADOW_INICFG__H
 
-int meadow_config_find_value_from_key(const char *sectionName, const char *keyName,
+int meadow_config_find_value_from_key(const char *fileName, const char *sectionName, const char *keyName,
     char returnValueBuf[], int returnBufLen);
+
+int meadow_ini_cfg_get_int(const char *fileName, const char *section, const char *key);
+bool meadow_ini_cfg_is_match(const char *fileName, const char *section,
+                                  const char *key, const char *match);
 
 #endif // __CONFIGS_MEADOW_SRC_MEADOW_INICFG__H

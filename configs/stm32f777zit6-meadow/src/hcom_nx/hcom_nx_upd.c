@@ -243,9 +243,9 @@ static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 
   case HCOM_NX_UPD_GET_CONFIG_VALUE:
     get_cfg_value = (struct hcom_nx_upd_ini_cfg_get_value_s*) arg;
-    return meadow_config_find_value_from_key(get_cfg_value->section_name,
-            get_cfg_value->key_name, get_cfg_value->return_value,
-            get_cfg_value->return_size);
+    return meadow_config_find_value_from_key(get_cfg_value->file_name,
+            get_cfg_value->section_name, get_cfg_value->key_name,
+            get_cfg_value->return_value, get_cfg_value->return_size);
 
 #if HCOM_INCLUDE_IN_BUILD_DIAGNOSTIC_GPIO_CODE > 0
   case HCOM_NX_UPD_DIAG_GPIO_COMMAND:

@@ -136,7 +136,7 @@ struct hcom_nx_upd_mcu_ser_numb_s
   char *ser_numb;
 };
 
-struct hcom_nx_upd_cfg_kvp_get_value_s
+struct hcom_nx_upd_ini_cfg_get_value_s
 {
   char *section_name;
   char *key_name;

@@ -167,7 +167,7 @@ static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
   struct hcom_nx_upd_bbr_update *bbr_update;
   struct hcom_nx_cmd_data *cmdData;
   struct hcom_nx_upd_is_part_mounted *is_mounted;
-  struct hcom_nx_upd_cfg_kvp_get_value_s *get_cfg_value;
+  struct hcom_nx_upd_ini_cfg_get_value_s *get_cfg_value;
 
   switch (cmd)
   {
@@ -242,7 +242,7 @@ static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
     return OK;
 
   case HCOM_NX_UPD_GET_CONFIG_VALUE:
-    get_cfg_value = (struct hcom_nx_upd_cfg_kvp_get_value_s*) arg;
+    get_cfg_value = (struct hcom_nx_upd_ini_cfg_get_value_s*) arg;
     return meadow_config_find_value_from_key(get_cfg_value->section_name,
             get_cfg_value->key_name, get_cfg_value->return_value,
             get_cfg_value->return_size);

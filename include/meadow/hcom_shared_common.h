@@ -136,7 +136,7 @@
 // Include/exclude test code
 #define HCOM_VS_DEBUGGING_TESTS_INCLUDE_IN_BUILD      0
 #define HCOM_INCLUDE_BATTERY_BACKED_REG_TEST          0
-#define HCOM_INCLUDE_CONFIG_FILE_KVP_TESTS            1
+#define HCOM_INCLUDE_INI_CFG_FILE_BASIC_TESTS            0
 
 //---------------------------------------------------------------------
 // Because it is difficult to discover the GPIO definition

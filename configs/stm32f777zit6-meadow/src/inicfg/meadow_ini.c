@@ -142,9 +142,6 @@ static char *strncpy0(char *dest, const char *src, size_t size)
 /* See documentation in header file. */
 int ini_parse_stream(int filefd, ini_handler handler, void *user)
 {
-  // syslog(1, "---x Entered ini_parse_stream()\n");
-  // usleep(20 * 1000);
-
   /* Uses a fair bit of stack (use heap instead if you need to) */
 #if INI_USE_STACK
   char line[INI_MAX_LINE];
@@ -168,25 +165,18 @@ int ini_parse_stream(int filefd, ini_handler handler, void *user)
   int error = 0;
 
 #if !INI_USE_STACK
-  // syslog(1, "---x In ini_parse_stream() alloc line buffer\n");
-  // usleep(20 * 1000);
   line = (char *)ini_malloc(INI_INITIAL_ALLOC);
   if (!line)
   {
     return MEADOW_CONFIG_ERROR_MEM_ALLOC_ERROR;
   }
 #endif
-  // syslog(1, "---x In ini_parse_stream() alloc SUCCESS 3\n");
-  // usleep(20 * 1000);
 
 #if INI_HANDLER_LINENO
 #define HANDLER(u, s, n, v) handler(u, s, n, v, lineno)
 #else
 #define HANDLER(u, s, n, v) handler(u, s, n, v)
 #endif
-
-  // syslog(1, "---x In ini_parse_stream() Entering while loop 4\n");
-  // usleep(20 * 1000);
 
   /* Scan through stream line by line */
   // int iniLoopCount = 0;
@@ -195,8 +185,6 @@ int ini_parse_stream(int filefd, ini_handler handler, void *user)
   while ((readReturn = meadow_config_get_next_line(filefd,
                             (uint8_t *)line, (size_t)max_line)) > 0)
   {
-    // syslog(1, "---x In ini_parse_stream-within while loop:%d, %s\n", ++iniLoopCount, line);
-    // usleep(20 * 1000);
 
 #if INI_ALLOW_REALLOC && !INI_USE_STACK
     offset = strlen(line);
@@ -297,7 +285,6 @@ int ini_parse_stream(int filefd, ini_handler handler, void *user)
         if (!HANDLER(user, section, name, NULL) && !error)
           break; // done
 #else
-        // syslog(1, "---x Exiting ini_parse_stream() left while loop after:%d, error:%d\n", iniLoopCount, error);
         error = lineno;
 #endif
       }
@@ -310,19 +297,15 @@ int ini_parse_stream(int filefd, ini_handler handler, void *user)
   } // end while
 
 #if !INI_USE_STACK
-  // syslog(1, "---x In ini_parse_stream() about to free 6\n");
   ini_free(line);
 #endif
 
   // Did meadow_config_get_next_line report an error?
   if (readReturn < 0)
   {
-    // syslog(1, "---x meadow_config_get_next_line() report:%d\n", readReturn);
     return readReturn;
   }
 
-  // syslog(1, "---x Exiting ini_parse_stream() left while loop, error:%d\n", error);
-  // usleep(20 * 1000);
   return error; // Actually line number
 }
 
@@ -350,8 +333,6 @@ int ini_parse(const char *filename, ini_handler handler, void *user)
   error = ini_parse_file(filefd, handler, user);
   close(filefd);
 
-  // syslog(1, "---x Exiting ini_parse() returning:%d\n", error);
-  // usleep(20 * 1000);
   return error;
 }
 

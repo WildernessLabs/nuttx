@@ -81,17 +81,13 @@
 #define MEADOW_DEFAULT_INI_CFG_BUF_LEN  32
 
 // Errors from configuration file processing
-// -1 no key match was found
-// -2 config file could not be opened / found
-// -3 supplied buffer too small for value, returned string value truncated.
-// -4 memory allocation error
-// -5 config file line too long
 #define MEADOW_CONFIG_ERROR_NO_KEY_FOUND -1
 #define MEADOW_CONFIG_ERROR_CFG_FILE_OPEN -2
 #define MEADOW_CONFIG_ERROR_PROVIDED_BUF_TOO_SMALL -3
 #define MEADOW_CONFIG_ERROR_MEM_ALLOC_ERROR -4
 #define MEADOW_CONFIG_ERROR_CFG_LINE_TOO_LONG -5
 #define MEADOW_CONFIG_ERROR_CFG_FILE_READ_ERR -6
+#define MEADOW_CONFIG_ERROR_NO_KEY_PROVIDED -7
 
 //==================================================
 // hcom nx upd ioctl commands

@@ -161,6 +161,12 @@ int meadow_config_find_value_from_key(const char *fileName, const char *sectionN
 {
   int ret;
 
+  if(keyName == NULL || strlen(keyName) == 0)
+  {
+    syslog(LOG_ERR, "%s@%d-Required argument 'key' not provided\n", thisFile, __LINE__);
+    return MEADOW_CONFIG_ERROR_NO_KEY_PROVIDED;
+  }
+
   if (!isInitialized)
   {
     ret = initialize_meadow_config();
@@ -172,18 +178,24 @@ int meadow_config_find_value_from_key(const char *fileName, const char *sectionN
     isInitialized = true;
   }
 
-  char *useFileName;
-  if(fileName == NULL)
+  const char *useFileName;
+  if(fileName == NULL || strlen(fileName) == 0)
     useFileName = MEADOW_DEFAULT_CONFIG_FILE_NAME;
   else
     useFileName = fileName;
 
-  syslog(LOG_DEBUG, "%s@%d-Calling ini_parse, FileName:%s, Section:%s, Key:%s, ValBufAddr:%p, BufLen:%d\n",
-            thisFile, __LINE__, useFileName, sectionName, keyName, returnValueBuf, returnBufLen);
-
+  // Commented out because the first time this is used the syslog mask has not been set
+  // and this message is output
+  // syslog(LOG_DEBUG, "%s@%d-Looking for FileName:'%s', Section:'%s', Key:'%s', ValBufAddr:'%p', BufLen:'%d'\n",
+  //           thisFile, __LINE__, useFileName, sectionName, keyName, returnValueBuf, returnBufLen);
+  
   // Prep request
   meadow_config_find_data find_data;
-  find_data.cfgSectionName = sectionName;
+
+  if (sectionName == NULL || strlen(sectionName) == 0)
+    find_data.cfgSectionName = NULL;
+  else
+    find_data.cfgSectionName = sectionName;
   find_data.cfgKeyName = keyName;
   find_data.cfgValueBuf = returnValueBuf;
   find_data.cfgReturnBufLen = returnBufLen;
@@ -196,9 +208,9 @@ int meadow_config_find_value_from_key(const char *fileName, const char *sectionN
 
   if (ret == OK)
   {
-    syslog(LOG_DEBUG, "%s@%d-Config returning a value of:'%s' from FileName:%s, section:%s and key:%s\n",
-            thisFile, __LINE__, useFileName, find_data.cfgValueBuf, find_data.cfgSectionName,
-            find_data.cfgKeyName);
+    // syslog(LOG_DEBUG, "%s@%d-INIConfig returned value of:'%s' for FileName:'%s', section:'%s' and key:'%s'\n",
+    //         thisFile, __LINE__, find_data.cfgValueBuf,
+    //         useFileName, find_data.cfgSectionName, find_data.cfgKeyName);
     return ret;
   }
 
@@ -322,6 +334,7 @@ int callbackChkSectionKey(void *user, const char *section, const char *key,
   // Ignore section?
   if (find_data->cfgSectionName == NULL)
   {
+    // 'strcasecmp' for case insensitive compare
     if (strcmp(find_data->cfgKeyName, key) != 0)
       return 1; // Tell parser to keep looking
   }

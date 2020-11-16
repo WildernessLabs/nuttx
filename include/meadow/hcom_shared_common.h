@@ -130,7 +130,7 @@
 // by diagnostic code
 #define HCOM_DIAG_GPIO_DIAGNOSTIC_PERSERVE_UARTS      0
 // Outputs to syslog the PID of each new thread
-#define HCOM_DIAG_OUTPUT_SYSLOG_PID_OF_NEW_THREADS    0
+#define HCOM_DIAG_OUTPUT_SYSLOG_PID_OF_NEW_THREADS    1
 
 //-------------------------------------------------------------------
 // Include/exclude test code

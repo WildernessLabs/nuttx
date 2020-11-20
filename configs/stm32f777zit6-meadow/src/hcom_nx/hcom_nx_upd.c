@@ -231,7 +231,12 @@ static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
   case HCOM_NX_UPD_START_ESPCP_RUNNING:
   {
     // Start the ESP32 coprocessor.
-    // Note espcp_init() is called in stm32_boot.c
+    ret = espcp_init();
+    if(ret != OK)
+    {
+      syslog(LOG_EMERG, "ERROR: ESP32 initialization failed!\n");
+      return ret;
+    }
     ret = espcp_enter_run_mode();
     if(ret != OK)
     {

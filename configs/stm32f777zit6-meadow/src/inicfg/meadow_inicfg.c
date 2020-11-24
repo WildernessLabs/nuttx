@@ -225,11 +225,11 @@ int meadow_config_find_value_from_key(const char *fileName, const char *sectionN
   switch(ret)
   {
     case MEADOW_CONFIG_ERROR_NO_KEY_FOUND:
-      syslog(LOG_ERR, "%s@%d-No matching key found:%d\n", thisFile, __LINE__, ret);
+      syslog(LOG_ERR, "%s@%d-The key '%s' could not be found\n", thisFile, __LINE__, keyName);
       break;
 
     case MEADOW_CONFIG_ERROR_CFG_FILE_OPEN:
-      syslog(LOG_ERR, "%s@%d-File could not be opened:%d\n", thisFile, __LINE__, ret);
+      syslog(LOG_ERR, "%s@%d-File '%s' could not be opened\n", thisFile, __LINE__, useFileName);
       break;
 
     case MEADOW_CONFIG_ERROR_PROVIDED_BUF_TOO_SMALL:
@@ -242,11 +242,11 @@ int meadow_config_find_value_from_key(const char *fileName, const char *sectionN
       break;
 
     case MEADOW_CONFIG_ERROR_CFG_LINE_TOO_LONG:
-      syslog(LOG_ERR, "%s@%d-Line within file too long:%d\n", thisFile, __LINE__, ret);
+      syslog(LOG_ERR, "%s@%d-Line within file too long for key:%s\n", thisFile, __LINE__, keyName);
       break;
 
     case MEADOW_CONFIG_ERROR_CFG_FILE_READ_ERR:
-      syslog(LOG_ERR, "%s@%d-File read error:%d\n", thisFile, __LINE__, ret);
+      syslog(LOG_ERR, "%s@%d-File read ret:%d, errno:%d\n", thisFile, __LINE__, ret, errno);
       break;
 
     default:

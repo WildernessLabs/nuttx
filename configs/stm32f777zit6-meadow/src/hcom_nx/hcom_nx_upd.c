@@ -234,17 +234,19 @@ static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
     ret = espcp_init();
     if(ret != OK)
     {
-      syslog(LOG_EMERG, "ERROR: ESP32 initialization failed!\n");
+      syslog(LOG_EMERG, "ERROR: ESP32 initialization failed:%d\n", ret);
       return ret;
     }
+
     ret = espcp_enter_run_mode();
     if(ret != OK)
     {
-      syslog(LOG_EMERG, "ERROR: ESP32 initialization failed!\n");
+      syslog(LOG_EMERG, "ERROR: ESP32 enter run mode failed:%d\n", ret);
       return ret;
     }
+
     usrsock_register_sockif(&g_usrsock_sockif_esp32);
-      return OK;
+    return OK;
   }
 #endif
 

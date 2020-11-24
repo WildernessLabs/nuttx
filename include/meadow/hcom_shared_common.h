@@ -101,33 +101,32 @@
 // When set to 1 the syslog mask is set for all tracing but debug
 // and at startup syslog messages are routed to UART1 without
 // the need to send the Uart1Trace command.
+// THIS CAN BE REMOVED. IT'S REPLACED BY CONFIGURATION FILE
 #define HCOM_FORCE_SYSLOG_MASK_F7_AND_UART1           0
 
 // Allow the build to include the ability to print a buffer
 // full of data, showing hex and ascii
-#define HCOM_INCLUDE_DIAG_PRINT_BUFFER_CODE           1
+#define HCOM_INCLUDE_DIAG_PRINT_BUFFER_CODE           0
 
 //--------------------------------------------------------------------
 // The following controls building of tracing the hex information
 // that is associated with some LOG_DEBUG messages throughout
 // the code base.
+// NOTE:Code and define could be removed no longer used
 #define HCOM_OUTPUT_DATA_BUFFER_INFO_VIA_SYSLOG       0
 // NuttShell can be launched from CLI but currently it doesn't
 // work because UART4 is reconfigured when mono starts running
 // Requires nsh to be defined
 #define HCOM_NUTT_SHELL_LAUNCHER_INCLUDE_IN_BUILD     0
-// ESP32 can send cr/lf repeatedly very fast this causes this
-// to be thrown away
-#define HCOM_ESP32_PROCESS_CR_LF_ENDLESS_TEXT         1
 // The F7's GPIOs can be used for diagnostics. Especially useful
-// when debugging within the syslog code
-#define HCOM_INCLUDE_IN_BUILD_DIAGNOSTIC_GPIO_CODE    1
+// when debugging within the syslog code or for timing
+#define HCOM_INCLUDE_IN_BUILD_DIAGNOSTIC_GPIO_CODE    0
 // UART1 & UART 4 are sometimes used for diagnostic
-// purposes. This define prevents these from being used
-// by diagnostic code
+// purposes. This define prevents these from being configured
+// as gpio outputs
 #define HCOM_NX_DIAG_GPIO_DIAGNOSTIC_PERSERVE_UARTS   0
 // Outputs to syslog the PID of each new thread
-#define HCOM_DIAG_OUTPUT_SYSLOG_PID_OF_NEW_THREADS    1
+#define HCOM_DIAG_OUTPUT_SYSLOG_PID_OF_NEW_THREADS    0
 
 //-------------------------------------------------------------------
 // Include/exclude test code

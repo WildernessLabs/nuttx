@@ -33,11 +33,6 @@
  *
  ****************************************************************************/
 
-// Could:
-// 1. Enhance error return like line number of all parsing error
-// 2. Allow caller to provide the name of a configuration file
-// 3. Store in graph. Top node 'config file name', next 'section', next 'key'
-//    Top 2 nodes contain array of next level nodes
 
 /****************************************************************************
  * Included Files
@@ -88,7 +83,7 @@ typedef struct
 // Not a lot to configure
 int initialize_meadow_config(void)
 {
-  // Create a circular buffer to manage configuration file
+  // Create a circular buffer to manage configuration file's read data
   _config_cbuf = (struct host_com_cir_buffer_s *)malloc(sizeof(struct host_com_cir_buffer_s));
   if (_config_cbuf == NULL)
   {
@@ -110,11 +105,10 @@ int initialize_meadow_config(void)
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
-// The following functions are for use by the Nuttx side of meadow. Much of
-// this same functionality is duplicated on the apps side. Since the apps
-// side only access meadow_config_find_value_from_key().
+// The following functions are for use by both the Nuttx Apps side of meadow.
+// The apps side access these three key functions via hcom_nx_upd.c
 //
-// Return true if match == value found by key
+// Return true if 'matchValue' == value found by key
 bool meadow_ini_cfg_is_match(const char *fileName, const char *sectionName,
                                   const char *keyName, const char *matchValue,
                                   int *result)
@@ -259,63 +253,54 @@ int meadow_config_find_value_from_key(const char *fileName, const char *sectionN
     return ret;
   }
 
-  // Note: The following messages may be used throughout the system
-  // Greater than zero means parsing error
+  // Note: The following error messages used throughout the system
+  // Greater than zero means parsing error and value is line number.
   if (ret > 0)
   {
-    // syslog(LOG_DEBUG, "%s@%d-Encountered a parsing error on line:%d of config file:%s\n",
-          // thisFile, __LINE__, ret, useFileName);
     snprintf(find_data.cfgValueBuf, find_data.cfgReturnBufLen,
           "Parsing error in file:%s on line number:%d", useFileName, ret);
     return ret;
   }
 
-  // Known errors
+  // Detectable errors
   switch(ret)
   {
     case MEADOW_CONFIG_ERROR_NO_KEY_FOUND:
-      // syslog(LOG_DEBUG, "(Debug) %s@%d-The key '%s' could not be found\n", thisFile, __LINE__, keyName);
       snprintf(find_data.cfgValueBuf, find_data.cfgReturnBufLen,
           "Key not found. File:%s, section:%s, key:%s", useFileName, find_data.cfgSectionName, keyName);
       break;
 
     case MEADOW_CONFIG_ERROR_CFG_FILE_OPEN:
-      // syslog(LOG_DEBUG, "(Debug) %s@%d-File '%s' could not be opened\n", thisFile, __LINE__, useFileName);
       snprintf(find_data.cfgValueBuf, find_data.cfgReturnBufLen,
           "Config file:%s could not be opened", useFileName);
       break;
 
     case MEADOW_CONFIG_ERROR_PROVIDED_BUF_TOO_SMALL:
-      // syslog(LOG_DEBUG, "(Debug) %s@%d-Provided buffer too small. Need %d bytes min. Result truncated:%d\n",
-            // thisFile, __LINE__, find_data.cfgNeededLength, ret);
       snprintf(find_data.cfgValueBuf, find_data.cfgReturnBufLen,
           "Return buffer too small, need %d bytes, result truncated", find_data.cfgNeededLength);
       break;
 
     case MEADOW_CONFIG_ERROR_MEM_ALLOC_ERROR:
-      // syslog(LOG_DEBUG, "(Debug) %s@%d-Memory allocation error:%d\n", thisFile, __LINE__, ret);
       snprintf(find_data.cfgValueBuf, find_data.cfgReturnBufLen,
           "Memory alloation error processing ini config file");
       break;
 
     case MEADOW_CONFIG_ERROR_CFG_LINE_TOO_LONG:
-      // syslog(LOG_DEBUG, "(Debug) %s@%d-File:%s line too long for key:%s\n", thisFile, __LINE__, useFileName, keyName);
       snprintf(find_data.cfgValueBuf, find_data.cfgReturnBufLen,
           "Line too long in file:%s. Max length is:%d", useFileName, INI_MAX_LINE);
       break;
 
     case MEADOW_CONFIG_ERROR_CFG_FILE_READ_ERR:
-      // syslog(LOG_DEBUG, "(Debug) %s@%d-File read ret:%d, errno:%d\n", thisFile, __LINE__, ret, errno);
       snprintf(find_data.cfgValueBuf, find_data.cfgReturnBufLen,
           "Config file:%s could not be read", useFileName);
       break;
 
     default:
-      // syslog(LOG_DEBUG, "(Debug) %s@%d-Unknown error:%d\n", thisFile, __LINE__, ret);
       snprintf(find_data.cfgValueBuf, find_data.cfgReturnBufLen,
           "Undefined error returned by ini config:%d", ret);
       break;
   }
+  syslog(LOG_DEBUG, "(Debug) %s@%d-%s\n", thisFile, __LINE__, find_data.cfgValueBuf);
   return ret;
 }
 

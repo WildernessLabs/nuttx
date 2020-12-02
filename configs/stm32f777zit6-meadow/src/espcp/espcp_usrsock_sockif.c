@@ -529,6 +529,9 @@ int espcp_usrsock_accept(struct socket *psock, struct sockaddr *addr,
             if (result > 0)
             {
                 newsock->s_esp32_sockfd = result;
+                newsock->s_domain = psock->s_domain;
+                newsock->s_type = psock->s_type;
+                newsock->s_sockif = psock->s_sockif;
                 espcp_sock_addr_t *sockAddr = espcp_extract_sock_addr(response->addr);
                 if ((addr != NULL) && (addrlen != NULL))
                 {

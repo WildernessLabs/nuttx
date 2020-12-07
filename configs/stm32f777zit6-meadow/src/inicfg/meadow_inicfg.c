@@ -46,12 +46,12 @@
 #include <nuttx/mm/mm.h>
 #include <meadow/hcom_shared_common.h>
 #include <meadow/meadow_cirbuf.h>
+#include <meadow/hcom_nuttx_shared.h>
 
 #include "meadow_inicfg.h"
-#include "meadow_ini.h"       // Orginal header
+#include "meadow_ini.h"       // Orginal open source header
 
 #define MEADOW_CONFIG_MAX_BUFFER_SPACE 256
-#define MEADOW_DEFAULT_INI_CFG_BUF_LEN  128
 
 /****************************************************************************
  * Private Types

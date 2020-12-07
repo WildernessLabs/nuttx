@@ -46,7 +46,7 @@
 #define HCOM_DEVICE_INFO_COPROCESSOR_OS_VERSION "0.4.1.6"
 #define HCOM_DEVICE_INFO_MONO_VERSION "0.0.0.1"
 
-#define MEADOW_DEFAULT_INI_CFG_BUF_LEN  128
+#define MEADOW_DEFAULT_INI_CFG_BUF_LEN  200
 
 // Access configuration file
 int meadow_config_find_value_from_key(const char *fileName, const char *sectionName, const char *keyName,

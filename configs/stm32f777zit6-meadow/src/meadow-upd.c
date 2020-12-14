@@ -630,23 +630,19 @@ static int upd_handle_dev_info_request(struct upd_device_info *devInfo)
   ret = hcom_nx_common_utils_calculate_serial_numb(NULL, strMcuSn);
   if(ret < 0)
   {
-    syslog(LOG_ERR, "%s@%d-Calc of serial numb failed:ret:%d\n",
-           __FILE__, __LINE__, ret);
-    return ret;
+    strcpy(strMcuSn, "<calc error>");
   }
   
   ret = meadow_config_find_value_from_key(NULL, "operation", "DeviceName", returnValueBuf, 
           MEADOW_DEFAULT_INI_CFG_BUF_LEN);
   if(ret != OK)
   {
-    syslog(LOG_ERR, "%s@%d-finding device name failed:ret:%d\n",
-           __FILE__, __LINE__, ret);
-    return ret;
+    strcpy(returnValueBuf, "MeadowF7");
   }
 
   // Build a ETX (0x03) delimited string
   stringLen = snprintf(devInfo->infoBuf, devInfo->infoBufLen,
-                "%s%c"      // Device Name - user defined
+                "%s%c"      // Device Name - user defined or MeadowF7
                 "%s%c"      // Product Info - Meadow by Wilderness Labs
                 "%s%c"      // Model - F7Micro
                 "%s%c"      // Meadow OS ver - 0.4.0

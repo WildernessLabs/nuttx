@@ -231,14 +231,6 @@ int meadow_config_find_value_from_key(const char *fileName, const char *sectionN
   switch(ret)
   {
     case MEADOW_CONFIG_ERROR_NO_KEY_FOUND:
-      if((strcasecmp(keyName, MEADOW_INI_CFG_DEV_NAME_KEY) == 0 &&
-          (strcasecmp(sectionName, MEADOW_INI_CFG_OPERATION_SECTION) == 0)))
-      {
-        // Since device name not configured, use the default and return success
-        snprintf(find_data.cfgValueBuf, find_data.cfgReturnBufLen, "%s", MEADOW_INI_CFG_DEFAULT_DEV_NAME);
-        return OK;
-      }
-
       syslog(LOG_INFO, "(Info) Key not found. File:%s, section:%s, key:%s\n", useFileName,
           find_data.cfgSectionName, find_data.cfgKeyName);
 
@@ -254,6 +246,7 @@ int meadow_config_find_value_from_key(const char *fileName, const char *sectionN
         // Only report default file not found once
         if(defaultFileReported)
           return ret;   // caller may care
+          
         defaultFileReported = true;
       }
 

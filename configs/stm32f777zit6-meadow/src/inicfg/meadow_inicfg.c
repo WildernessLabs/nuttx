@@ -164,6 +164,8 @@ int meadow_config_find_value_from_key(const char *fileName, const char *sectionN
                                       char returnValueBuf[], int returnBufLen)
 {
   int ret;
+  bool usingDefaultFileName;
+  static bool defaultFileReported = false;
 
   if(keyName == NULL || strlen(keyName) == 0)
   {
@@ -184,9 +186,15 @@ int meadow_config_find_value_from_key(const char *fileName, const char *sectionN
 
   const char *useFileName;
   if(fileName == NULL || strlen(fileName) == 0)
+  {
     useFileName = MEADOW_INI_CFG_DEFAULT_FILE_NAME;
+    usingDefaultFileName = true;
+  }
   else
+  {
     useFileName = fileName;
+    usingDefaultFileName = false;
+  }
 
   // Prep request
   meadow_config_find_data find_data;
@@ -213,7 +221,7 @@ int meadow_config_find_value_from_key(const char *fileName, const char *sectionN
   // Note: Greater than zero means parsing error and value is line number.
   if (ret > 0)
   {
-    syslog(LOG_ERR, "Parsing error, file:%s line:%d\n", useFileName, ret);
+    syslog(LOG_ERR, "(Error) Parsing error, file:%s line:%d\n", useFileName, ret);
     snprintf(find_data.cfgValueBuf, find_data.cfgReturnBufLen,
           "Parsing error, file:%s line:%d", useFileName, ret);
     return ret;
@@ -231,7 +239,7 @@ int meadow_config_find_value_from_key(const char *fileName, const char *sectionN
         return OK;
       }
 
-      syslog(LOG_ERR, "Key not found. File:%s, section:%s, key:%s\n", useFileName,
+      syslog(LOG_INFO, "(Info) Key not found. File:%s, section:%s, key:%s\n", useFileName,
           find_data.cfgSectionName, find_data.cfgKeyName);
 
       snprintf(find_data.cfgValueBuf, find_data.cfgReturnBufLen,
@@ -240,37 +248,46 @@ int meadow_config_find_value_from_key(const char *fileName, const char *sectionN
       break;
 
     case MEADOW_CONFIG_ERROR_CFG_FILE_OPEN:
-      syslog(LOG_ERR, "Config file:%s not found\n", useFileName);
+      // File not found error?
+      if(errno == ENOENT & usingDefaultFileName)
+      {
+        // Only report default file not found once
+        if(defaultFileReported)
+          return ret;   // caller may care
+        defaultFileReported = true;
+      }
+
+      syslog(LOG_INFO, "(Info) Config file:%s not found\n", useFileName);
       snprintf(find_data.cfgValueBuf, find_data.cfgReturnBufLen,
           "Config file:%s not found", useFileName);
       break;
 
     case MEADOW_CONFIG_ERROR_PROVIDED_BUF_TOO_SMALL:
-      syslog(LOG_ERR, "Buffer too small, need %d bytes\n", find_data.cfgNeededLength);
+      syslog(LOG_ERR, "(Error) Buffer too small, need %d bytes\n", find_data.cfgNeededLength);
       snprintf(find_data.cfgValueBuf, find_data.cfgReturnBufLen,
           "Buffer too small, need %d bytes", find_data.cfgNeededLength);
       break;
 
     case MEADOW_CONFIG_ERROR_MEM_ALLOC_ERROR:
-      syslog(LOG_ERR, "Memory alloc error\n");
+      syslog(LOG_ERR, "(Error) Memory alloc error\n");
       snprintf(find_data.cfgValueBuf, find_data.cfgReturnBufLen,
           "Memory alloc error");
       break;
 
     case MEADOW_CONFIG_ERROR_CFG_LINE_TOO_LONG:
-      syslog(LOG_ERR, "Text too long, file:%s. Max length:%d\n", useFileName, INI_MAX_LINE);
+      syslog(LOG_ERR, "(Error) Config text too long, file:%s. Max length:%d\n", useFileName, INI_MAX_LINE);
       snprintf(find_data.cfgValueBuf, find_data.cfgReturnBufLen,
           "Text too long, file:%s. Max length:%d", useFileName, INI_MAX_LINE);
       break;
 
     case MEADOW_CONFIG_ERROR_CFG_FILE_READ_ERR:
-      syslog(LOG_ERR, "Config file:%s read error\n", useFileName);
+      syslog(LOG_ERR, "(Error) Config file:%s read error\n", useFileName);
       snprintf(find_data.cfgValueBuf, find_data.cfgReturnBufLen,
           "Config file:%s read error", useFileName);
       break;
 
     default:
-      syslog(LOG_ERR, "ini config proc unknown error:%d\n", ret);
+      syslog(LOG_ERR, "(Error) ini config proc unknown error:%d\n", ret);
       snprintf(find_data.cfgValueBuf, find_data.cfgReturnBufLen,
           "ini config proc unknown error:%d", ret);
       break;

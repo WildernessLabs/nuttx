@@ -196,6 +196,7 @@ struct hcom_nx_upd_ini_cfg_get_int_defval_s
 #define HCOM_NX_UPD_GET_CONFIG_VALUE            23
 #define HCOM_NX_UPD_GET_CONFIG_MATCH            24
 #define HCOM_NX_UPD_GET_CONFIG_INT_DEFVAL       25
+#define HCOM_NX_UPD_ENTER_INTO_DEF_MODE         26
 
 //---------------------------------------------------------------------
 // GPIO Definitions that are used by hcom_nx_upd

@@ -315,6 +315,22 @@ void __start(void)
   const uint32_t *src;
   uint32_t *dest;
 
+  /* Meadow - Check if DFU mode is desired*/
+  uint32_t magicNumb = *((uint32_t *)0x2004FFF0);
+  if(magicNumb == 0xdeadbeef)
+  {
+    // Clear magic number
+    *((uint32_t *)0x2004FFF0) = 0x12345678; // 320KB STM32F7xx
+
+    __asm__ __volatile__
+    (
+      " ldr r0, =0x1ff00000\n"  /* Location of ROM base */
+      " ldr sp, [r0, #0]\n"     /* Load the Stack Ponter */
+      " ldr r0, [r0, #4]\n"     /* Addr of DFU bootloader */
+      " bx r0"                  /* Jump to DFU bootloader */
+    );
+  }
+
 #ifdef CONFIG_ARMV7M_STACKCHECK
   /* Set the stack limit before we attempt to call any functions */
 

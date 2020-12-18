@@ -260,8 +260,12 @@ static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
   case HCOM_NX_UPD_DIAG_FD_INODE:
     return hcom_nx_upd_diag_fd_inode(arg);
     
-  case HCOM_NX_UPD_RESTART_MEADOW_MCU:
-    hcom_nx_common_utils_restart_meadow();
+  case HCOM_NX_UPD_HOST_RESTART_MEADOW_MCU:
+    hcom_nx_common_utils_host_restart_meadow();
+    return OK;
+
+  case HCOM_NX_UPD_ONLY_RESTART_MEADOW_MCU:
+    hcom_nx_common_utils_only_restart_meadow();
     return OK;
 
   case HCOM_NX_UPD_GET_CONFIG_VALUE:

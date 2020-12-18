@@ -57,6 +57,8 @@
 #include "stm32_lowputc.h"
 #include "stm32_start.h"
 
+#include <meadow/hcom_nuttx_shared.h>
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
@@ -315,12 +317,11 @@ void __start(void)
   const uint32_t *src;
   uint32_t *dest;
 
-  /* Meadow - Check if DFU mode is desired*/
-  uint32_t magicNumb = *((uint32_t *)0x2004FFF0);
-  if(magicNumb == 0xdeadbeef)
+  /* Meadow - Check if DFU mode is desired */
+  if(*((uint32_t *)MEADOW_ENTER_DFU_MODE_MEMORY_ADDR) == MEADOW_ENTER_DFU_MODE_MAGIC_NUMB)
   {
-    // Clear magic number
-    *((uint32_t *)0x2004FFF0) = 0x12345678; // 320KB STM32F7xx
+    /* Clear magic number with something else */
+    *((uint32_t *)MEADOW_ENTER_DFU_MODE_MEMORY_ADDR) = 0x12345678;
 
     __asm__ __volatile__
     (

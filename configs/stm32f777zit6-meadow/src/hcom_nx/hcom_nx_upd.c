@@ -298,7 +298,7 @@ static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
     return hcom_nx_upd_execute_gpio_config(arg);
 
   case HCOM_NX_UPD_ENTER_INTO_DEF_MODE:
-    *((unsigned long *)0x2004FFF0) = 0xDEADBEEF; // 320KB STM32F7xx
+    *((unsigned long *)MEADOW_ENTER_DFU_MODE_MEMORY_ADDR) = MEADOW_ENTER_DFU_MODE_MAGIC_NUMB;
     return OK;
 
 #if HCOM_INCLUDE_IN_BUILD_DIAGNOSTIC_GPIO_CODE > 0

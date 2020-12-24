@@ -145,7 +145,7 @@
 // NuttShell can be launched from CLI but currently it doesn't
 // work because UART4 is reconfigured when mono starts running
 // Requires nsh to be defined
-#define HCOM_NUTT_SHELL_LAUNCHER_INCLUDE_IN_BUILD     1
+#define HCOM_NUTT_SHELL_LAUNCHER_INCLUDE_IN_BUILD     0
 // The F7's GPIOs can be used for diagnostics. Especially useful
 // when debugging within the syslog code or for timing
 #define HCOM_INCLUDE_IN_BUILD_DIAGNOSTIC_GPIO_CODE    0

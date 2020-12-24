@@ -111,6 +111,7 @@
 #define MEADOW_RECONFIG_MISCONFIGURED_UART1 1
 #define MEADOW_RECONFIG_MISCONFIGURED_UART4 4
 #define MEADOW_RECONFIG_MISCONFIGURED_UART5 5
+#define MEADOW_RECONFIG_MISCONFIGURED_UART6 6
 
 //==================================================
 // hcom nx upd ioctl commands
@@ -144,11 +145,11 @@
 // NuttShell can be launched from CLI but currently it doesn't
 // work because UART4 is reconfigured when mono starts running
 // Requires nsh to be defined
-#define HCOM_NUTT_SHELL_LAUNCHER_INCLUDE_IN_BUILD     0
+#define HCOM_NUTT_SHELL_LAUNCHER_INCLUDE_IN_BUILD     1
 // The F7's GPIOs can be used for diagnostics. Especially useful
 // when debugging within the syslog code or for timing
 #define HCOM_INCLUDE_IN_BUILD_DIAGNOSTIC_GPIO_CODE    0
-// UART1 & UART 4 are sometimes used for diagnostic
+// UART1 & UART4 are sometimes used for diagnostic
 // purposes. This define prevents these from being configured
 // as gpio outputs
 #define HCOM_NX_DIAG_GPIO_DIAGNOSTIC_PERSERVE_UARTS   0

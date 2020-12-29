@@ -74,6 +74,10 @@ ifeq ($(CONFIG_USBMSC),y)
 CSRCS += stm32_usbmsc.c
 endif
 
+ifeq ($(CONFIG_STM32F7_SDMMC2),y)
+CSRCS += stm32_sdmmc.c
+endif
+
 ifeq ($(CONFIG_ARCH_IDLE_CUSTOM),y)
 CSRCS += stm32_idle.c
 endif

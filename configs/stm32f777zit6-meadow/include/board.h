@@ -511,16 +511,21 @@
 #endif
 
 /* SDMMC2 Pin mapping
- *
- * D0 - PG9
- * D1 - PG10
- * D2 - PB3
- * D3 - PB4
+ *      A11 / AF12
+ * D0 - PB14 / PG9
+ * D1 - PB15 / PG10
+ * D2 - PB3 / PG11
+ * D3 - PB4 / PG12 - Currently not available on embedded breakout board.Therefore, 1-bit mode supported
+ * Note: GPIO_SDMMC2_CK and GPIO_SDMMC2_CMD are defined in nuttx\arch\arm\src\stm32f7\chip\stm32f76xx77xx_pinmap.h
  */
 #define GPIO_SDMMC2_D0  GPIO_SDMMC2_D0_2
-#define GPIO_SDMMC2_D1  GPIO_SDMMC2_D1_2
-#define GPIO_SDMMC2_D2  GPIO_SDMMC2_D2_1
-#define GPIO_SDMMC2_D3  GPIO_SDMMC2_D3_1
+#ifndef CONFIG_SDMMC2_WIDTH_D1_ONLY
+  #define GPIO_SDMMC2_D1  GPIO_SDMMC2_D1_2
+  // #define GPIO_SDMMC2_D2  GPIO_SDMMC2_D2_1  // PB3
+  // #define GPIO_SDMMC2_D3  GPIO_SDMMC2_D3_1  // PB4
+  #define GPIO_SDMMC2_D2  GPIO_SDMMC2_D2_2  // PG11
+  #define GPIO_SDMMC2_D3  GPIO_SDMMC2_D3_2  // PG12
+#endif
 
 /* FMC - SDRAM */
 

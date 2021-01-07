@@ -237,6 +237,47 @@ void stm32_quadspi_init(void);
 
 int stm32_gpio_initialize(void);
 
+/************************************************************************************/
+// Support for SDMMC
+
+int stm32_sdio_initialize_meadow(void);
+
+#ifdef HAVE_NCD
+static int stm32_ncd_interrupt(int irq, FAR void *context)
+#endif
+
+#if defined(CONFIG_STM32F7_SDMMC1) || defined(CONFIG_STM32F7_SDMMC2)
+# define HAVE_SDIO
+#endif
+
+#if defined(CONFIG_DISABLE_MOUNTPOINT) || !defined(CONFIG_MMCSD_SDIO)
+#  undef HAVE_SDIO
+#endif
+
+#if defined(CONFIG_STM32F7_SDMMC1)
+  #define SDIO_SLOTNO 0  /* Only one slot */
+#endif
+
+#if defined(CONFIG_STM32F7_SDMMC2)
+  #define SDIO_SLOTNO 1  /* Only one slot */
+#endif
+
+#ifdef HAVE_SDIO
+#  if defined(CONFIG_STM32F7_SDMMC1)
+#    define GPIO_SDMMC1_NCD (GPIO_INPUT|GPIO_FLOAT|GPIO_EXTI | GPIO_PORTC | GPIO_PIN6)
+#  endif
+
+#  if defined(CONFIG_NSH_MMCSDSLOTNO) && (CONFIG_NSH_MMCSDSLOTNO != 0)
+#    warning "Only one MMC/SD slot, slot 0"
+#    define CONFIG_NSH_MMCSDSLOTNO SDIO_SLOTNO
+#  endif
+
+#  if defined(CONFIG_NSH_MMCSDMINOR)
+#    define SDIO_MINOR CONFIG_NSH_MMCSDMINOR
+#  else
+#    define SDIO_MINOR 0
+#  endif
+#endif
 
 #endif /* __ASSEMBLY__ */
 #endif /* __CONFIGS_MEADOW_SRC_STM32F777ZIT6_MEADOW_H */

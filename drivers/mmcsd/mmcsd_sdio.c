@@ -348,8 +348,16 @@ static int mmcsd_sendcmdpoll(FAR struct mmcsd_state_s *priv, uint32_t cmd,
       ret = SDIO_WAITRESPONSE(priv->dev, cmd);
       if (ret != OK)
         {
+          finfo(" -- ERROR: Wait for response to cmd: %08x failed: %d\n", cmd, ret);
           ferr("ERROR: Wait for response to cmd: %08x failed: %d\n", cmd, ret);
         }
+      else
+      finfo(" -- SDIO_WAITRESPONSE Success\n");
+    }
+    else
+    {
+      finfo(" -- SDIO_SENDCMD failed, ret:%d\n", ret);
+      
     }
 
   return ret;
@@ -1651,6 +1659,10 @@ static ssize_t mmcsd_writesingle(FAR struct mmcsd_state_s *priv,
   finfo("startblock=%d\n", startblock);
   DEBUGASSERT(priv != NULL && buffer != NULL);
 
+  // pwm - Buffer contains the name of the file
+  finfo("==> Show buffer on entry to mmcsd_writesingle()\n");
+  hcom_nx_utils_diag_print_buffer(buffer, 32, 1);
+
   /* Check if the card is locked or write protected (either via software or
    * via the mechanical write protect on the card)
    */
@@ -1723,10 +1735,13 @@ static ssize_t mmcsd_writesingle(FAR struct mmcsd_state_s *priv,
     {
       /* Send CMD24, WRITE_BLOCK, and verify that good R1 status is returned */
 
+      finfo("-- calling sendcmdpoll 1\n");
       mmcsd_sendcmdpoll(priv, MMCSD_CMD24, offset);
+      finfo("-- calling mmcsd_recvR1 1\n");
       ret = mmcsd_recvR1(priv, MMCSD_CMD24);
       if (ret != OK)
         {
+          finfo("-- mmcsd_recvR1() returned:%d 1\n", ret);
           ferr("ERROR: mmcsd_recvR1 for CMD24 failed: %d\n", ret);
           return ret;
         }
@@ -1765,11 +1780,13 @@ static ssize_t mmcsd_writesingle(FAR struct mmcsd_state_s *priv,
   if ((priv->caps & SDIO_CAPS_DMABEFOREWRITE) != 0)
     {
       /* Send CMD24, WRITE_BLOCK, and verify that good R1 status is returned */
-
+      finfo("-- calling sendcmdpoll 2\n");
       mmcsd_sendcmdpoll(priv, MMCSD_CMD24, offset);
+      finfo("-- calling mmcsd_recvR1 2\n");
       ret = mmcsd_recvR1(priv, MMCSD_CMD24);
       if (ret != OK)
         {
+          finfo("-- mmcsd_recvR1() returned:%d 2\n", ret);
           ferr("ERROR: mmcsd_recvR1 for CMD24 failed: %d\n", ret);
           return ret;
         }
@@ -1777,13 +1794,17 @@ static ssize_t mmcsd_writesingle(FAR struct mmcsd_state_s *priv,
 
   /* Wait for the transfer to complete */
 
+  finfo("-- calling mmcsd_eventwait()\n");
   ret = mmcsd_eventwait(priv,
                         SDIOWAIT_TIMEOUT | SDIOWAIT_ERROR, MMCSD_BLOCK_WDATADELAY);
   if (ret != OK)
     {
+      finfo("-- mmcsd_eventwait() returned:%d\n", ret);
       ferr("ERROR: CMD24 transfer failed: %d\n", ret);
       return ret;
     }
+    else
+      finfo("-- mmcsd_eventwait() Success\n");
 
 #if defined(CONFIG_MMCSD_SDIOWAIT_WRCOMPLETE)
   /* Arm the write complete detection with timeout */
@@ -2046,6 +2067,7 @@ static ssize_t mmcsd_flush(FAR void *dev, FAR const uint8_t *buffer,
     {
       /* Write this block from the user buffer */
 
+finfo("==> In mmcsd_flush() 1\n");
       ssize_t nread = mmcsd_writesingle(priv, buffer, block);
       if (nread < 0)
         {
@@ -2061,6 +2083,7 @@ static ssize_t mmcsd_flush(FAR void *dev, FAR const uint8_t *buffer,
 #else
   if (nblocks == 1)
     {
+finfo("==> In mmcsd_flush() 2\n");
       ret = mmcsd_writesingle(priv, buffer, startblock);
     }
   else
@@ -2231,11 +2254,12 @@ static ssize_t mmcsd_write(FAR struct inode *inode, FAR const unsigned char *buf
 
 #if defined(CONFIG_DRVR_WRITEBUFFER)
   /* Write the data to the write buffer */
-
+finfo("==> In mmcsd_write() 1\n");
   ret = rwb_write(&priv->rwbuffer, startsector, nsectors, buffer);
 
 #elif defined(CONFIG_MMCSD_MULTIBLOCK_DISABLE)
   /* Write each block using only the single block transfer method */
+finfo("==> In mmcsd_write() 2\n");
 
   endsector = startsector + nsectors - 1;
   for (sector = startsector; sector <= endsector; sector++)
@@ -2256,6 +2280,8 @@ static ssize_t mmcsd_write(FAR struct inode *inode, FAR const unsigned char *buf
 
 #else
   /* Use either the single- or multiple-block transfer method */
+  
+finfo("==> In mmcsd_write() 3\n");
 
   if (nsectors == 1)
     {

@@ -61,6 +61,8 @@
  * Pre-processor Definitions
  ************************************************************************************/
 /* Configuration ********************************************************************/
+#define MEADOW_SHOW_FILE_INFO_IF_ENABLED 0
+
 /* QuadSPI Mode.  Per data sheet, either Mode 0 or Mode 3 may be used. */
 
 #ifndef CONFIG_S25FL_QSPIMODE
@@ -347,7 +349,9 @@ static int s25fl_command(FAR struct qspi_dev_s *qspi, uint8_t cmd)
 {
   struct qspi_cmdinfo_s cmdinfo;
 
+#if MEADOW_SHOW_FILE_INFO_IF_ENABLED > 0
   finfo("CMD: %02x\n", cmd);
+#endif
 
   cmdinfo.flags   = 0;
   cmdinfo.addrlen = 0;
@@ -368,7 +372,9 @@ static int s25fl_command_address(FAR struct qspi_dev_s *qspi, uint8_t cmd,
 {
   struct qspi_cmdinfo_s cmdinfo;
 
+#if MEADOW_SHOW_FILE_INFO_IF_ENABLED > 0
   finfo("CMD: %02x Address: %04lx addrlen=%d\n", cmd, (unsigned long)addr, addrlen);
+#endif
 
   cmdinfo.flags   = QSPICMD_ADDRESS;
   cmdinfo.addrlen = addrlen;
@@ -389,7 +395,9 @@ static int s25fl_command_read(FAR struct qspi_dev_s *qspi, uint8_t cmd,
 {
   struct qspi_cmdinfo_s cmdinfo;
 
+#if MEADOW_SHOW_FILE_INFO_IF_ENABLED > 0
   finfo("CMD: %02x buflen: %lu\n", cmd, (unsigned long)buflen);
+#endif
 
   cmdinfo.flags   = QSPICMD_READDATA;
   cmdinfo.addrlen = 0;
@@ -410,7 +418,9 @@ static int s25fl_command_write(FAR struct qspi_dev_s *qspi, uint8_t cmd,
 {
   struct qspi_cmdinfo_s cmdinfo;
 
+#if MEADOW_SHOW_FILE_INFO_IF_ENABLED > 0
   finfo("CMD: %02x buflen: %lu\n", cmd, (unsigned long)buflen);
+#endif
 
   cmdinfo.flags   = QSPICMD_WRITEDATA;
   cmdinfo.addrlen = 0;
@@ -517,8 +527,10 @@ static inline int s25fl_readid(struct s25fl_dev_s *priv)
 
   s25fl_unlock(priv->qspi);
 
+#if MEADOW_SHOW_FILE_INFO_IF_ENABLED > 0
   finfo("Manufacturer: %02x Device Type %02x, Capacity: %02x",
         priv->cmdbuf[0], priv->cmdbuf[1], priv->cmdbuf[2]);
+#endif
 
   /* Check for a recognized memory device type */
 
@@ -701,7 +713,9 @@ static int s25fl_erase_sector(struct s25fl_dev_s *priv, off_t sector)
   off_t address;
   uint8_t status;
 
+#if MEADOW_SHOW_FILE_INFO_IF_ENABLED > 0
   finfo("sector: %08lx\n", (unsigned long)sector);
+#endif
 
   /* Check that the flash is ready and unprotected */
 
@@ -777,7 +791,9 @@ static int s25fl_read_byte(FAR struct s25fl_dev_s *priv, FAR uint8_t *buffer,
 {
   struct qspi_meminfo_s meminfo;
 
+#if MEADOW_SHOW_FILE_INFO_IF_ENABLED > 0
   finfo("address: %08lx nbytes: %d\n", (long)address, (int)buflen);
+#endif
 
 #ifdef CONFIG_S25FL_SCRAMBLE
   meminfo.flags   = QSPIMEM_READ | QSPIMEM_QUADIO | QSPIMEM_SCRAMBLE;
@@ -810,7 +826,9 @@ static int s25fl_write_page(struct s25fl_dev_s *priv, FAR const uint8_t *buffer,
   int ret;
   int i;
 
+#if MEADOW_SHOW_FILE_INFO_IF_ENABLED > 0
   finfo("address: %08lx buflen: %u\n", (unsigned long)address, (unsigned)buflen);
+#endif
 
   npages   = (buflen >> priv->pageshift);
   pagesize = (1 << priv->pageshift);
@@ -876,8 +894,10 @@ static int s25fl_erase(FAR struct mtd_dev_s *dev, off_t startblock, size_t nbloc
   FAR struct s25fl_dev_s *priv = (FAR struct s25fl_dev_s *)dev;
   size_t blocksleft = nblocks;
 
+#if MEADOW_SHOW_FILE_INFO_IF_ENABLED > 0
   finfo("startblock: %08lx nblocks: %d\n", (long)startblock, (int)nblocks);
-  
+#endif
+
   /* Lock access to the SPI bus until we complete the erase */
 
   s25fl_lock(priv->qspi);
@@ -905,7 +925,9 @@ static ssize_t s25fl_bread(FAR struct mtd_dev_s *dev, off_t startblock,
   FAR struct s25fl_dev_s *priv = (FAR struct s25fl_dev_s *)dev;
   ssize_t nbytes;
 
+#if MEADOW_SHOW_FILE_INFO_IF_ENABLED > 0
   finfo("startblock: 0x%08lx nblocks: %d\n", (long)startblock, (int)nblocks);
+#endif
 
   /* On this device, we can handle the block read just like the byte-oriented read */
 
@@ -929,7 +951,9 @@ static ssize_t s25fl_bwrite(FAR struct mtd_dev_s *dev, off_t startblock,
   FAR struct s25fl_dev_s *priv = (FAR struct s25fl_dev_s *)dev;
   int ret = (int)nblocks;
 
+#if MEADOW_SHOW_FILE_INFO_IF_ENABLED > 0
   finfo("startblock: %08lx nblocks: %d\n", (long)startblock, (int)nblocks);
+#endif
 
   /* Lock the QuadSPI bus and write all of the pages to FLASH */
 
@@ -957,7 +981,9 @@ static ssize_t s25fl_read(FAR struct mtd_dev_s *dev, off_t offset, size_t nbytes
   FAR struct s25fl_dev_s *priv = (FAR struct s25fl_dev_s *)dev;
   int ret;
 
+#if MEADOW_SHOW_FILE_INFO_IF_ENABLED > 0
   finfo("offset: %08lx nbytes: %d\n", (long)offset, (int)nbytes);
+#endif
 
   /* Lock the QuadSPI bus and select this FLASH part */
 
@@ -971,8 +997,11 @@ static ssize_t s25fl_read(FAR struct mtd_dev_s *dev, off_t offset, size_t nbytes
       return (ssize_t)ret;
     }
 
+#if MEADOW_SHOW_FILE_INFO_IF_ENABLED > 0
   finfo("return nbytes: %d\n", (int)nbytes);
   finfo("    header: %x %x %x %x\n", buffer[0], buffer[1], buffer[2], buffer[3]);
+#endif
+
   return (ssize_t)nbytes;
 }
 
@@ -985,7 +1014,9 @@ static int s25fl_ioctl(FAR struct mtd_dev_s *dev, int cmd, unsigned long arg)
   FAR struct s25fl_dev_s *priv = (FAR struct s25fl_dev_s *)dev;
   int ret = -EINVAL; /* Assume good command with bad parameters */
 
+#if MEADOW_SHOW_FILE_INFO_IF_ENABLED > 0
   finfo("cmd: %d \n", cmd);
+#endif
 
   switch (cmd)
     {
@@ -1010,8 +1041,10 @@ static int s25fl_ioctl(FAR struct mtd_dev_s *dev, int cmd, unsigned long arg)
               geo->neraseblocks = priv->nsectors;
               ret               = OK;
 
+#if MEADOW_SHOW_FILE_INFO_IF_ENABLED > 0
               finfo("blocksize: %d erasesize: %d neraseblocks: %d\n",
                     geo->blocksize, geo->erasesize, geo->neraseblocks);
+#endif
             }
         }
         break;
@@ -1059,7 +1092,9 @@ static int s25fl_ioctl(FAR struct mtd_dev_s *dev, int cmd, unsigned long arg)
         break;
     }
 
+#if MEADOW_SHOW_FILE_INFO_IF_ENABLED > 0
   finfo("return %d\n", ret);
+#endif
   return ret;
 }
 
@@ -1085,7 +1120,10 @@ FAR struct mtd_dev_s *s25fl_initialize(FAR struct qspi_dev_s *qspi, bool unprote
   FAR struct s25fl_dev_s *priv;
   int ret;
 
+#if MEADOW_SHOW_FILE_INFO_IF_ENABLED > 0
   finfo("qspi: %p\n", qspi);
+#endif
+
   DEBUGASSERT(qspi != NULL);
 
   /* Allocate a state structure (we allocate the structure instead of using
@@ -1181,7 +1219,9 @@ FAR struct mtd_dev_s *s25fl_initialize(FAR struct qspi_dev_s *qspi, bool unprote
 
   /* Return the implementation-specific state structure as the MTD device */
 
+#if MEADOW_SHOW_FILE_INFO_IF_ENABLED > 0
   finfo("Return %p\n", priv);
+#endif
   return (FAR struct mtd_dev_s *)priv;
 
 errout_with_readbuf:

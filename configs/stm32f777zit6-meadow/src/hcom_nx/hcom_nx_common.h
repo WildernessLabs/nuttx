@@ -159,7 +159,7 @@ bool hcom_nx_bbreg_is_bbr_bits_set_n_clear(uint32_t value);
 bool hcom_nx_bbreg_is_bbr_bit_set(uint32_t value);
 
   // Diagnostics
-#define HCOM_NX_DIAG_MISC_PRINT_BUFFER 0
+#define HCOM_NX_DIAG_MISC_PRINT_BUFFER 1
 
 #if HCOM_NX_DIAG_MISC_PRINT_BUFFER > 0
   void hcom_nx_utils_diag_print_buffer(const uint8_t buffer[], const int bufLen, uint8_t msgPriority);

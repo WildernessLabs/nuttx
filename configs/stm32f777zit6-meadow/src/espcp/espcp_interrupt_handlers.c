@@ -118,6 +118,11 @@ void espcp_dispatch_interrupt(espcp_message_t *message)
             else
             {
                 processing = false;
+                //
+                //  If we get here we should delete the interrupt message as
+                //  we cannot find anyone to deal with it.
+                //
+                espcp_delete_message_and_payload(message);
             }
         }
     }

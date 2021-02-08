@@ -47,7 +47,7 @@
 #include "espcp_shared_enums.h"
 #include "espcp_queue.h"
 #include "espcp_encoders.h"
-#include "espcp_interrupt_handlers.h"
+#include "espcp_event_handlers.h"
 
 /****************************************************************************
  * Definitions
@@ -493,9 +493,9 @@ int espcp_get_response_from_esp32(espcp_configuration_t *configuration)
         if (message != NULL)
         {
             result = espcp_status_codes_completed_ok;
-            if (message->message_type == espcp_message_types_interrupt)
+            if (message->message_type == espcp_message_types_event)
             {
-                espcp_dispatch_interrupt(message);
+                espcp_dispatch_event(message);
             }
             else
             {

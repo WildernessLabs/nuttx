@@ -33,7 +33,7 @@
  *
  ****************************************************************************/
 
-#include "espcp_interrupt_handlers.h"
+#include "espcp_event_handlers.h"
 
 /****************************************************************************
  * Definitions
@@ -42,7 +42,12 @@
 /****************************************************************************
  * Function prototypes for static methods implemented in this file.
  ****************************************************************************/
-void espcp_system_get_configuration_interrupt_handler(espcp_message_t *);
+void espcp_wi_fi_set_time_of_day_event_handler(espcp_message_t *);
+void espcp_wi_fi_connect_event_handler(espcp_message_t *);
+void espcp_wi_fi_disconnect_event_handler(espcp_message_t *);
+
+void espcp_system_get_configuration_event_handler(espcp_message_t *);
+void espcp_system_function_error_event_handler(espcp_message_t *);
 
 /****************************************************************************
  * Private Data
@@ -54,6 +59,9 @@ void espcp_system_get_configuration_interrupt_handler(espcp_message_t *);
 static espcp_interrupt_handlers_t _wifi_handlers[] = 
 {
     { espcp_wi_fi_function_interrupt_poll_response, espcp_usrsock_poll_interrupt_handler },
+    { espcp_wi_fi_function_set_time_of_day_event, espcp_wi_fi_set_time_of_day_event_handler },
+    { espcp_wi_fi_function_connect_event, espcp_wi_fi_connect_event_handler },
+    { espcp_wi_fi_function_disconnect_event, espcp_wi_fi_disconnect_event_handler },
     { 0xffffffff, NULL }
 };
 
@@ -62,7 +70,8 @@ static espcp_interrupt_handlers_t _wifi_handlers[] =
  */
 static espcp_interrupt_handlers_t _system_handlers[] = 
 {
-    { espcp_system_function_get_configuration, espcp_system_get_configuration_interrupt_handler },
+    { espcp_system_function_get_configuration, espcp_system_get_configuration_event_handler },
+    { espcp_system_function_error_event, espcp_system_function_error_event_handler },
     { 0xffffffff, NULL }
 };
 
@@ -86,7 +95,7 @@ static espcp_interrupt_handlers_t _system_handlers[] =
  *  None
  *
  ****************************************************************************/
-void espcp_dispatch_interrupt(espcp_message_t *message)
+void espcp_dispatch_event(espcp_message_t *message)
 {
     if (message != NULL)
     {
@@ -129,7 +138,7 @@ void espcp_dispatch_interrupt(espcp_message_t *message)
 }
 
 /****************************************************************************
- * Name: espcp_system_get_configuration_interrupt_handler
+ * Name: espcp_system_get_configuration_event_handler
  *
  * Description:
  *   This interrupt handler will be called the GetConfiguration request has
@@ -141,7 +150,7 @@ void espcp_dispatch_interrupt(espcp_message_t *message)
  *             GetConfiguration request.
  *
  ****************************************************************************/
-void espcp_system_get_configuration_interrupt_handler(espcp_message_t *message)
+void espcp_system_get_configuration_event_handler(espcp_message_t *message)
 {
     if (message->status_code == espcp_status_codes_completed_ok)
     {
@@ -155,6 +164,107 @@ void espcp_system_get_configuration_interrupt_handler(espcp_message_t *message)
             }
             config->esp_config = espcp_extract_system_configuration(message->payload);
             espcp_config_unlock(config);
+        }
+    }
+    espcp_delete_message_and_payload(message);
+}
+
+/****************************************************************************
+ * Name: espcp_system_function_error_event_handler
+ *
+ * Description:
+ *   This interrupt handler will be called when the ESP32 generates an
+ *   error event.
+ *
+ * Input Parameters:
+ *   message - Message from the ESP32 with the new time information.
+ *
+ ****************************************************************************/
+void espcp_system_function_error_event_handler(espcp_message_t *message)
+{
+    if (message->status_code == espcp_status_codes_completed_ok)
+    {
+        if ((message->payload_length > 0) && (message->payload != NULL))
+        {
+            syslog(LOG_CRIT, "Error event received.");
+        }
+    }
+    espcp_delete_message_and_payload(message);
+}
+
+/****************************************************************************
+ * Name: espcp_wi_fi_set_time_of_day_event_handler
+ *
+ * Description:
+ *   This interrupt handler will be called when the ESP32 generates a new
+ *   time event. 
+ *
+ * Input Parameters:
+ *   message - Message from the ESP32 with the new time information.
+ *
+ ****************************************************************************/
+void espcp_wi_fi_set_time_of_day_event_handler(espcp_message_t *message)
+{
+    if (message->status_code == espcp_status_codes_completed_ok)
+    {
+        if ((message->payload_length > 0) && (message->payload != NULL))
+        {
+            espcp_integer_response_t *ir = espcp_extract_integer_response(message->payload);
+
+            syslog(LOG_CRIT, "Setting time of day to %d", ir->result);
+
+            struct timeval tv;
+            tv.tv_usec = 0;
+            tv.tv_sec = ir->result;
+            settimeofday(&tv, NULL);
+            free(ir);
+        }
+    }
+    espcp_delete_message_and_payload(message);
+}
+
+
+/****************************************************************************
+ * Name: espcp_wi_fi_connect_event_handler
+ *
+ * Description:
+ *   This interrupt handler will be called when the ESP32 successfully
+ *   connects to a WiFi access point.
+ *
+ * Input Parameters:
+ *   message - Message from the ESP32 with connection information.
+ *
+ ****************************************************************************/
+void espcp_wi_fi_connect_event_handler(espcp_message_t *message)
+{
+    if (message->status_code == espcp_status_codes_completed_ok)
+    {
+        if ((message->payload_length > 0) && (message->payload != NULL))
+        {
+            syslog(LOG_CRIT, "WiFi connect event received.");
+        }
+    }
+    espcp_delete_message_and_payload(message);
+}
+
+/****************************************************************************
+ * Name: espcp_wi_fi_disconnect_event_handler
+ *
+ * Description:
+ *   This interrupt handler will be called when the ESP32 disconnects from
+ *   a WiFi access point.
+ *
+ * Input Parameters:
+ *   message - Message from the ESP32 with disconnection information.
+ *
+ ****************************************************************************/
+void espcp_wi_fi_disconnect_event_handler(espcp_message_t *message)
+{
+    if (message->status_code == espcp_status_codes_completed_ok)
+    {
+        if ((message->payload_length > 0) && (message->payload != NULL))
+        {
+            syslog(LOG_CRIT, "WiFi disconnect event received.");
         }
     }
     espcp_delete_message_and_payload(message);

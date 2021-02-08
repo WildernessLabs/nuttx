@@ -70,6 +70,6 @@ typedef struct espcp_interrupt_handlers_s espcp_interrupt_handlers_t;
 
 void espcp_usrsock_poll_interrupt_handler(espcp_message_t *);   // Found in espcp_usrsock_sockif.c
 
-void espcp_dispatch_interrupt(espcp_message_t *);
+void espcp_dispatch_event(espcp_message_t *);
 
 #endif /* __ESPCP_INTERRUPT_HANDLERS_H__ */

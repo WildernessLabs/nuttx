@@ -97,9 +97,14 @@ static int board_init_usbdev(void);
  *
  ************************************************************************************/
 
+#if !defined(CONFIG_STM32F7_HAVE_ETHRNET)
+// Only need a dummy up_netinitialize function if ethernet not configured.
+// Why?, Won't call up_netinitialize in stm32_ethernet.c as it is found here.
+// The results are that the network code won't even be in the object modules.
 void up_netinitialize(void)
 {
 }
+#endif
 
 void stm32_boardinitialize(void)
 {

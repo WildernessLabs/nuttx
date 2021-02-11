@@ -43,11 +43,12 @@
  * Function prototypes for static methods implemented in this file.
  ****************************************************************************/
 void espcp_wi_fi_set_time_of_day_event_handler(espcp_message_t *);
-void espcp_wi_fi_connect_event_handler(espcp_message_t *);
-void espcp_wi_fi_disconnect_event_handler(espcp_message_t *);
 
 void espcp_system_get_configuration_event_handler(espcp_message_t *);
-void espcp_system_function_error_event_handler(espcp_message_t *);
+void espcp_system_error_event_handler(espcp_message_t *);
+
+void espcp_pass_to_managed_event_handler(espcp_message_t *);
+
 
 /****************************************************************************
  * Private Data
@@ -60,8 +61,6 @@ static espcp_event_handlers_t _wifi_handlers[] =
 {
     { espcp_wi_fi_function_interrupt_poll_response, espcp_usrsock_poll_interrupt_handler },
     { espcp_wi_fi_function_set_time_of_day_event, espcp_wi_fi_set_time_of_day_event_handler },
-    { espcp_wi_fi_function_connect_event, espcp_wi_fi_connect_event_handler },
-    { espcp_wi_fi_function_disconnect_event, espcp_wi_fi_disconnect_event_handler },
     { 0xffffffff, NULL }
 };
 
@@ -71,7 +70,15 @@ static espcp_event_handlers_t _wifi_handlers[] =
 static espcp_event_handlers_t _system_handlers[] = 
 {
     { espcp_system_function_get_configuration, espcp_system_get_configuration_event_handler },
-    { espcp_system_function_error_event, espcp_system_function_error_event_handler },
+    { espcp_system_function_error_event, espcp_system_error_event_handler },
+    { 0xffffffff, NULL }
+};
+
+/**
+ *  Table of event handlers for the bluetooth interface.
+ */
+static espcp_event_handlers_t _bluetooth_handlers[] = 
+{
     { 0xffffffff, NULL }
 };
 
@@ -108,30 +115,40 @@ void espcp_dispatch_event(espcp_message_t *message)
             case espcp_esp32_interfaces_system:
                 handler = _system_handlers;
                 break;
+            case espcp_esp32_interfaces_blue_tooth:
+                handler = _bluetooth_handlers;
+                break;
         }
-        bool processing = (handler != NULL);
-        while (processing)
+        if (handler == NULL)
         {
-            if (handler->function != 0xffffffff)
+            espcp_pass_to_managed_event_handler(message);
+        }
+        else
+        {
+            bool processing = true;
+            while (processing)
             {
-                if (handler->function == message->function)
+                if (handler->function != 0xffffffff)
                 {
-                    handler->event_handler(message);
-                    processing = false;
+                    if (handler->function == message->function)
+                    {
+                        handler->event_handler(message);
+                        processing = false;
+                    }
+                    else
+                    {
+                        handler++;
+                    }
                 }
                 else
                 {
-                    handler++;
+                    processing = false;
+                    //
+                    //  If we get here we cannot find a native handler so pass
+                    //  this message on to the managed handlers.
+                    //
+                    espcp_pass_to_managed_event_handler(message);
                 }
-            }
-            else
-            {
-                processing = false;
-                //
-                //  If we get here we should delete the interrupt message as
-                //  we cannot find anyone to deal with it.
-                //
-                espcp_delete_message_and_payload(message);
             }
         }
     }
@@ -180,7 +197,7 @@ void espcp_system_get_configuration_event_handler(espcp_message_t *message)
  *   message - Message from the ESP32 with the new time information.
  *
  ****************************************************************************/
-void espcp_system_function_error_event_handler(espcp_message_t *message)
+void espcp_system_error_event_handler(espcp_message_t *message)
 {
     if (message->status_code == espcp_status_codes_completed_ok)
     {
@@ -223,48 +240,23 @@ void espcp_wi_fi_set_time_of_day_event_handler(espcp_message_t *message)
     espcp_delete_message_and_payload(message);
 }
 
-
 /****************************************************************************
- * Name: espcp_wi_fi_connect_event_handler
+ * Name: espcp_pass_to_managed_event_handler
  *
  * Description:
- *   This interrupt handler will be called when the ESP32 successfully
- *   connects to a WiFi access point.
+ *   This event handler passes the data to the managed code for processing.
  *
  * Input Parameters:
- *   message - Message from the ESP32 with connection information.
+ *   message - Message from the ESP32 containing event data.
  *
  ****************************************************************************/
-void espcp_wi_fi_connect_event_handler(espcp_message_t *message)
+void espcp_pass_to_managed_event_handler(espcp_message_t *message)
 {
     if (message->status_code == espcp_status_codes_completed_ok)
     {
         if ((message->payload_length > 0) && (message->payload != NULL))
         {
-            syslog(LOG_CRIT, "WiFi connect event received.");
-        }
-    }
-    espcp_delete_message_and_payload(message);
-}
-
-/****************************************************************************
- * Name: espcp_wi_fi_disconnect_event_handler
- *
- * Description:
- *   This interrupt handler will be called when the ESP32 disconnects from
- *   a WiFi access point.
- *
- * Input Parameters:
- *   message - Message from the ESP32 with disconnection information.
- *
- ****************************************************************************/
-void espcp_wi_fi_disconnect_event_handler(espcp_message_t *message)
-{
-    if (message->status_code == espcp_status_codes_completed_ok)
-    {
-        if ((message->payload_length > 0) && (message->payload != NULL))
-        {
-            syslog(LOG_CRIT, "WiFi disconnect event received.");
+            syslog(LOG_CRIT, "Pass the event to the managed event handler.");
         }
     }
     espcp_delete_message_and_payload(message);

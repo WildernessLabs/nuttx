@@ -54,9 +54,9 @@ void espcp_system_function_error_event_handler(espcp_message_t *);
  ****************************************************************************/
 
 /**
- *  Table of interrupt handlers for the WiFi and socket handlers.
+ *  Table of event handlers for the WiFi and socket handlers.
  */
-static espcp_interrupt_handlers_t _wifi_handlers[] = 
+static espcp_event_handlers_t _wifi_handlers[] = 
 {
     { espcp_wi_fi_function_interrupt_poll_response, espcp_usrsock_poll_interrupt_handler },
     { espcp_wi_fi_function_set_time_of_day_event, espcp_wi_fi_set_time_of_day_event_handler },
@@ -66,9 +66,9 @@ static espcp_interrupt_handlers_t _wifi_handlers[] =
 };
 
 /**
- *  Table of interrupt handlers for the system interface.
+ *  Table of event handlers for the system interface.
  */
-static espcp_interrupt_handlers_t _system_handlers[] = 
+static espcp_event_handlers_t _system_handlers[] = 
 {
     { espcp_system_function_get_configuration, espcp_system_get_configuration_event_handler },
     { espcp_system_function_error_event, espcp_system_function_error_event_handler },
@@ -80,13 +80,13 @@ static espcp_interrupt_handlers_t _system_handlers[] =
  ****************************************************************************/
 
 /****************************************************************************
- * Name: espcp_dispatch_interrupt
+ * Name: espcp_dispatch_event
  *
  * Description:
- *  Dispatches an interrupt to the designated interrupt handler.
+ *  Dispatches an event to the designated event handler.
  *
  * Input Parameters:
- *  message - Response (interrupt information) to be processed
+ *  message - Response (event information) to be processed
  *
  * Returned Value:
  *  None.
@@ -99,7 +99,7 @@ void espcp_dispatch_event(espcp_message_t *message)
 {
     if (message != NULL)
     {
-        espcp_interrupt_handlers_t *handler = NULL;
+        espcp_event_handlers_t *handler = NULL;
         switch (message->interface)
         {
             case espcp_esp32_interfaces_wi_fi:
@@ -116,7 +116,7 @@ void espcp_dispatch_event(espcp_message_t *message)
             {
                 if (handler->function == message->function)
                 {
-                    handler->interrupt_handler(message);
+                    handler->event_handler(message);
                     processing = false;
                 }
                 else

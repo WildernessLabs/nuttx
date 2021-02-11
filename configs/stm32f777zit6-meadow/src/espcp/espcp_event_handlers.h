@@ -53,7 +53,7 @@
 /*
  *  Structure used to hold a table of interrupt handlers for the ESP functions.
  */
-struct espcp_interrupt_handlers_s
+struct espcp_event_handlers_s
 {
     /**
      *  Function expecting to receive and interrupt.
@@ -63,9 +63,9 @@ struct espcp_interrupt_handlers_s
     /**
      *  Method that will take the message and process it.
      */
-    void (*interrupt_handler)(espcp_message_t *);
+    void (*event_handler)(espcp_message_t *);
 };
-typedef struct espcp_interrupt_handlers_s espcp_interrupt_handlers_t;
+typedef struct espcp_event_handlers_s espcp_event_handlers_t;
 
 
 void espcp_usrsock_poll_interrupt_handler(espcp_message_t *);   // Found in espcp_usrsock_sockif.c

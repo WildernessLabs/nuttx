@@ -58,6 +58,8 @@
 #include "espcp_queue.h"
 #include "espcp_message.h"
 #include "espcp_shared_enums.h"
+#include "espcp_coprocessor.h"
+#include "espcp_event_handlers.h"
 
 /****************************************************************************
  * Definitions
@@ -116,7 +118,7 @@ bool espcp_create_message_queues(espcp_configuration_t *config)
 
     mqd_t event_queue_id = 0;
     queue_attributes.mq_maxmsg = ESPCP_MAXIMUM_MESSAGE_QUEUE_LENGTH;
-    queue_attributes.mq_msgsize = sizeof(struct message_and_semaphore_s *);
+    queue_attributes.mq_msgsize = sizeof(upd_esp32_event_data_t);
     queue_attributes.mq_flags = 0;
     event_queue_id = mq_open(ESPCP_EVENT_MESSAGE_QUEUE_NAME, O_RDWR | O_CREAT, mode, &queue_attributes);
 
@@ -182,8 +184,7 @@ int espcp_add_message_to_queue(mqd_t queue_id, espcp_message_t *message)
 {
     int result = OK;
 
-    result = mq_send(queue_id, (const void *)&message, sizeof(message),
-                     ESPCP_DEFAULT_MESSAGE_PRIORITY);
+    result = mq_send(queue_id, (const void *) &message, sizeof(message), ESPCP_DEFAULT_MESSAGE_PRIORITY);
 
     return (result);
 }

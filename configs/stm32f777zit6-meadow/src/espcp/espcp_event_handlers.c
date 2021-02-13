@@ -158,7 +158,7 @@ void espcp_dispatch_event(espcp_message_t *message)
  * Name: espcp_system_get_configuration_event_handler
  *
  * Description:
- *   This interrupt handler will be called the GetConfiguration request has
+ *   This event handler will be called the GetConfiguration request has
  *   been processed by the ESP32.  The message payload should be the device
  *   configuration.
  *
@@ -190,7 +190,7 @@ void espcp_system_get_configuration_event_handler(espcp_message_t *message)
  * Name: espcp_system_function_error_event_handler
  *
  * Description:
- *   This interrupt handler will be called when the ESP32 generates an
+ *   This event handler will be called when the ESP32 generates an
  *   error event.
  *
  * Input Parameters:
@@ -213,7 +213,7 @@ void espcp_system_error_event_handler(espcp_message_t *message)
  * Name: espcp_wi_fi_set_time_of_day_event_handler
  *
  * Description:
- *   This interrupt handler will be called when the ESP32 generates a new
+ *   This event handler will be called when the ESP32 generates a new
  *   time event. 
  *
  * Input Parameters:
@@ -252,12 +252,17 @@ void espcp_wi_fi_set_time_of_day_event_handler(espcp_message_t *message)
  ****************************************************************************/
 void espcp_pass_to_managed_event_handler(espcp_message_t *message)
 {
-    if (message->status_code == espcp_status_codes_completed_ok)
+    upd_esp32_event_data_t eventData;
+    memset(&eventData, 0, sizeof(eventData));
+    eventData.interface = message->interface;
+    eventData.function = message->function;
+    eventData.status_code = (uint32_t) message->payload;
+
+    espcp_configuration_t *config = espcp_get_configuration();
+    int result = mq_send(config->event_queue, (const char *) &eventData, sizeof(eventData), ESPCP_DEFAULT_MESSAGE_PRIORITY);
+    if (result < 0)
     {
-        if ((message->payload_length > 0) && (message->payload != NULL))
-        {
-            syslog(LOG_CRIT, "Pass the event to the managed event handler.");
-        }
+        syslog(LOG_INFO, "Error adding event to the message queue, result %d, error code %d.", result, get_errno());
     }
     espcp_delete_message_and_payload(message);
 }

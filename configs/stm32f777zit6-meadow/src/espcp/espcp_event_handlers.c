@@ -119,6 +119,11 @@ void espcp_dispatch_event(espcp_message_t *message)
                 handler = _bluetooth_handlers;
                 break;
         }
+        // if (message->payload_length == 0)
+        // {
+        //     message->payload = strdup("Hello, world");
+        //     message->payload_length = strlen(message->payload) + 1;
+        // }
         if (handler == NULL)
         {
             espcp_pass_to_managed_event_handler(message);
@@ -252,17 +257,41 @@ void espcp_wi_fi_set_time_of_day_event_handler(espcp_message_t *message)
  ****************************************************************************/
 void espcp_pass_to_managed_event_handler(espcp_message_t *message)
 {
-    upd_esp32_event_data_t eventData;
+    espcp_event_data_t eventData;
     memset(&eventData, 0, sizeof(eventData));
     eventData.interface = message->interface;
     eventData.function = message->function;
-    eventData.status_code = (uint32_t) message->payload;
-
-    espcp_configuration_t *config = espcp_get_configuration();
-    int result = mq_send(config->event_queue, (const char *) &eventData, sizeof(eventData), ESPCP_DEFAULT_MESSAGE_PRIORITY);
-    if (result < 0)
+    eventData.payload_length = message->payload_length;
+    if (message->payload_length != 0)
     {
-        syslog(LOG_INFO, "Error adding event to the message queue, result %d, error code %d.", result, get_errno());
+        //
+        //  We put the pointer to this message in the status_code.  We cannot use the payload
+        //  or payload_length field as these will be used to pass the address of the buffer
+        //  used to hold the payload in the managed layer.
+        //
+        eventData.status_code = (uint32_t) message;
     }
-    espcp_delete_message_and_payload(message);
+
+    uint32_t encodedEventDataSize = espcp_event_data_buffer_size(&eventData);
+    if (encodedEventDataSize > 22)
+    {
+        syslog(LOG_INFO, "Event message too large, even data discarded.");
+        espcp_delete_message_and_payload(message);
+    }
+    else
+    {
+        uint8_t *encodedData = (uint8_t *) malloc(encodedEventDataSize);
+        if (encodedData != NULL)
+        {
+            espcp_encode_event_data(&eventData, encodedData);
+
+            espcp_configuration_t *config = espcp_get_configuration();
+            int result = mq_send(config->event_queue, (const char *) encodedData, encodedEventDataSize, ESPCP_DEFAULT_MESSAGE_PRIORITY);
+            if (result < 0)
+            {
+                syslog(LOG_INFO, "Error adding event to the message queue, result %d, error code %d.", result, get_errno());
+            }
+            free(encodedData);
+        }
+    }
 }

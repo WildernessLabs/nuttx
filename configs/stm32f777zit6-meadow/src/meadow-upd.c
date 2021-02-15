@@ -688,7 +688,14 @@ int upd_handle_esp32_command(struct upd_esp32_command *data)
  * Name: upd_handle_esp32_get_event_result
  * 
  * Description:
- *    
+ *  Get any payload and status information for events returning more than
+ *  a trivial amount of data.
+ * 
+ *  This method is necessary as message queues can only hold 22 bytes of data.
+ *  After overheads are taken into considertion this only leaves 13 bytes.  It
+ *  was decided to use the payload and payload_length concept used with
+ *  messages to transfer any data other than interface, function and status
+ *  code.
  *
  * Input Parameters:
  *  data - pointer to a structure to hold the event data.  The memory should

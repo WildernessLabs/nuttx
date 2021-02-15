@@ -126,6 +126,14 @@ struct upd_esp32_command
   uint8_t block;              // Is this a blocking call?
 };
 
+struct upd_event_data_request
+{
+  uint32_t message_address;   // Pointer to the message generating he event.
+  uint32_t status_code;       // Status code returned by the ESP32.
+  uint8_t *payload;           // Pointer to the data required by the function.
+  uint32_t payload_length;    // Length of the data block.
+};
+
 struct upd_device_info
 {
   char *infoBuf;
@@ -152,7 +160,7 @@ static int upd_handle_spi_bits(int cmd, struct upd_spi_bits_cmd* data);
 static int upd_handle_dir_enum(struct upd_dir_enum_cmd*);
 
 static int upd_handle_esp32_command(struct upd_esp32_command *);
-static int upd_handle_esp32_get_event_result(espcp_event_data_t *);
+static int upd_handle_esp32_get_event_result(struct upd_event_data_request *);
 
 static int upd_handle_dev_info_request(struct upd_device_info *);
 
@@ -238,7 +246,7 @@ static int upd_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
     case MUPD_ESP32_COMMAND:
       return upd_handle_esp32_command((struct upd_esp32_command *) arg);
     case MUPD_ESP32_GET_EVENT_RESULT:
-      return upd_handle_esp32_get_event_result((espcp_event_data_t *) arg);
+      return upd_handle_esp32_get_event_result((struct upd_event_data_request *) arg);
 
     case MUPD_PWR_RESET:
       up_systemreset();
@@ -693,33 +701,25 @@ int upd_handle_esp32_command(struct upd_esp32_command *data)
  *  None
  *
  ****************************************************************************/
-int upd_handle_esp32_get_event_result(espcp_event_data_t *data)
+int upd_handle_esp32_get_event_result(struct upd_event_data_request *data)
 {
   int result = OK;
 
   espcp_message_t *message = (espcp_message_t *) data->status_code;
-  if ((data->interface != message->interface) || (data->function != message->function))
+  if (data->payload_length >= message->payload_length)
   {
-    syslog(LOG_INFO, "Message parameter mismatch.");
-    result = ERROR;
+    if (data->payload_length > 0)
+    {
+      memcpy(data->payload, message->payload, message->payload_length);
+    }
+    data->payload_length = message->payload_length;
+    data->status_code = message->status_code;
   }
   else
   {
-    if (data->payload_length <= message->payload_length)
-    {
-      if (data->payload_length > 0)
-      {
-        memcpy(data->payload, message->payload, message->payload_length);
-      }
-      data->payload_length = message->payload_length;
-      data->status_code = message->status_code;
-    }
-    else
-    {
-      data->payload_length = 0;
-      data->status_code = espcp_status_codes_failure;
-      result = ERROR;
-    }
+    data->payload_length = 0;
+    data->status_code = espcp_status_codes_failure;
+    result = ERROR;
   }
 
   espcp_delete_message_and_payload(message);

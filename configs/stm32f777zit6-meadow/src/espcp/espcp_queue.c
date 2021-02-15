@@ -118,7 +118,7 @@ bool espcp_create_message_queues(espcp_configuration_t *config)
 
     mqd_t event_queue_id = 0;
     queue_attributes.mq_maxmsg = ESPCP_MAXIMUM_MESSAGE_QUEUE_LENGTH;
-    queue_attributes.mq_msgsize = sizeof(upd_esp32_event_data_t);
+    queue_attributes.mq_msgsize = sizeof(espcp_event_data_t);
     queue_attributes.mq_flags = 0;
     event_queue_id = mq_open(ESPCP_EVENT_MESSAGE_QUEUE_NAME, O_RDWR | O_CREAT, mode, &queue_attributes);
 

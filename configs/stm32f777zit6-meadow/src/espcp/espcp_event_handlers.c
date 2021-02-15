@@ -119,11 +119,6 @@ void espcp_dispatch_event(espcp_message_t *message)
                 handler = _bluetooth_handlers;
                 break;
         }
-        // if (message->payload_length == 0)
-        // {
-        //     message->payload = strdup("Hello, world");
-        //     message->payload_length = strlen(message->payload) + 1;
-        // }
         if (handler == NULL)
         {
             espcp_pass_to_managed_event_handler(message);

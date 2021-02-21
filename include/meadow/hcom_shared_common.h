@@ -35,6 +35,9 @@
 #ifndef __INCLUDE_MEADOW_HCOM_SHARED_COMMON__H
 #define __INCLUDE_MEADOW_HCOM_SHARED_COMMON__H
 
+#include <unistd.h>
+#include <nuttx/semaphore.h>
+
 /****************************************************************************
  * Included Files
  ****************************************************************************/
@@ -96,6 +99,50 @@
 #define MEADOW_INI_CFG_MONO_TRACE_KEY "MonoTrace"
 #define MEADOW_INI_CFG_MONO_DEBUG_KEY "MonoDebug"
 #define MEADOW_INI_CFG_RESET_ESP32_AT_STARTUP_KEY "ResetEsp32AtStartup"
+
+//==================================================
+//  Structure to hold the configuration of the Meadow board.
+struct meadow_configuration_s
+{
+  /*
+   *  Used to control access to an instance of this object.
+   */
+  sem_t lock;
+
+  /*
+   *  Pointer to a string that is used to control the tracing output from Mono.
+   *  For more information see https://www.mono-project.com/docs/debug+profile/debug/
+   *  This variable is used in the mono_main.c file.
+   */
+  char *mono_trace;
+
+  /*
+   *  Should Mono be run in debug mode?
+   */
+  bool mono_debug;
+
+  /*
+   *  Should the ESP32 be reset at startup.  This is used by developers to prevent
+   *  STM32 code from resetting the ESP32 and disconnecting the debugger.
+   */
+  bool reset_esp32_at_startup;
+
+  /*
+   *  Level of trace output to generate.
+   */
+  int trace_level;
+
+  /*
+   *  How should UART1 be used?  Trace output maybe?
+   */
+  char *uart1_use;
+
+  /*
+   *  Clock speed of the SPI interface between the STM32 and the ESP32.
+   */
+  uint32_t esp_spi_speed;
+};
+typedef struct meadow_configuration_s meadow_configuration_t;
 
 // Errors from configuration file processing
 #define MEADOW_CONFIG_ERROR_NO_KEY_FOUND -1

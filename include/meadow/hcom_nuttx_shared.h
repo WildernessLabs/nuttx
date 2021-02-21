@@ -35,6 +35,8 @@
 #ifndef __INCLUDE_HCOM_NUTTX_SHARED__H
 #define __INCLUDE_HCOM_NUTTX_SHARED__H
 
+#include <meadow/hcom_shared_common.h>
+
 // This file is for item that need to be available to Hcom and Nuttx
 
 // Update the following for each release build
@@ -55,5 +57,10 @@
 int meadow_config_find_value_from_key(const char *fileName, const char *sectionName, const char *keyName,
     char returnValueBuf[], int returnBufLen);
 int hcom_nx_common_utils_calculate_serial_numb(uint8_t mcu6ByteSerialNumb[], char mcu12CharSerialNumb[]);
+
+void hcom_nx_config_lock(meadow_configuration_t *);
+void hcom_nx_config_unlock(meadow_configuration_t *);
+meadow_configuration_t *hcom_nx_get_configuration(void);
+meadow_configuration_t *hcom_nx_read_configuration_file(void);
 
 #endif  // __INCLUDE_HCOM_NUTTX_SHARED__H

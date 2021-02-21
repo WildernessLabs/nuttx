@@ -137,7 +137,7 @@ static char *_thisFile = __FILE__;
  ****************************************************************************/
 espcp_configuration_t *espcp_get_default_configuration(void)
 {
-    espcp_configuration_t *config = (espcp_configuration_t *)malloc(sizeof(espcp_configuration_t));
+    espcp_configuration_t *config = (espcp_configuration_t *) malloc(sizeof(espcp_configuration_t));
     if (config != NULL)
     {
         memset(config, 0, sizeof(espcp_configuration_t));

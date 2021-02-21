@@ -39,6 +39,7 @@
  * Included Files
  ****************************************************************************/
 #include "hcom_nx_common.h"
+#include <meadow/hcom_nuttx_shared.h>
 #include <assert.h>
 
 #if defined (CONFIG_FS_PROCFS)
@@ -84,6 +85,18 @@ int hcom_nx_setup_mgr(FAR struct mtd_dev_s *mtd)
     return ret;
   }
 #endif
+
+  meadow_configuration_t *config = hcom_nx_read_configuration_file();
+  if (config == NULL)
+  {
+    //
+    //  This means that there is not enough memory for a configuration object
+    //  as an object containing default values is created if the config file
+    //  cannot be found or it is empty.
+    //
+    syslog(LOG_CRIT, "%s@%d-Cannot obtain configuration.\n", thisFile, __LINE__);
+    return ret;
+  }
 
 #if HCOM_DIAG_INCLUDE_STARTUP_SYSLOG > 0
   syslog(2,  "hcom_nx_setup_mgr 2\n"); usleep(20 * 1000);

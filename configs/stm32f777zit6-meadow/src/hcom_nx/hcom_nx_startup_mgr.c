@@ -95,7 +95,7 @@ int hcom_nx_setup_mgr(FAR struct mtd_dev_s *mtd)
     //  cannot be found or it is empty.
     //
     syslog(LOG_CRIT, "%s@%d-Cannot obtain configuration.\n", thisFile, __LINE__);
-    return ret;
+    return ERROR;
   }
 
 #if HCOM_DIAG_INCLUDE_STARTUP_SYSLOG > 0

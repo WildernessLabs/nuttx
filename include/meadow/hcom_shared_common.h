@@ -119,13 +119,13 @@ struct meadow_configuration_s
   /*
    *  Should Mono be run in debug mode?
    */
-  bool mono_debug;
+  int mono_debug;
 
   /*
    *  Should the ESP32 be reset at startup.  This is used by developers to prevent
    *  STM32 code from resetting the ESP32 and disconnecting the debugger.
    */
-  bool reset_esp32_at_startup;
+  int reset_esp32_at_startup;
 
   /*
    *  Level of trace output to generate.
@@ -141,6 +141,11 @@ struct meadow_configuration_s
    *  Clock speed of the SPI interface between the STM32 and the ESP32.
    */
   uint32_t esp_spi_speed;
+
+  /*
+   *  Name of the board.
+   */
+  char *device_name;
 };
 typedef struct meadow_configuration_s meadow_configuration_t;
 

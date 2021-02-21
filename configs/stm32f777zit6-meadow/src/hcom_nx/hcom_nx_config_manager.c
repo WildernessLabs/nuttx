@@ -90,6 +90,7 @@ meadow_configuration_t *hcom_nx_get_default_configuration(void)
         config->trace_level = 0;
         config->uart1_use = NULL;
         config->esp_spi_speed = 12000000;
+        config->device_name = "MeadowF7";
     }
     return (config);
 }
@@ -180,7 +181,7 @@ meadow_configuration_t *hcom_nx_read_configuration_file()
     if (meadow_configuration != NULL)
     {
         syslog(LOG_ERR, "%s@%d Attempt to overwrite the configuration object.\n", thisFile, __LINE__);
-        return(ERROR);
+        return(NULL);
     }
     meadow_configuration = hcom_nx_get_default_configuration();
 }

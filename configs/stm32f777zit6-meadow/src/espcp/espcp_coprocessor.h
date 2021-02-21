@@ -188,21 +188,21 @@ typedef void (*espcp_send_data_function_t)(void *, void *, size_t);
 struct espcp_configuration_s
 {
     /*
-   *  Semaphore indicating that the configuration is being read or updated.
-   *  This is used as a mutex through the espcp_config_lock and
-   *  espcp_config_unlock methods.
-   */
+     *  Semaphore indicating that the configuration is being read or updated.
+     *  This is used as a mutex through the espcp_config_lock and
+     *  espcp_config_unlock methods.
+     */
     sem_t lock;
 
     /*
-   *  Semaphore used to indicate if the SPI interface is ready.
-   */
+     *  Semaphore used to indicate if the SPI interface is ready.
+     */
     sem_t spi_lock;
 
     /*
-   *  Indicates if the thread processing the messages for the ESP32
-   *  is running.
-   */
+     *  Indicates if the thread processing the messages for the ESP32
+     *  is running.
+     */
     bool thread_running;
 
     /*
@@ -215,56 +215,56 @@ struct espcp_configuration_s
 #endif
 
     /*
-   *  ID of the queue of messages that are waiting to be sent to the ESP32.
-   */
+     *  ID of the queue of messages that are waiting to be sent to the ESP32.
+     */
     mqd_t request_queue;
 
     /*
-   *  ID of the queue of messages that are waiting to be sent to the ESP32.
-   */
+     *  ID of the queue of messages that are waiting to be sent to the ESP32.
+     */
     mqd_t event_queue;
 
     /*
-   *  List of messages that have been sent to the ESP where a response is
-   *  pending.
-   */
+     *  List of messages that have been sent to the ESP where a response is
+     *  pending.
+     */
     gl_linked_list_t messages_pending_response;
 
     /*
-   *  Exit code for the thread processing the messages for the ESP32.
-   */
+     *  Exit code for the thread processing the messages for the ESP32.
+     */
     int exit_code;
 
     /*
-   *  Indicate if the initialisation detected the ESP32 as running normally.
-   */
+     *  Indicate if the initialisation detected the ESP32 as running normally.
+     */
     bool esp_not_responding;
 
     /*
-   *  Method that will send / receive data to / from the ESP32.
-   */
+     *  Method that will send / receive data to / from the ESP32.
+     */
     espcp_send_data_function_t send_data_to_esp32;
 
     /*
-   *  Size of a buffer required to hold a headers worth of data.  This is a
-   *  frequently used value so we store it here rather than recalculate it
-   *  every time it is needed.
-   */
+     *  Size of a buffer required to hold a headers worth of data.  This is a
+     *  frequently used value so we store it here rather than recalculate it
+     *  every time it is needed.
+     */
     uint32_t header_only_buffer_size;
 
     /*
-   *  Pointer to a buffer that can take a header (and only a header) worth of data.
-   */
+     *  Pointer to a buffer that can take a header (and only a header) worth of data.
+     */
     uint8_t *header;
 
     /*
-   *  Should the ESP32 be reset at startup?  Default to yes.
-   */
+     *  Should the ESP32 be reset at startup?  Default to yes.
+     */
     bool reset_esp_at_startup;
 
     /*
-   *  Pointer to the configuration information for the ESP32.
-   */
+     *  Pointer to the configuration information for the ESP32.
+     */
     espcp_system_configuration_t *esp_config;
 };
 typedef struct espcp_configuration_s espcp_configuration_t;

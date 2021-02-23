@@ -100,7 +100,7 @@
 #define MEADOW_INI_CFG_MONO_DEBUG_KEY "MonoDebug"
 #define MEADOW_INI_CFG_RESET_ESP32_AT_STARTUP_KEY "ResetEsp32AtStartup"
 #define MEADOW_INI_CFG_ESP_SPI_SPEED_KEY "EspSpiSpeed"
-#define MEADOW_INI_CFG_ESP_SPI_SPEED_DEFAULT 12000000
+#define MEADOW_INI_CFG_ESP_SPI_SPEED_DEFAULT 8000000UL
 
 //==================================================
 //  Structure to hold the configuration of the Meadow board.

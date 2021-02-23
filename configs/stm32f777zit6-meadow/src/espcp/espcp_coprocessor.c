@@ -54,6 +54,8 @@
 #include <nuttx/config.h>
 
 #include <meadow/hcom_shared_common.h>
+#include "../hcom_nx/hcom_nx_common.h"
+#include "../hcom_nx/hcom_nx_config_manager.h"
 #include "../inicfg/meadow_inicfg.h"
 #include "espcp_coprocessor.h"
 #include "espcp_queue.h"
@@ -149,9 +151,7 @@ espcp_configuration_t *espcp_get_default_configuration(void)
         config->esp_not_responding = true;
         config->send_data_to_esp32 = espcp_send_data_over_spi;
         config->header_only_buffer_size = espcp_calculate_spi_buffer_size(ESPCP_MESSAGE_HEADER_SIZE);
-        int error_code;
-        config->reset_esp_at_startup = (meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_RESET_ESP32_AT_STARTUP_KEY, 1, &error_code) == 1);
-        config->header = (uint8_t *)malloc(config->header_only_buffer_size);
+        config->header = (uint8_t *) malloc(config->header_only_buffer_size);
         config->esp_config = NULL;
         if (config->header == NULL)
         {
@@ -239,7 +239,20 @@ int espcp_spi_setup()
         return (-1);
     }
 
-    SPI_SETFREQUENCY(g_esp_spi_dev, ESP32CP_SPI_COMMS_FREQUENCY);
+    uint32_t frequency;
+    meadow_configuration_t *config = hcom_nx_get_configuration();
+    if (config == NULL)
+    {
+        frequency = 8000000UL;
+    }
+    else
+    {
+        hcom_nx_config_lock(config);
+        frequency = config->esp_spi_speed;
+        hcom_nx_config_unlock(config);
+    }
+    
+    SPI_SETFREQUENCY(g_esp_spi_dev, frequency);
     SPI_SETBITS(g_esp_spi_dev, 8);
     SPI_SETMODE(g_esp_spi_dev, SPIDEV_MODE3); /* CPOL=1 CHPHA=1 */
 
@@ -372,12 +385,12 @@ bool espcp_should_reset_at_startup(void)
 {
     bool perform_reset = true;
 
-    espcp_configuration_t *config = espcp_get_configuration();
+    meadow_configuration_t *config = hcom_nx_get_configuration();
     if (config != NULL)
     {
-        espcp_config_lock(config);
-        perform_reset = config->reset_esp_at_startup;
-        espcp_config_unlock(config);
+        hcom_nx_config_lock(config);
+        perform_reset = (config->reset_esp32_at_startup == 1);
+        hcom_nx_config_unlock(config);
     }
     return (perform_reset);
 }
@@ -683,12 +696,12 @@ int espcp_init(void)
         {
             syslog(LOG_CRIT, "%s@%d Error creating ESP32 message queues.\n", _thisFile, __LINE__);
             result = -ENETDOWN;
+            g_espcp_configuration->esp_not_responding = true;
         }
     }
     else
     {
         result = -ENETDOWN;
     }
-
     return result;
 }

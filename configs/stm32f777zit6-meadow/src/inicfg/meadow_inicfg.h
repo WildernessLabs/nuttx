@@ -42,5 +42,7 @@ int meadow_ini_cfg_get_int_default(const char *fileName, const char *sectionName
 bool meadow_ini_cfg_is_match(const char *fileName, const char *sectionName,
                                   const char *keyName, const char *matchValue,
                                   int *result);
+int meadow_config_find_value_from_key(const char *fileName, const char *sectionName, const char *keyName,
+                                      char returnValueBuf[], int returnBufLen);
 
 #endif // __CONFIGS_MEADOW_SRC_MEADOW_INICFG__H

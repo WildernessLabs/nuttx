@@ -122,12 +122,6 @@
  */
 #define ESP32CP_RESET_PIN_OUTPUT (GPIO_OUTPUT | GPIO_PULLUP | GPIO_SPEED_100MHz | GPIO_PORTB | GPIO_PIN9)
 
-/*
- *  SPI operating speed.
- */
-
-#define ESP32CP_SPI_COMMS_FREQUENCY 1000000 // 762 kHz
-
 #else
 
 /*
@@ -165,11 +159,6 @@
  *  On the internal interface this is PF7 (Enable - Reset).
  */
 #define ESP32CP_RESET_PIN_OUTPUT (GPIO_OUTPUT | GPIO_FLOAT | GPIO_OPENDRAIN | GPIO_SPEED_100MHz | GPIO_PORTF | GPIO_PIN7)
-
-/*
- *  SPI operating speed.
- */
-#define ESP32CP_SPI_COMMS_FREQUENCY 8000000UL
 
 #endif /* CONFIG_MEADOW_ESP32CP_USE_EXTERNAL_ESP32_BOARD */
 
@@ -256,11 +245,6 @@ struct espcp_configuration_s
      *  Pointer to a buffer that can take a header (and only a header) worth of data.
      */
     uint8_t *header;
-
-    /*
-     *  Should the ESP32 be reset at startup?  Default to yes.
-     */
-    bool reset_esp_at_startup;
 
     /*
      *  Pointer to the configuration information for the ESP32.

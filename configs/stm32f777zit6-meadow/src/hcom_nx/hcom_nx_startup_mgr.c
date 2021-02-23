@@ -40,6 +40,7 @@
  ****************************************************************************/
 #include "hcom_nx_common.h"
 #include <meadow/hcom_nuttx_shared.h>
+#include "../espcp/espcp_coprocessor.h"
 #include <assert.h>
 
 #if defined (CONFIG_FS_PROCFS)
@@ -99,6 +100,10 @@ int hcom_nx_setup_mgr(FAR struct mtd_dev_s *mtd)
     //
     syslog(LOG_CRIT, "%s@%d-Cannot obtain configuration.\n", thisFile, __LINE__);
     return ERROR;
+  }
+  if (config->reset_esp32_at_startup)
+  {
+    espcp_init();
   }
 
 #if HCOM_DIAG_INCLUDE_STARTUP_SYSLOG > 0

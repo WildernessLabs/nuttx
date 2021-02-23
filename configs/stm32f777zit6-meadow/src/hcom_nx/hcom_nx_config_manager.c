@@ -213,7 +213,7 @@ meadow_configuration_t *hcom_nx_get_configuration(void)
  *  None
  *
  ****************************************************************************/
-meadow_configuration_t *hcom_nx_read_configuration_file()
+meadow_configuration_t *hcom_nx_read_configuration_file(void)
 {
     if (meadow_configuration != NULL)
     {

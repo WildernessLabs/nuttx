@@ -37,6 +37,7 @@
 //  configuration of the meadow board.
 
 #include "hcom_nx_common.h"
+#include "../inicfg/meadow_inicfg.h"
 #include <meadow/hcom_upd_shared.h>
 #include <nuttx/semaphore.h>
 
@@ -58,6 +59,36 @@ static meadow_configuration_t *meadow_configuration = NULL;
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
+
+/****************************************************************************
+ * Name: hcom_nx_get_config_string
+ *
+ * Description:
+ *  Get a string value from the config file.
+ *
+ * Input Parameters:
+ *  section - section of the config file to examine.
+ * 
+ *  key - key to search for.
+ *
+ * Returned Value:
+ *  Pointer to a copy of the string value.
+ *
+ * Assumptions/Limitations:
+ *  None.
+ *
+ ****************************************************************************/
+char *hcom_nx_get_config_string(char *section, char *key)
+{
+    char *result = NULL;
+    char buffer[128];
+    int bufferLength = 128;
+    if (meadow_config_find_value_from_key(NULL, section, key, buffer, bufferLength) == 0)
+    {
+        result = strdup(buffer);
+    }
+    return(result);
+}
 
 /****************************************************************************
  * Name: hcom_nx_get_default_configuration
@@ -82,15 +113,21 @@ meadow_configuration_t *hcom_nx_get_default_configuration(void)
     meadow_configuration_t *config = (meadow_configuration_t *) malloc(sizeof(meadow_configuration_t));
     if (config != NULL)
     {
+        int error_code;
         memset(config, 0, sizeof(meadow_configuration_t));
         sem_init(&config->lock, 0, 1);
         sem_setprotocol(&config->lock, SEM_PRIO_NONE);
-        config->mono_trace = NULL;
-        config->mono_debug = false;
-        config->trace_level = 0;
-        config->uart1_use = NULL;
-        config->esp_spi_speed = 12000000;
-        config->device_name = "MeadowF7";
+        config->mono_trace = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_TRACE_KEY);
+        config->mono_debug = (meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_DEBUG_KEY, 0, &error_code) == 1);;
+        config->trace_level = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_DIAG_TRACE_LEVEL_KEY, 1, &error_code);
+        config->uart1_use = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_DIAG_UART_KEY);
+        config->esp_spi_speed = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_RESET_ESP32_AT_STARTUP_KEY, MEADOW_INI_CFG_ESP_SPI_SPEED_DEFAULT, &error_code);
+        config->device_name = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_TRACE_KEY);
+        config->reset_esp32_at_startup = (meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_RESET_ESP32_AT_STARTUP_KEY, 1, &error_code) == 1);
+        if (config->device_name == NULL)
+        {
+            config->device_name = MEADOW_INI_CFG_DEFAULT_DEV_NAME;
+        }
     }
     return (config);
 }

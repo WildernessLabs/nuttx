@@ -86,6 +86,9 @@ int hcom_nx_setup_mgr(FAR struct mtd_dev_s *mtd)
   }
 #endif
 
+  //
+  //  Read the configuration file.
+  //
   meadow_configuration_t *config = hcom_nx_read_configuration_file();
   if (config == NULL)
   {

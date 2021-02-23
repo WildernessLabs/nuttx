@@ -91,48 +91,6 @@ char *hcom_nx_get_config_string(char *section, char *key)
 }
 
 /****************************************************************************
- * Name: hcom_nx_get_default_configuration
- *
- * Description:
- *  Get the default configuration object for the board.
- *
- * Input Parameters:
- *  None
- *
- * Returned Value:
- *  Pointer to a valid meadow configuration object, NULL if there was a problem
- *  allocating memory.
- *
- * Assumptions/Limitations:
- *  This is only called once and so we do not need to lock the configuration
- *  object.
- *
- ****************************************************************************/
-meadow_configuration_t *hcom_nx_get_default_configuration(void)
-{
-    meadow_configuration_t *config = (meadow_configuration_t *) malloc(sizeof(meadow_configuration_t));
-    if (config != NULL)
-    {
-        int error_code;
-        memset(config, 0, sizeof(meadow_configuration_t));
-        sem_init(&config->lock, 0, 1);
-        sem_setprotocol(&config->lock, SEM_PRIO_NONE);
-        config->mono_trace = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_TRACE_KEY);
-        config->mono_debug = (meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_DEBUG_KEY, 0, &error_code) == 1);;
-        config->trace_level = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_DIAG_TRACE_LEVEL_KEY, 1, &error_code);
-        config->uart1_use = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_DIAG_UART_KEY);
-        config->esp_spi_speed = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_RESET_ESP32_AT_STARTUP_KEY, MEADOW_INI_CFG_ESP_SPI_SPEED_DEFAULT, &error_code);
-        config->device_name = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_TRACE_KEY);
-        config->reset_esp32_at_startup = (meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_RESET_ESP32_AT_STARTUP_KEY, 1, &error_code) == 1);
-        if (config->device_name == NULL)
-        {
-            config->device_name = MEADOW_INI_CFG_DEFAULT_DEV_NAME;
-        }
-    }
-    return (config);
-}
-
-/****************************************************************************
  * Name: hcom_nx_config_lock
  *
  * Description:
@@ -220,5 +178,83 @@ meadow_configuration_t *hcom_nx_read_configuration_file(void)
         syslog(LOG_ERR, "%s@%d Attempt to overwrite the configuration object.\n", thisFile, __LINE__);
         return(NULL);
     }
-    meadow_configuration = hcom_nx_get_default_configuration();
+
+    meadow_configuration = (meadow_configuration_t *) malloc(sizeof(meadow_configuration_t));
+    if (meadow_configuration != NULL)
+    {
+        int error_code;
+        memset(meadow_configuration, 0, sizeof(meadow_configuration_t));
+        sem_init(&meadow_configuration->lock, 0, 1);
+        sem_setprotocol(&meadow_configuration->lock, SEM_PRIO_NONE);
+        meadow_configuration->mono_trace = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_TRACE_KEY);
+        meadow_configuration->mono_debug = (meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_DEBUG_KEY, 0, &error_code) == 1);;
+        meadow_configuration->trace_level = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_DIAG_TRACE_LEVEL_KEY, 1, &error_code);
+        meadow_configuration->uart1_use = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_DIAG_UART_KEY);
+        meadow_configuration->esp_spi_speed = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_RESET_ESP32_AT_STARTUP_KEY, MEADOW_INI_CFG_ESP_SPI_SPEED_DEFAULT, &error_code);
+        meadow_configuration->device_name = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_TRACE_KEY);
+        meadow_configuration->reset_esp32_at_startup = (meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_RESET_ESP32_AT_STARTUP_KEY, 1, &error_code) == 1);
+        if (meadow_configuration->device_name == NULL)
+        {
+            meadow_configuration->device_name = MEADOW_INI_CFG_DEFAULT_DEV_NAME;
+        }
+    }
+    return(meadow_configuration);
+}
+
+/****************************************************************************
+ * Name: hcom_nx_copy_config
+ *
+ * Description:
+ *  Copy the configuration data into the specified location.
+ *  object.
+ * 
+ *  Note that not all of the configuration data is copied as some of the
+ *  data is only relevant to objects that exist in kernel space.
+ *
+ * Input Parameters:
+ *  new_config - pointer to the memory that will hold a copy of the
+ *               configuration data.
+ *
+ * Returned Value:
+ *  None.
+ *
+ * Assumptions/Limitations:
+ *  None
+ *
+ ****************************************************************************/
+void hcom_nx_copy_config_for_user_mode(meadow_configuration_t *new_config)
+{
+    if (new_config == NULL)
+    {
+        return;
+    }
+    memset((void *) new_config, 0, sizeof(meadow_configuration_t));
+
+    meadow_configuration_t *config = hcom_nx_get_configuration();
+    if (config == NULL)
+    {
+        return;
+    }
+    
+    hcom_nx_config_lock(config);
+    new_config->mono_debug = config->mono_debug;
+    new_config->reset_esp32_at_startup = config->reset_esp32_at_startup;
+    new_config->device_name = strdup(config->device_name);
+    if (config->mono_trace != NULL)
+    {
+        new_config->mono_trace = strdup(config->mono_trace);
+    }
+    else
+    {
+        new_config->mono_trace = NULL;
+    }
+    if (config->uart1_use != NULL)
+    {
+        new_config->uart1_use = strdup(config->uart1_use);
+    }
+    else
+    {
+        new_config->uart1_use = strdup(config->uart1_use);
+    }
+    hcom_nx_config_unlock(config);
 }

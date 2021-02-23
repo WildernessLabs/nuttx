@@ -79,6 +79,7 @@
 #include "diag/hcom_nx_upd_diag.h"
 #include "../espcp/espcp_coprocessor.h"
 #include "../espcp/espcp_usrsock.h"
+#include "hcom_nx_config_manager.h"
 
 /****************************************************************************
  * Private Types
@@ -289,6 +290,10 @@ static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
             get_cfg_int->default_value, &ret);
     get_cfg_int->return_int = retInt;
     return ret;
+
+  case HCOM_NX_UPD_GET_CONFIG:
+    hcom_nx_copy_config_for_user_mode((meadow_configuration_t *) arg);
+    return;
 
   // Note: Two classes of GPIO. One operational and the other diagnostic
   case HCOM_NX_UPD_GPIO_COMMAND:

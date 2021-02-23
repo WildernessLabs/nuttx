@@ -41,6 +41,7 @@
 void hcom_nx_config_lock(meadow_configuration_t *);
 void hcom_nx_config_unlock(meadow_configuration_t *);
 meadow_configuration_t *hcom_nx_get_configuration(void);
-
+void hcom_nx_copy_config_for_user_mode(meadow_configuration_t *);
+meadow_configuration_t *hcom_nx_read_configuration_file(void);
 
 #endif // __CONFIGS_MEADOW_SRC_HCOM_NX_CONFIG_MANAGER__H

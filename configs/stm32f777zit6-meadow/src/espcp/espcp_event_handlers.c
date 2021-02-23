@@ -203,7 +203,7 @@ void espcp_system_error_event_handler(espcp_message_t *message)
     {
         if ((message->payload_length > 0) && (message->payload != NULL))
         {
-            syslog(LOG_CRIT, "Error event received.");
+            syslog(LOG_CRIT, "Error event received.\n");
         }
     }
     espcp_delete_message_and_payload(message);
@@ -228,13 +228,22 @@ void espcp_wi_fi_set_time_of_day_event_handler(espcp_message_t *message)
         {
             espcp_integer_response_t *ir = espcp_extract_integer_response(message->payload);
 
-            syslog(LOG_CRIT, "Setting time of day to %d", ir->result);
+            syslog(LOG_INFO, "Setting time of day to %d\n", ir->result);
 
             struct timeval tv;
             tv.tv_usec = 0;
             tv.tv_sec = ir->result;
             settimeofday(&tv, NULL);
             free(ir);
+            
+            gettimeofday(&tv, NULL);
+            char buffer[26];
+            struct tm* tm_info;
+
+            tm_info = localtime(&tv.tv_sec);
+
+            strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", tm_info);
+            syslog(LOG_INFO, "Current time: %s\n", buffer);
         }
     }
     espcp_delete_message_and_payload(message);

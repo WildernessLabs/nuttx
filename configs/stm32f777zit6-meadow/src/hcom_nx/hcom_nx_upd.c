@@ -292,8 +292,12 @@ static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
     return ret;
 
   case HCOM_NX_UPD_GET_CONFIG:
-    hcom_nx_copy_config_for_user_mode((meadow_configuration_t *) arg);
-    return;
+    ret = hcom_nx_copy_config_for_user_mode((meadow_configuration_t *) arg);
+    return ret;
+
+  case HCOM_NX_UPD_GET_STRING:
+    ret = hcom_nx_copy_string((hcom_nx_get_string_t *) arg);
+    return ret;
 
   // Note: Two classes of GPIO. One operational and the other diagnostic
   case HCOM_NX_UPD_GPIO_COMMAND:

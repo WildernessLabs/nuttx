@@ -691,6 +691,7 @@ int espcp_init(void)
             espcp_posix_network_init();
             espcp_spi_setup();
             result = espcp_thread_start(g_espcp_configuration);
+            usrsock_register_sockif(&g_usrsock_sockif_esp32);
         }
         else
         {

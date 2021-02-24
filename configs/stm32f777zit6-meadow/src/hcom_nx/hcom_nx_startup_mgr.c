@@ -98,12 +98,24 @@ int hcom_nx_setup_mgr(FAR struct mtd_dev_s *mtd)
     //  as an object containing default values is created if the config file
     //  cannot be found or it is empty.
     //
-    syslog(LOG_CRIT, "%s@%d-Cannot obtain configuration.\n", thisFile, __LINE__);
+    syslog(LOG_EMERG, "%s@%d-Cannot obtain configuration.\n", thisFile, __LINE__);
     return ERROR;
   }
   if (config->reset_esp32_at_startup)
   {
-    espcp_init();
+    ret = espcp_init();
+    if(ret != OK)
+    {
+      syslog(LOG_EMERG, "ERROR: ESP32 initialization failed:%d\n", ret);
+      return ret;
+    }
+
+    ret = espcp_enter_run_mode();
+    if(ret != OK)
+    {
+      syslog(LOG_EMERG, "ERROR: ESP32 enter run mode failed:%d\n", ret);
+      return ret;
+    }
   }
 
 #if HCOM_DIAG_INCLUDE_STARTUP_SYSLOG > 0

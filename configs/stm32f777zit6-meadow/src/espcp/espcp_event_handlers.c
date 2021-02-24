@@ -33,6 +33,8 @@
  *
  ****************************************************************************/
 
+#include <meadow/hcom_shared_common.h>
+#include "../hcom_nx/hcom_nx_config_manager.h"
 #include "espcp_event_handlers.h"
 
 /****************************************************************************
@@ -180,6 +182,25 @@ void espcp_system_get_configuration_event_handler(espcp_message_t *message)
                 free(config->esp_config);
             }
             config->esp_config = espcp_extract_system_configuration(message->payload);
+
+            meadow_configuration_t *meadow_configuration = hcom_nx_get_configuration();
+            if (meadow_configuration != NULL)
+            {
+                hcom_nx_config_lock(meadow_configuration);
+                if (config->esp_config->software_version != NULL)
+                {
+                    if (meadow_configuration->esp_software_version == NULL)
+                    {
+                        meadow_configuration->esp_software_version = strdup(config->esp_config->software_version);
+                    }
+                }
+                else
+                {
+                    meadow_configuration->esp_software_version = NULL;
+                }
+                hcom_nx_config_unlock(meadow_configuration);
+            }
+
             espcp_config_unlock(config);
         }
     }

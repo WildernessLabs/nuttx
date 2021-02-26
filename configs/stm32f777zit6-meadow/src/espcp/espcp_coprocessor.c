@@ -247,9 +247,9 @@ int espcp_spi_setup()
     }
     else
     {
-        hcom_nx_config_lock(config);
+        hcom_nx_config_lock();
         frequency = config->esp_spi_speed;
-        hcom_nx_config_unlock(config);
+        hcom_nx_config_unlock();
     }
     
     SPI_SETFREQUENCY(g_esp_spi_dev, frequency);
@@ -388,9 +388,9 @@ bool espcp_should_reset_at_startup(void)
     meadow_configuration_t *config = hcom_nx_get_configuration();
     if (config != NULL)
     {
-        hcom_nx_config_lock(config);
+        hcom_nx_config_lock();
         perform_reset = (config->reset_esp32_at_startup == 1);
-        hcom_nx_config_unlock(config);
+        hcom_nx_config_unlock();
     }
     return (perform_reset);
 }
@@ -558,6 +558,7 @@ void espcp_enter_programming_mode(void)
  ****************************************************************************/
 int espcp_enter_run_mode(void)
 {
+    syslog(LOG_CRIT, "%s@%d Entering run mode.\n", _thisFile, __LINE__);
     espcp_release_shared_gpio();
     //
     //  Input pins, one indicating that ESP32 SPI transaction can start (ESP32 SPI interface is ready)
@@ -585,12 +586,13 @@ int espcp_enter_run_mode(void)
     espcp_config_lock(config);
     sem_wait(&config->spi_lock);
     espcp_config_unlock(config);
+    syslog(LOG_CRIT, "%s@%d SPI lock released.\n", _thisFile, __LINE__);
     //
     //  We reset the chip and then pause for 1 ms to let the ESP lines stabilise before we attach
     //  the interrupt handlers.
     //
     espcp_reset();
-    usleep(1000);
+    // usleep(1000);
     stm32_gpiosetevent(ESP32CP_SPI_READY_PIN_INPUT, /*risingedge=*/true, /*fallingedge=*/false, true, espcp_spi_ready, 0);
 
     return (OK);
@@ -689,9 +691,9 @@ int espcp_init(void)
             espcp_setup_message_dispatcher();
             espcp_usrsock_init();
             espcp_posix_network_init();
-            espcp_spi_setup();
             result = espcp_thread_start(g_espcp_configuration);
             usrsock_register_sockif(&g_usrsock_sockif_esp32);
+            espcp_spi_setup();
         }
         else
         {

@@ -219,12 +219,4 @@ typedef struct meadow_configuration_s meadow_configuration_t;
 #define HCOM_INCLUDE_BATTERY_BACKED_REG_TEST          0
 #define HCOM_INCLUDE_INI_CFG_TESTS_IN_BUILD           0
 
-struct hcom_nx_get_string_s
-{
-  char *source;
-  uint32_t length;
-  char *destination;
-};
-typedef struct hcom_nx_get_string_s hcom_nx_get_string_t;
-
 #endif  // __INCLUDE_MEADOW_HCOM_SHARED_COMMON__H

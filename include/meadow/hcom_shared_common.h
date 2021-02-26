@@ -107,11 +107,6 @@
 struct meadow_configuration_s
 {
   /*
-   *  Used to control access to an instance of this object.
-   */
-  sem_t lock;
-
-  /*
    *  Pointer to a string that is used to control the tracing output from Mono.
    *  For more information see https://www.mono-project.com/docs/debug+profile/debug/
    *  This variable is used in the mono_main.c file.
@@ -122,6 +117,11 @@ struct meadow_configuration_s
    *  Should Mono be run in debug mode?
    */
   int mono_debug;
+
+  /*
+   *  Should mono be run at startup?
+   */
+  int mono_run;
 
   /*
    *  Should the ESP32 be reset at startup.  This is used by developers to prevent

@@ -159,8 +159,7 @@ bool hcom_nx_bbreg_is_bbr_bits_set_n_clear(uint32_t value);
 bool hcom_nx_bbreg_is_bbr_bit_set(uint32_t value);
 
 // Configuration related methods.
-int hcom_nx_copy_config_for_user_mode(meadow_configuration_t *);
-int hcom_nx_copy_string(hcom_nx_get_string_t *);
+int hcom_nx_copy_config_for_user_mode(uint8_t *, int);
 
 
   // Diagnostics

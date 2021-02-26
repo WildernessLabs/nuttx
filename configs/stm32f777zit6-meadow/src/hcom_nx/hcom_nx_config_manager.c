@@ -48,9 +48,21 @@
 /****************************************************************************
  * Private Data
  ****************************************************************************/
+
+/**
+ *  Variable to hold a copy of the file name for logging and reporting.
+ */
 static char *thisFile = __FILE__;
 
+/**
+ *  Local variable to hold a ;ointer to the configuration.
+ */
 static meadow_configuration_t *meadow_configuration = NULL;
+
+/**
+ *  Mutex to be used by any code that wants access to the configuration.
+ */
+static sem_t config_lock;
 
 /****************************************************************************
  * Private Function Prototypes
@@ -97,7 +109,7 @@ char *hcom_nx_get_config_string(char *section, char *key)
  *  Lock the specified configuration object.
  *
  * Input Parameters:
- *  config - Pointer to an meadow_configuration_t object to be locked.
+ *  None.
  *
  * Returned Value:
  *  None.
@@ -106,9 +118,9 @@ char *hcom_nx_get_config_string(char *section, char *key)
  *  None
  *
  ****************************************************************************/
-void hcom_nx_config_lock(meadow_configuration_t *config)
+void hcom_nx_config_lock(void)
 {
-    sem_wait(&config->lock);
+    sem_wait(&config_lock);
 }
 
 /****************************************************************************
@@ -118,7 +130,7 @@ void hcom_nx_config_lock(meadow_configuration_t *config)
  *  Unlock the specified configuration object.
  *
  * Input Parameters:
- *  config - Pointer to an meadow_configuration_t object to be locked.
+ *  None.
  *
  * Returned Value:
  *  None.
@@ -127,9 +139,9 @@ void hcom_nx_config_lock(meadow_configuration_t *config)
  *  None
  *
  ****************************************************************************/
-void hcom_nx_config_unlock(meadow_configuration_t *config)
+void hcom_nx_config_unlock(void)
 {
-    sem_post(&config->lock);
+    sem_post(&config_lock);
 }
 
 /****************************************************************************
@@ -173,6 +185,7 @@ meadow_configuration_t *hcom_nx_get_configuration(void)
  ****************************************************************************/
 meadow_configuration_t *hcom_nx_read_configuration_file(void)
 {
+    hcom_nx_config_lock();
     if (meadow_configuration != NULL)
     {
         syslog(LOG_ERR, "%s@%d Attempt to overwrite the configuration object.\n", thisFile, __LINE__);
@@ -184,37 +197,70 @@ meadow_configuration_t *hcom_nx_read_configuration_file(void)
     {
         int error_code;
         memset(meadow_configuration, 0, sizeof(meadow_configuration_t));
-        sem_init(&meadow_configuration->lock, 0, 1);
-        sem_setprotocol(&meadow_configuration->lock, SEM_PRIO_NONE);
         meadow_configuration->mono_trace = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_TRACE_KEY);
-        meadow_configuration->mono_debug = (meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_DEBUG_KEY, 0, &error_code) == 1);;
+        meadow_configuration->mono_debug = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_DEBUG_KEY, 0, &error_code);
+        meadow_configuration->mono_run = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_RUN_KEY, 1, &error_code);
         meadow_configuration->trace_level = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_DIAG_TRACE_LEVEL_KEY, 1, &error_code);
         meadow_configuration->uart1_use = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_DIAG_UART_KEY);
         meadow_configuration->esp_spi_speed = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_RESET_ESP32_AT_STARTUP_KEY, MEADOW_INI_CFG_ESP_SPI_SPEED_DEFAULT, &error_code);
         meadow_configuration->device_name = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_TRACE_KEY);
-        meadow_configuration->reset_esp32_at_startup = (meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_RESET_ESP32_AT_STARTUP_KEY, 1, &error_code) == 1);
+        meadow_configuration->reset_esp32_at_startup = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_RESET_ESP32_AT_STARTUP_KEY, 1, &error_code);
         meadow_configuration->esp_software_version = NULL;
         if (meadow_configuration->device_name == NULL)
         {
             meadow_configuration->device_name = MEADOW_INI_CFG_DEFAULT_DEV_NAME;
         }
     }
+    hcom_nx_config_unlock();
+
     return(meadow_configuration);
+}
+
+/****************************************************************************
+ * Name: hcom_nx_copy_string
+ *
+ * Description:
+ *  Copy a string into the buffer and return the amount of storage used to
+ *  store the string and its terminating 0.
+ *
+ * Input Parameters:
+ *  source - String to be copied.
+ *  destination - Memory to hold the copy of the string.
+ *
+ * Returned Value:
+ *  Amount of memory consumed by the string and its terminating 0.
+ *
+ * Assumptions/Limitations:
+ *  The destination buffer is large enough to hold tha copy of the string.
+ *
+ ****************************************************************************/
+int hcom_nx_copy_string(char *source, char *destination)
+{
+    int length = 0;
+
+    if (source == NULL)
+    {
+        *destination = 0;
+    }
+    else
+    {
+        length = strlen(source);
+        strcpy(destination, source);
+    }
+
+    return(length + 1);
 }
 
 /****************************************************************************
  * Name: hcom_nx_copy_config
  *
  * Description:
- *  Copy the configuration data into the specified location.
- *  object.
- * 
- *  Note that not all of the configuration data is copied as some of the
- *  data is only relevant to objects that exist in kernel space.
+ *  Copy the configuration data into the specified location along with copies
+ *  of any strings.
  *
  * Input Parameters:
- *  new_config - pointer to the memory that will hold a copy of the
- *               configuration data.
+ *  buffer - area of memory to hold the copy of the data in the configuration
+ *           structure plus the string.
  *
  * Returned Value:
  *  OK if successful, ERROR otherwise.
@@ -223,43 +269,76 @@ meadow_configuration_t *hcom_nx_read_configuration_file(void)
  *  None
  *
  ****************************************************************************/
-int hcom_nx_copy_config_for_user_mode(meadow_configuration_t *new_config)
+int hcom_nx_copy_config_for_user_mode(uint8_t *buffer, int length)
 {
-    if (new_config == NULL)
+    if (buffer == NULL)
     {
         return ERROR;
     }
-    
-    memset((void *) new_config, 0, sizeof(meadow_configuration_t));
-    meadow_configuration_t *config = hcom_nx_get_configuration();
-    if (config == NULL)
-    {
-        return ERROR;
-    }
-    
-    hcom_nx_config_lock(config);
-    new_config->mono_debug = config->mono_debug;
-    new_config->reset_esp32_at_startup = config->reset_esp32_at_startup;
-    new_config->device_name = config->device_name;
-    new_config->mono_trace = config->mono_trace;
-    new_config->uart1_use = config->uart1_use;
-    new_config->esp_software_version = config->esp_software_version;
-    hcom_nx_config_unlock(config);
 
-    return OK;
+    int result = OK;
+    hcom_nx_config_lock();
+
+    meadow_configuration_t *config = hcom_nx_get_configuration();
+    int storage_required = sizeof(meadow_configuration_t);
+    if (config->mono_trace != NULL)
+    {
+        storage_required += strlen(config->mono_trace);
+    }
+    if (config->device_name != NULL)
+    {
+        storage_required += strlen(config->device_name);
+    }
+    if (config->esp_software_version != NULL)
+    {
+        storage_required += strlen(config->esp_software_version);
+    }
+    if (config->uart1_use != NULL)
+    {
+        storage_required += strlen(config->uart1_use);
+    }
+    if (length < storage_required)
+    {
+        result = ERROR;
+    }
+    else
+    {
+        memset((void *) buffer, 0, length);
+        meadow_configuration_t *new_config = (meadow_configuration_t *) buffer;
+
+        memcpy((void *) new_config, (void *) config, sizeof(meadow_configuration_t));
+        //
+        //  Set the string pointers to NULL in the returned configuration object to make
+        //  sure we do not leak the location of these objects in kernel memory.
+        //
+        new_config->mono_trace = NULL;
+        new_config->esp_software_version = NULL;
+        new_config->device_name = NULL;
+        new_config->uart1_use = NULL;
+        //
+        //  Put the strings at the end of the configuration structure.
+        //
+        char *ptr = (char *) (buffer + sizeof(meadow_configuration_t));
+        ptr += hcom_nx_copy_string(config->mono_trace, ptr);
+        ptr += hcom_nx_copy_string(config->esp_software_version, ptr);
+        ptr += hcom_nx_copy_string(config->device_name, ptr);
+        ptr += hcom_nx_copy_string(config->uart1_use, ptr);
+    }
+    
+    hcom_nx_config_unlock();
+
+    return(result);
 }
 
-
 /****************************************************************************
- * Name: hcom_via_nx_copy_string
+ * Name: hcom_nx_config_init
  *
  * Description:
- *  Copy the specified string to the buffer.
+ *  Setup the configuration system and populate the configuration structure
+ *  with data from the configuration file.
  *
  * Input Parameters:
- *  request - buffer to hold the string to be copied.  On entry the first
- *            eight bytes will hold the source address and the length of the
- *            destination buffer.
+ *  None.
  *
  * Returned Value:
  *  None.
@@ -268,25 +347,9 @@ int hcom_nx_copy_config_for_user_mode(meadow_configuration_t *new_config)
  *  None
  *
  ****************************************************************************/
-int hcom_nx_copy_string(hcom_nx_get_string_t *request)
+void hcom_nx_config_init(void)
 {
-    int result = OK;
-
-    if (request != NULL)
-    {
-        if (strlen(request->source) < request->length)
-        {
-            strcpy(request->destination, request->source);
-        }
-        else
-        {
-            *request->destination = 0;
-        }
-    }
-    else
-    {
-        result = ERROR;
-    }
-
-    return(result);
+    sem_init(&config_lock, 0, 1);
+    sem_setprotocol(&config_lock, SEM_PRIO_NONE);
+    hcom_nx_read_configuration_file();
 }

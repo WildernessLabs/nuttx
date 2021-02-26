@@ -38,8 +38,9 @@
 #include <meadow/hcom_shared_common.h>
 
 // Configuration methods.
-void hcom_nx_config_lock(meadow_configuration_t *);
-void hcom_nx_config_unlock(meadow_configuration_t *);
+void hcom_nx_config_init(void);
+void hcom_nx_config_lock(void);
+void hcom_nx_config_unlock(void);
 meadow_configuration_t *hcom_nx_get_configuration(void);
 meadow_configuration_t *hcom_nx_read_configuration_file(void);
 

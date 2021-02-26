@@ -58,9 +58,4 @@ int meadow_config_find_value_from_key(const char *fileName, const char *sectionN
     char returnValueBuf[], int returnBufLen);
 int hcom_nx_common_utils_calculate_serial_numb(uint8_t mcu6ByteSerialNumb[], char mcu12CharSerialNumb[]);
 
-void hcom_nx_config_lock(meadow_configuration_t *);
-void hcom_nx_config_unlock(meadow_configuration_t *);
-meadow_configuration_t *hcom_nx_get_configuration(void);
-meadow_configuration_t *hcom_nx_read_configuration_file(void);
-
 #endif  // __INCLUDE_HCOM_NUTTX_SHARED__H

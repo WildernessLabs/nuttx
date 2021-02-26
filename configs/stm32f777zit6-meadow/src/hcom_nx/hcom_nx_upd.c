@@ -166,6 +166,7 @@ static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
   int ret;
   bool retBool;
   int  retInt;
+  int length;
   struct hcom_nx_upd_register_value *register_val;
   struct hcom_nx_upd_register_update *register_update;
   struct hcom_nx_upd_bbr_value *bbr_val;
@@ -292,11 +293,8 @@ static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
     return ret;
 
   case HCOM_NX_UPD_GET_CONFIG:
-    ret = hcom_nx_copy_config_for_user_mode((meadow_configuration_t *) arg);
-    return ret;
-
-  case HCOM_NX_UPD_GET_STRING:
-    ret = hcom_nx_copy_string((hcom_nx_get_string_t *) arg);
+    length = *((int *) arg);
+    ret = hcom_nx_copy_config_for_user_mode((uint8_t *) arg, length);
     return ret;
 
   // Note: Two classes of GPIO. One operational and the other diagnostic

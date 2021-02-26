@@ -42,6 +42,7 @@
 #include <meadow/hcom_nuttx_shared.h>
 #include "../espcp/espcp_coprocessor.h"
 #include <assert.h>
+#include "hcom_nx_config_manager.h"
 
 #if defined (CONFIG_FS_PROCFS)
 #include "stm32f777zit6-meadow.h"
@@ -88,9 +89,10 @@ int hcom_nx_setup_mgr(FAR struct mtd_dev_s *mtd)
 #endif
 
   //
-  //  Read the configuration file.
+  //  Initialise the configuration system.
   //
-  meadow_configuration_t *config = hcom_nx_read_configuration_file();
+  hcom_nx_config_init();
+  meadow_configuration_t *config = hcom_nx_get_configuration();
   if (config == NULL)
   {
     //

@@ -186,7 +186,7 @@ void espcp_system_get_configuration_event_handler(espcp_message_t *message)
             meadow_configuration_t *meadow_configuration = hcom_nx_get_configuration();
             if (meadow_configuration != NULL)
             {
-                hcom_nx_config_lock(meadow_configuration);
+                hcom_nx_config_lock();
                 if (config->esp_config->software_version != NULL)
                 {
                     if (meadow_configuration->esp_software_version == NULL)
@@ -198,7 +198,7 @@ void espcp_system_get_configuration_event_handler(espcp_message_t *message)
                 {
                     meadow_configuration->esp_software_version = NULL;
                 }
-                hcom_nx_config_unlock(meadow_configuration);
+                hcom_nx_config_unlock();
             }
 
             espcp_config_unlock(config);

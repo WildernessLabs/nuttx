@@ -40,6 +40,7 @@
  * Included Files
  ****************************************************************************/
 #include "hcom_nx_common.h"
+
 #include <meadow/hcom_upd_shared.h>
 #include <meadow/hcom_shared_common.h>
 #include <meadow/hcom_protocol.h>
@@ -85,6 +86,10 @@ int hcom_nx_route_cli_command(struct hcom_nx_cmd_data *cmdData)
 
     case HCOM_MDOW_REQUEST_PART_RENEW_FILE_SYS:
       ret = hcom_nx_exec_ex_flash_renew_file_system(cmdData);
+      return ret;
+
+    case HCOM_MDOW_REQUEST_DEVELOPER_4:
+      ret = hcom_nx_enet_test_selector(cmdData);
       return ret;
 
     default:

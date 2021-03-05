@@ -35,6 +35,7 @@
 #ifndef __INCLUDE_HCOM_NUTTX_SHARED__H
 #define __INCLUDE_HCOM_NUTTX_SHARED__H
 
+#include <meadow/hcom_upd_shared.h>
 // This file is for item that need to be available to Hcom and Nuttx
 
 // Update the following for each release build
@@ -55,5 +56,10 @@
 int meadow_config_find_value_from_key(const char *fileName, const char *sectionName, const char *keyName,
     char returnValueBuf[], int returnBufLen);
 int hcom_nx_common_utils_calculate_serial_numb(uint8_t mcu6ByteSerialNumb[], char mcu12CharSerialNumb[]);
+
+// #if defined(HCOM_INCLUDE_EMBEDDED_ETHERNET_TESTS)
+void hcom_nx_enet_test_selector(struct hcom_nx_cmd_data *cmdData);
+int hcom_nx_ethernet_ping_test(struct hcom_nx_cmd_data *cmdData);
+// #endif
 
 #endif  // __INCLUDE_HCOM_NUTTX_SHARED__H

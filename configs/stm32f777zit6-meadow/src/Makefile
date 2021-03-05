@@ -87,7 +87,9 @@ hcom_nx/hcom_nx_upd_route_cmd.c \
 hcom_nx/commands/hcom_nx_ex_flash.c \
 hcom_nx/create_fs/hcom_nx_fs.c \
 hcom_nx/create_fs/hcom_nx_fs_littlefs.c \
-hcom_nx/diag/hcom_nx_upd_diag.c
+hcom_nx/diag/hcom_nx_upd_diag.c \
+hcom_nx/tests/enet_tests/hcom_nx_enet_select_test.c \
+hcom_nx/tests/enet_tests/hcom_nx_enet_ping_test.c
 
 ifeq ($(CONFIG_MEADOW_ESPCP_MANAGER),y)
 CSRCS += espcp/espcp_thread.c \

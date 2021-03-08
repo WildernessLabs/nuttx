@@ -358,6 +358,13 @@ struct espcp_event_data_s
 };
 typedef struct espcp_event_data_s espcp_event_data_t;
 
+struct espcp_set_antenna_request_s
+{
+    uint8_t antenna;
+    uint8_t persist;
+};
+typedef struct espcp_set_antenna_request_s espcp_set_antenna_request_t;
+
 
 /*
  *      Encoding methods for the ESP32 SPI communications layer.
@@ -517,6 +524,9 @@ espcp_get_sock_name_response_t *espcp_extract_get_sock_name_response(uint8_t *);
 void espcp_encode_event_data(espcp_event_data_t *, uint8_t *);
 int espcp_event_data_buffer_size(espcp_event_data_t *);
 espcp_event_data_t *espcp_extract_event_data(uint8_t *);
+void espcp_encode_set_antenna_request(espcp_set_antenna_request_t *, uint8_t *);
+int espcp_set_antenna_request_buffer_size(espcp_set_antenna_request_t *);
+espcp_set_antenna_request_t *espcp_extract_set_antenna_request(uint8_t *);
 
 
 #endif /* _ESPCP_ENCODERS_H */

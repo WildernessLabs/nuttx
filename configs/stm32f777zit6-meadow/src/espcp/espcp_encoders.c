@@ -4061,4 +4061,81 @@ espcp_event_data_t *espcp_extract_event_data(uint8_t *buffer)
     return(event_data);
 }
 
+/****************************************************************************
+* Name: espcp_encode_set_antenna_request
+*
+* Description:
+*  Convert the espcp_set_antenna_request_t object into a byte stream that can 
+*  be sent to the ESP32.
+*
+* Input Parameters:
+*  set_antenna_request - object to be encoded.
+*
+* Returned Value:
+*  None
+*
+* Assumptions/Limitations:
+*  None
+*
+****************************************************************************/
+void espcp_encode_set_antenna_request(espcp_set_antenna_request_t *set_antenna_request, uint8_t *buffer)
+{
+    *buffer = set_antenna_request->antenna;
+    buffer += 1;
+    *buffer = set_antenna_request->persist;
+}
+
+/****************************************************************************
+* Name: espcp_encoded_espcp_set_antenna_request_t_buffer_size
+*
+* Description:
+*  Calculate the amount of memory needed to store and encoded version of an
+*  espcp_espcp_set_antenna_request_t_t object.
+*
+* Input Parameters:
+*  espcp_set_antenna_request_t - espcp_espcp_set_antenna_request_t_t object to be encoded.
+*
+* Returned Value:
+*  Number of bytes required to hold the encoded espcp_espcp_set_antenna_request_t_t object.
+*
+* Assumptions/Limitations:
+*  None
+*
+****************************************************************************/
+int espcp_set_antenna_request_buffer_size(espcp_set_antenna_request_t *set_antenna_request)
+{
+    return(2);
+}
+
+/****************************************************************************
+* Name: espcp_extract_set_antenna_request
+ *  
+* Description:
+*  Extract the espcp_set_antenna_request_ object that is
+*  encoded in the given buffer.
+*  
+*  Note that the returned pointer points to a block of memory on the heap and
+*  this should eventually be released calling free(...).
+*  
+* Input Parameters:
+*  set_antenna_request - pointer to the buffer containing the encoded
+*  espcp_set_antenna_request_t object.
+*
+* Returned Value:
+*  Pointer to the extracted espcp_set_antenna_request_t object.
+*
+* Assumptions/Limitations:
+*  None
+*
+****************************************************************************/
+espcp_set_antenna_request_t *espcp_extract_set_antenna_request(uint8_t *buffer)
+{
+    espcp_set_antenna_request_t *set_antenna_request = (espcp_set_antenna_request_t *) malloc(sizeof(espcp_set_antenna_request_t));
+
+    set_antenna_request->antenna = *buffer;
+    buffer += 1;
+    set_antenna_request->persist = *buffer;
+    return(set_antenna_request);
+}
+
 

@@ -630,6 +630,7 @@ int espcp_usrsock_bind(struct socket *psock, const struct sockaddr *addr, sockle
     espcp_sock_addr_t *sockAddr = (espcp_sock_addr_t *) malloc(sizeof(espcp_sock_addr_t));
     if (sockAddr == NULL)
     {
+        errno = ENOMEM;
         return(-1);
     }
     sockAddr->family = sin->sin_family;
@@ -640,6 +641,7 @@ int espcp_usrsock_bind(struct socket *psock, const struct sockaddr *addr, sockle
     if (encodedSockAddr == NULL)
     {
         free(sockAddr);
+        errno = ENOMEM;
         return(-1);
     }
     espcp_encode_sock_addr(sockAddr, encodedSockAddr);
@@ -649,6 +651,7 @@ int espcp_usrsock_bind(struct socket *psock, const struct sockaddr *addr, sockle
     if (request == NULL)
     {
         free(encodedSockAddr);
+        errno = ENOMEM;
         return(-1);
     }
     request->socket_handle = psock->s_esp32_sockfd;
@@ -659,6 +662,7 @@ int espcp_usrsock_bind(struct socket *psock, const struct sockaddr *addr, sockle
     uint8_t *payload = (uint8_t *) malloc(payload_length);
     if (payload == NULL)
     {
+        errno = ENOMEM;
         free(encodedSockAddr);
         free(request);
         return(-1);
@@ -672,13 +676,26 @@ int espcp_usrsock_bind(struct socket *psock, const struct sockaddr *addr, sockle
         message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi,
                                                espcp_wi_fi_function_bind, espcp_status_codes_completed_ok,
                                                espcp_get_next_message_id(), payload, payload_length);
-
-        if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+        if (message == NULL)
         {
-            espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
-            result = response->result;
-            errno = response->response_errno;
-            free(response);
+            errno = ENOMEM;
+        }
+        else
+        {
+            if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+            {
+                espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
+                if (response == NULL)
+                {
+                    errno = ENOMEM;
+                }
+                else
+                {
+                    result = response->result;
+                    errno = response->response_errno;
+                    free(response);
+                }
+            }
         }
     }
 

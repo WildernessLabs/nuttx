@@ -1344,7 +1344,7 @@ static int espcp_usrsock_poll_setup(struct socket *psock, struct pollfd *fds)
     espcp_poll_request_list_item_t *pr = (espcp_poll_request_list_item_t *) malloc(sizeof(espcp_poll_request_t));
     if (pr == NULL)
     {
-        free(payload);
+        espcp_delete_message_and_payload(message);
         return (-ENOMEM);
     }
     else
@@ -1358,12 +1358,19 @@ static int espcp_usrsock_poll_setup(struct socket *psock, struct pollfd *fds)
         if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
         {
             espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
-            result = response->result;
-            if (result < 0)
+            if (response == NULL)
             {
-                errno = response->response_errno;
+                result = -ENOMEM;
             }
-            free(response);
+            else
+            {
+                result = response->result;
+                if (result < 0)
+                {
+                    errno = response->response_errno;
+                }
+                free(response);
+            }
         }
         else
         {
@@ -1450,12 +1457,19 @@ static int espcp_usrsock_poll_teardown(struct socket *psock, struct pollfd *fds)
         if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
         {
             espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
-            result = response->result;
-            if (result < 0)
+            if (response == NULL)
             {
-                errno = response->response_errno;
+                result = -ENOMEM;
             }
-            free(response);
+            else
+            {
+                result = response->result;
+                if (result < 0)
+                {
+                    errno = response->response_errno;
+                }
+                free(response);
+            }
         }
 
         espcp_delete_message_and_payload(message);
@@ -1479,20 +1493,22 @@ static int espcp_usrsock_poll_teardown(struct socket *psock, struct pollfd *fds)
 void espcp_usrsock_poll_interrupt_handler(espcp_message_t *message)
 {
     espcp_interrupt_poll_response_t *ipr = espcp_extract_interrupt_poll_response(message->payload);
-
-    sem_wait(&_espcp_poll_requests_mutex);
-    espcp_poll_request_list_item_t *pr = (espcp_poll_request_list_item_t *) gl_remove_item(_espcp_poll_requests, 
-                                                ipr->setup_message_id, espcp_usrsock_poll_request_compare_message_id);
-    sem_post(&_espcp_poll_requests_mutex);
-    if (pr != NULL)
+    if (ipr != NULL)
     {
-        pr->fd->revents = ipr->returned_events;
-        errno = ipr->response_errno;
-        nxsem_post(pr->fd->sem);
-        free(pr);
+        sem_wait(&_espcp_poll_requests_mutex);
+        espcp_poll_request_list_item_t *pr = (espcp_poll_request_list_item_t *) gl_remove_item(_espcp_poll_requests, 
+                                                    ipr->setup_message_id, espcp_usrsock_poll_request_compare_message_id);
+        sem_post(&_espcp_poll_requests_mutex);
+        if (pr != NULL)
+        {
+            pr->fd->revents = ipr->returned_events;
+            errno = ipr->response_errno;
+            nxsem_post(pr->fd->sem);
+            free(pr);
+        }
+        free(ipr);
+        espcp_delete_message_and_payload(message);
     }
-    free(ipr);
-    espcp_delete_message_and_payload(message);
 }
 
 /****************************************************************************
@@ -1555,17 +1571,24 @@ static int espcp_usrsock_direct_poll(struct socket *psock, struct pollfd *fds)
     if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
     {
         espcp_poll_response_t *response = espcp_extract_poll_response(message->payload);
-        result = response->result;
-        if (result < 0)
+        if (response == NULL)
         {
-            errno = response->response_errno;
+            result = -ENOMEM;
         }
-        fds->revents = response->returned_events;
-        if (fds->revents != 0)
+        else
         {
-            nxsem_post(fds->sem);
+            result = response->result;
+            if (result < 0)
+            {
+                errno = response->response_errno;
+            }
+            fds->revents = response->returned_events;
+            if (fds->revents != 0)
+            {
+                nxsem_post(fds->sem);
+            }
+            free(response);
         }
-        free(response);
     }
 
     espcp_delete_message_and_payload(message);

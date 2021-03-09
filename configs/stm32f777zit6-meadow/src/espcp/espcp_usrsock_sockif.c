@@ -1768,11 +1768,16 @@ ssize_t espcp_usrsock_recvfrom(struct socket *psock, void *buffer, size_t len,
                 nextBlock += amount;
                 gettingData = ((amountRemaining > 0) && (request->length == result));
                 free(response->buffer);
+                response->buffer = NULL;
                 result = totalAmount;
             }
             else
             {
                 gettingData = false;
+            }
+            if (response->buffer != NULL)
+            {
+                free(response->buffer);
             }
             free(response);
         }
@@ -1971,10 +1976,12 @@ int espcp_usrsock_setsockopt(struct socket *psock, int level, int option,
         return(-1);
     }
 
-    int32_t result = -1;
-    espcp_message_t *message = NULL;
-
     espcp_set_sock_opt_request_t *request = (espcp_set_sock_opt_request_t *) malloc(sizeof(espcp_set_sock_opt_request_t));
+    if (request == NULL)
+    {
+        errno = ENOMEM;
+        return(-1);
+    }
     memset(request, 0, sizeof(espcp_set_sock_opt_request_t));
     espcp_time_val_t *tv;
     bool processRequest = true;
@@ -1983,6 +1990,12 @@ int espcp_usrsock_setsockopt(struct socket *psock, int level, int option,
         case SO_SNDTIMEO:
         case SO_RCVTIMEO:
             tv = (espcp_time_val_t *) malloc(sizeof(espcp_time_val_t));
+            if (tv == NULL)
+            {
+                free(request);
+                errno = ENOMEM;
+                return (-1);
+            }
             memset(tv, 0, sizeof(espcp_time_val_t));
             struct timeval *ov = (struct timeval *) value;
             tv->tv_sec = ov->tv_sec;
@@ -1998,6 +2011,7 @@ int espcp_usrsock_setsockopt(struct socket *psock, int level, int option,
             else
             {
                 free(request);
+                errno = ENOMEM;
                 return (-1);
             }
             break;
@@ -2017,10 +2031,14 @@ int espcp_usrsock_setsockopt(struct socket *psock, int level, int option,
             else
             {
                 free(request);
+                errno = ENOMEM;
                 return (-1);
             }
             break;
     }
+
+    int32_t result = -1;
+    espcp_message_t *message = NULL;
     if (processRequest)
     {
         request->socket_handle = psock->s_esp32_sockfd;
@@ -2033,6 +2051,7 @@ int espcp_usrsock_setsockopt(struct socket *psock, int level, int option,
         {
             free(request->option_value);
             free(request);
+            errno = ENOMEM;
         }
         else
         {
@@ -2043,18 +2062,33 @@ int espcp_usrsock_setsockopt(struct socket *psock, int level, int option,
             message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi,
                                                 espcp_wi_fi_function_set_sock_opt, espcp_status_codes_completed_ok,
                                                 espcp_get_next_message_id(), payload, payload_length);
-
-            if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+            if (message == NULL)
             {
-                espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
-                errno = response->response_errno;
-                result = response->result;
-                if (errno == ENOPROTOOPT)
+                free(payload);
+                errno = ENOMEM;
+            }
+            else
+            {
+                if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
                 {
-                    errno = 0;
-                    result = 0;
+                    espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
+                    if (response == NULL)
+                    {
+                        errno = ENOMEM;
+                        result = -1;
+                    }
+                    else
+                    {
+                        errno = response->response_errno;
+                        result = response->result;
+                        if (errno == ENOPROTOOPT)
+                        {
+                            errno = 0;
+                            result = 0;
+                        }
+                        free(response);
+                    }
                 }
-                free(response);
             }
         }
     }

@@ -2240,17 +2240,15 @@ int32_t espcp_usrsock_read(struct socket *psock, const void *buffer, size_t coun
         return(-1);
     }
 
-    int32_t result = -1;
-    espcp_message_t *message = NULL;
-
     if ((buffer == NULL) || (count > MAXIMUM_READ_WRITE_BUFFER_SIZE))
     {
-        return (-1);
+        return(-1);
     }
 
     espcp_read_request_t *request = (espcp_read_request_t *) malloc(sizeof(espcp_read_request_t));
     if (request == NULL)
     {
+        errno = ENOMEM;
         return(-1);
     }
     request->socket_handle = psock->s_esp32_sockfd;
@@ -2258,9 +2256,13 @@ int32_t espcp_usrsock_read(struct socket *psock, const void *buffer, size_t coun
 
     int payload_length = espcp_read_request_buffer_size(request);
     uint8_t *payload = (uint8_t *) malloc(payload_length);
+    int32_t result = -1;
+    espcp_message_t *message = NULL;
+    errno = 0;
     if (payload == NULL)
     {
         free(request);
+        errno = ENOMEM;
     }
     else
     {
@@ -2271,17 +2273,31 @@ int32_t espcp_usrsock_read(struct socket *psock, const void *buffer, size_t coun
                                                espcp_wi_fi_function_read, espcp_status_codes_completed_ok,
                                                espcp_get_next_message_id(), payload, payload_length);
 
-        if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+        if (message == NULL)
         {
-            espcp_read_response_t *response = espcp_extract_read_response(message->payload);
-            if (response->buffer_length > 0)
+            errno = ENOMEM;
+        }
+        else
+        {
+            if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
             {
-                memcpy((void *) buffer, response->buffer, response->buffer_length);
-                free(response->buffer);
+                espcp_read_response_t *response = espcp_extract_read_response(message->payload);
+                if (response == NULL)
+                {
+                    errno = ENOMEM;
+                }
+                else
+                {
+                    if (response->buffer_length > 0)
+                    {
+                        memcpy((void *) buffer, response->buffer, response->buffer_length);
+                        free(response->buffer);
+                    }
+                    errno = response->read_response_errno;
+                    result = response->read_response_result;
+                    free(response);
+                }
             }
-            errno = response->read_response_errno;
-            result = response->read_response_result;
-            free(response);
         }
     }
 

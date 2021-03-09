@@ -2182,18 +2182,27 @@ int espcp_usrsock_socket(int domain, int type, int protocol, struct socket *psoc
         free(payload);
         return (-ENOMEM);
     }
-
-    if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+    else
     {
-        espcp_integer_response_t *response = espcp_extract_integer_response(message->payload);
-        result = response->result;
-        free(response);
+        if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+        {
+            espcp_integer_response_t *response = espcp_extract_integer_response(message->payload);
+            if (response == NULL)
+            {
+                result = -ENOMEM;
+            }
+            else
+            {
+                result = response->result;
+                free(response);
+                psock->s_domain = domain;
+                psock->s_type = type;
+                psock->s_esp32_sockfd = result;
+            }
+        }
     }
 
     espcp_delete_message_and_payload(message);
-    psock->s_domain = domain;
-    psock->s_type = type;
-    psock->s_esp32_sockfd = result;
     return (result);
 }
 

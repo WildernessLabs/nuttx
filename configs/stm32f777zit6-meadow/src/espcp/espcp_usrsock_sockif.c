@@ -1236,6 +1236,7 @@ int espcp_usrsock_listen(struct socket *psock, int backlog)
     espcp_listen_request_t *request = (espcp_listen_request_t *) malloc(sizeof(espcp_listen_request_t));
     if (request == NULL)
     {
+        errno = -ENOMEM;
         return(-1);
     }
     request->socket_handle = psock->s_esp32_sockfd;
@@ -1245,6 +1246,7 @@ int espcp_usrsock_listen(struct socket *psock, int backlog)
     uint8_t *payload = (uint8_t *) malloc(payload_length);
     if (payload == NULL)
     {
+        errno = -ENOMEM;
         free(request);
     }
     else
@@ -1255,13 +1257,26 @@ int espcp_usrsock_listen(struct socket *psock, int backlog)
         message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi,
                                                espcp_wi_fi_function_listen, espcp_status_codes_completed_ok,
                                                espcp_get_next_message_id(), payload, payload_length);
-
-        if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+        if (message == NULL)
         {
-            espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
-            result = response->result;
-            errno = response->response_errno;
-            free(response);
+            errno = -ENOMEM;
+        }
+        else
+        {
+            if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+            {
+                espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
+                if (response == NULL)
+                {
+                    errno = -ENOMEM;
+                }
+                else
+                {
+                    result = response->result;
+                    errno = response->response_errno;
+                    free(response);
+                }
+            }
         }
     }
 

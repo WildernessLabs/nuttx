@@ -1107,6 +1107,7 @@ int espcp_usrsock_ioctl(struct socket *psock, int cmd, void *arg, size_t arglen)
             espcp_ioctl_request_t *request = (espcp_ioctl_request_t *) malloc(sizeof(espcp_ioctl_request_t));
             if (request == NULL)
             {
+                errno = ENOMEM;
                 return(-1);
             }
             request->command = cmd;
@@ -1125,7 +1126,12 @@ int espcp_usrsock_ioctl(struct socket *psock, int cmd, void *arg, size_t arglen)
                 message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi,
                                                     espcp_wi_fi_function_ioctl, espcp_status_codes_completed_ok,
                                                     espcp_get_next_message_id(), payload, payload_length);
-
+                if (message == NULL)
+                {
+                    free(payload);
+                    errno = ENOMEM;
+                    return(-1);
+                }
                 if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
                 {
                     espcp_ioctl_response_t *response = espcp_extract_ioctl_response(message->payload);
@@ -1148,9 +1154,16 @@ int espcp_usrsock_ioctl(struct socket *psock, int cmd, void *arg, size_t arglen)
                                     sai.sin_family = AF_INET;
                                     sai.sin_port = 0;
                                     espcp_sock_addr_t *sockAddr = espcp_extract_sock_addr(response->addr);
-                                    sai.sin_addr.s_addr = sockAddr->ip4_address;
-                                    free(sockAddr);
-                                    memcpy(&ifr->ifr_ifru.ifru_addr, &sai, sizeof(struct sockaddr));
+                                    if (sockAddr == NULL)
+                                    {
+                                        errno = ENOMEM;
+                                    }
+                                    else
+                                    {
+                                        sai.sin_addr.s_addr = sockAddr->ip4_address;
+                                        free(sockAddr);
+                                        memcpy(&ifr->ifr_ifru.ifru_addr, &sai, sizeof(struct sockaddr));
+                                    }
                                 }
                                 break;
                             case SIOCGIFFLAGS:
@@ -1181,6 +1194,7 @@ int espcp_usrsock_ioctl(struct socket *psock, int cmd, void *arg, size_t arglen)
         result = -1;
     }
 
+    espcp_delete_message_and_payload(message);
     return (result);
 }
 

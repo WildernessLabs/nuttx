@@ -853,13 +853,26 @@ int espcp_usrsock_connect(struct socket *psock, const struct sockaddr *addr, soc
         message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi,
                                                espcp_wi_fi_function_connect, espcp_status_codes_completed_ok,
                                                espcp_get_next_message_id(), payload, payload_length);
-
-        if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+        if (message != NULL)
         {
-            espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
-            result = response->result;
-            errno = response->response_errno;
-            free(response);
+            errno = ENOMEM;
+        }
+        else
+        {
+            if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+            {
+                espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
+                if (response == NULL)
+                {
+                    errno = ENOMEM;
+                }
+                else
+                {
+                    result = response->result;
+                    errno = response->response_errno;
+                    free(response);
+                }
+            }
         }
     }
 

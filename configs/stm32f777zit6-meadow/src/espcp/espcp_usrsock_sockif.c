@@ -756,12 +756,25 @@ int espcp_usrsock_close(struct socket *psock)
         message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi,
                                                espcp_wi_fi_function_close, espcp_status_codes_completed_ok,
                                                espcp_get_next_message_id(), payload, payload_length);
-
-        if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+        if (message == NULL)
         {
-            espcp_integer_response_t *response = espcp_extract_integer_response(message->payload);
-            result = response->result;
-            free(response);
+            errno = ENOMEM;
+        }
+        else
+        {
+            if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+            {
+                espcp_integer_response_t *response = espcp_extract_integer_response(message->payload);
+                if (response == NULL)
+                {
+                    errno = ENOMEM;
+                }
+                else
+                {
+                    result = response->result;
+                    free(response);
+                }
+            }
         }
     }
 

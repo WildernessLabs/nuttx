@@ -533,31 +533,52 @@ int espcp_usrsock_accept(struct socket *psock, struct sockaddr *addr, socklen_t 
         message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi,
                                                espcp_wi_fi_function_accept, espcp_status_codes_completed_ok,
                                                espcp_get_next_message_id(), payload, payload_length);
-
-        if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+        if (message == NULL)
         {
-            espcp_accept_response_t *response = espcp_extract_accept_response(message->payload);
-            result = response->result;
-            if (result > 0)
+            free(payload);
+            result = -ENOMEM;
+        }
+        else
+        {
+            if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
             {
-                newsock->s_esp32_sockfd = result;
-                newsock->s_domain = psock->s_domain;
-                newsock->s_type = psock->s_type;
-                newsock->s_sockif = psock->s_sockif;
-                espcp_sock_addr_t *sockAddr = espcp_extract_sock_addr(response->addr);
-                if ((addr != NULL) && (addrlen != NULL))
+                espcp_accept_response_t *response = espcp_extract_accept_response(message->payload);
+                if (response == NULL)
                 {
-                    struct sockaddr_in sai = {};
-                    sai.sin_family = sockAddr->family;
-                    memcpy(&sai.sin_addr, &sockAddr->ip4_address, sizeof(sai.sin_addr));
-                    sai.sin_port = sockAddr->port;
-                    int copyAmount = (sizeof(struct sockaddr_in) <= *addrlen) ? sizeof(struct sockaddr_in) : *addrlen;
-                    memcpy(addr, &sai, copyAmount);
-                    *addrlen = sizeof(struct sockaddr);
+                    result = -ENOMEM;
                 }
-                free(sockAddr);
+                else
+                {
+                    result = response->result;
+                    if (result > 0)
+                    {
+                        newsock->s_esp32_sockfd = result;
+                        newsock->s_domain = psock->s_domain;
+                        newsock->s_type = psock->s_type;
+                        newsock->s_sockif = psock->s_sockif;
+                        espcp_sock_addr_t *sockAddr = espcp_extract_sock_addr(response->addr);
+                        if (sockAddr == NULL)
+                        {
+                            result = -ENOMEM;
+                        }
+                        else
+                        {
+                            if ((addr != NULL) && (addrlen != NULL))
+                            {
+                                struct sockaddr_in sai = {};
+                                sai.sin_family = sockAddr->family;
+                                memcpy(&sai.sin_addr, &sockAddr->ip4_address, sizeof(sai.sin_addr));
+                                sai.sin_port = sockAddr->port;
+                                int copyAmount = (sizeof(struct sockaddr_in) <= *addrlen) ? sizeof(struct sockaddr_in) : *addrlen;
+                                memcpy(addr, &sai, copyAmount);
+                                *addrlen = sizeof(struct sockaddr);
+                            }
+                            free(sockAddr);
+                        }
+                    }
+                    free(response);
+                }
             }
-            free(response);
         }
     }
 

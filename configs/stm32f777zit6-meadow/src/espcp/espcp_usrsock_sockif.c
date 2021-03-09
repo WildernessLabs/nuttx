@@ -369,13 +369,24 @@ static ssize_t espcp_usrsock_sockif_send(struct socket *psock, const void *buffe
         message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi,
                                                espcp_wi_fi_function_send, espcp_status_codes_completed_ok,
                                                espcp_get_next_message_id(), payload, payload_length);
-
+        if (message == NULL)
+        {
+            free(payload);
+            return(-ENOMEM);
+        }
         if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
         {
             espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
-            errno = response->response_errno;
-            result = response->result;
-            free(response);
+            if (response == NULL)
+            {
+                result = -ENOMEM;
+            }
+            else
+            {
+                errno = response->response_errno;
+                result = response->result;
+                free(response);
+            }
         }
     }
 

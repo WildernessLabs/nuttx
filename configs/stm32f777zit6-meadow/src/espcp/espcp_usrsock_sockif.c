@@ -1685,9 +1685,6 @@ ssize_t espcp_usrsock_recvfrom(struct socket *psock, void *buffer, size_t len,
         return(-1);
     }
 
-    int32_t result = -1;
-    espcp_message_t *message = NULL;
-
     espcp_recv_from_request_t *request = (espcp_recv_from_request_t *) malloc(sizeof(espcp_recv_from_request_t));
     if (request == NULL)
     {
@@ -1699,6 +1696,8 @@ ssize_t espcp_usrsock_recvfrom(struct socket *psock, void *buffer, size_t len,
     request->flags = flags;
     request->get_source_address = (from != NULL);
 
+    int32_t result = -1;
+    espcp_message_t *message = NULL;
     void *nextBlock = buffer;
     int totalAmount = 0;
     int amountRemaining = len;
@@ -1724,62 +1723,91 @@ ssize_t espcp_usrsock_recvfrom(struct socket *psock, void *buffer, size_t len,
         message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi,
                                                espcp_wi_fi_function_recv_from, espcp_status_codes_completed_ok,
                                                espcp_get_next_message_id(), payload, payload_length);
-
-        if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+        if (message == NULL)
         {
-            espcp_recv_from_response_t *response = espcp_extract_recv_from_response(message->payload);
-            errno = response->response_errno;
-            result = response->result;
-
-            int amount = 0;
-            if (result > 0)
+            free(payload);
+            errno == ENOMEM;
+            gettingData = false;
+        }
+        else
+        {
+            if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
             {
-                if ((totalAmount == 0) && (from != NULL))       /* We only do this the first time. */
+                espcp_recv_from_response_t *response = espcp_extract_recv_from_response(message->payload);
+                if (response == NULL)
                 {
-                    espcp_sock_addr_t *sa = espcp_extract_sock_addr(response->source_address);
-                    struct sockaddr_in sin;
-                    sin.sin_family = sa->family;
-                    sin.sin_port = sa->port;
-                    memcpy(&sin.sin_addr, &sa->ip4_address, sizeof(sin.sin_addr));
-                    if (*fromlen > (sizeof(struct sockaddr_in)))
-                    {                                                
-                        amount = sizeof(struct sockaddr);
-                    }
-                    else
-                    {
-                        amount = *fromlen;
-                    }
-                    *fromlen = amount;
-                    memcpy(from, &sin, amount);
-                    free(sa);
-                    request->get_source_address = false;
-                }
-                if (amountRemaining > response->result)
-                {
-                    amount = response->result;
+                    free(payload);
+                    errno == ENOMEM;
+                    gettingData = false;
                 }
                 else
                 {
-                    amount = amountRemaining;
+                    errno = response->response_errno;
+                    result = response->result;
+
+                    int amount = 0;
+                    if (result > 0)
+                    {
+                        if ((totalAmount == 0) && (from != NULL))       /* We only do this the first time. */
+                        {
+                            espcp_sock_addr_t *sa = espcp_extract_sock_addr(response->source_address);
+                            if (sa == NULL)
+                            {
+                                free(payload);
+                                errno = ENOMEM;
+                                gettingData = false;
+                            }
+                            else
+                            {
+                                struct sockaddr_in sin;
+                                sin.sin_family = sa->family;
+                                sin.sin_port = sa->port;
+                                memcpy(&sin.sin_addr, &sa->ip4_address, sizeof(sin.sin_addr));
+                                if (*fromlen > (sizeof(struct sockaddr_in)))
+                                {                                                
+                                    amount = sizeof(struct sockaddr);
+                                }
+                                else
+                                {
+                                    amount = *fromlen;
+                                }
+                                *fromlen = amount;
+                                memcpy(from, &sin, amount);
+                                free(sa);
+                                request->get_source_address = false;
+                            }
+                        }
+                        if (gettingData)    // Could have been set to false in the above condition indicating an error.
+                        {
+                            if (amountRemaining > response->result)
+                            {
+                                amount = response->result;
+                            }
+                            else
+                            {
+                                amount = amountRemaining;
+                            }
+                            memcpy(nextBlock, response->buffer, amount);
+                            totalAmount += amount;
+                            amountRemaining -= amount;
+                            nextBlock += amount;
+                            gettingData = ((amountRemaining > 0) && (request->length == result));
+                            free(response->buffer);
+                            response->buffer = NULL;
+                            result = totalAmount;
+                        }
+                    }
+                    else
+                    {
+                        gettingData = false;
+                    }
+                    if (response->buffer != NULL)
+                    {
+                        free(response->buffer);
+                    }
+                    free(response);
                 }
-                memcpy(nextBlock, response->buffer, amount);
-                totalAmount += amount;
-                amountRemaining -= amount;
-                nextBlock += amount;
-                gettingData = ((amountRemaining > 0) && (request->length == result));
-                free(response->buffer);
-                response->buffer = NULL;
-                result = totalAmount;
             }
-            else
-            {
-                gettingData = false;
-            }
-            if (response->buffer != NULL)
-            {
-                free(response->buffer);
-            }
-            free(response);
         }
     }
 

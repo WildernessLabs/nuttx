@@ -1848,9 +1848,6 @@ ssize_t espcp_usrsock_sendto(struct socket *psock, const void *buffer,
         return(-1);
     }
 
-    int32_t result = -1;
-    espcp_message_t *message = NULL;
-
     espcp_sock_addr_t *sa;
     uint8_t *encodedSockAddr;
     int encodedSockAddrLen;
@@ -1859,6 +1856,7 @@ ssize_t espcp_usrsock_sendto(struct socket *psock, const void *buffer,
         sa = (espcp_sock_addr_t *) malloc(sizeof(espcp_sock_addr_t));
         if (sa == NULL)
         {
+            errno = ENOMEM;
             return(-1);
         }
         //
@@ -1872,6 +1870,7 @@ ssize_t espcp_usrsock_sendto(struct socket *psock, const void *buffer,
         if (encodedSockAddr == NULL)
         {
             free(sa);
+            errno = ENOMEM;
             return(-1);
         }
         espcp_encode_sock_addr(sa, encodedSockAddr);
@@ -1888,6 +1887,7 @@ ssize_t espcp_usrsock_sendto(struct socket *psock, const void *buffer,
     if (request == NULL)
     {
         free(encodedSockAddr);
+        errno = ENOMEM;
         return(-1);
     }
     request->socket_handle = psock->s_esp32_sockfd;
@@ -1899,6 +1899,8 @@ ssize_t espcp_usrsock_sendto(struct socket *psock, const void *buffer,
     int totalAmount = 0;
     int amountRemaining = len;
     bool sendingData = true;
+    int32_t result = -1;
+    espcp_message_t *message = NULL;
     while (sendingData)
     {
         if (message != NULL)
@@ -1919,33 +1921,54 @@ ssize_t espcp_usrsock_sendto(struct socket *psock, const void *buffer,
             }
             errno = ENOMEM;
             free(request);
-            return(-1);
         }
-        espcp_encode_send_to_request(request, payload);
-
-        message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi,
-                                               espcp_wi_fi_function_send_to, espcp_status_codes_completed_ok,
-                                               espcp_get_next_message_id(), payload, payload_length);
-        if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+        else
         {
-            espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
-            errno = response->response_errno;
-            result = response->result;
+            espcp_encode_send_to_request(request, payload);
 
-            if (result > 0)
+            message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi,
+                                                espcp_wi_fi_function_send_to, espcp_status_codes_completed_ok,
+                                                espcp_get_next_message_id(), payload, payload_length);
+            if (message == NULL)
             {
-                int amount = (amountRemaining > response->result) ? response->result : amountRemaining;
-                totalAmount += amount;
-                amountRemaining -= amount;
-                nextBlock += amount;
-                sendingData = ((amountRemaining > 0) && (request->length == result));
-                result = totalAmount;
+                free(payload);
+                free(request);
+                errno = ENOMEM;
             }
             else
             {
-                sendingData = false;
+                if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+                {
+                    espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
+                    if (response == NULL)
+                    {
+                        free(payload);
+                        free(request);
+                        free(message);
+                        errno = ENOMEM;
+                    }
+                    else
+                    {
+                        errno = response->response_errno;
+                        result = response->result;
+
+                        if (result > 0)
+                        {
+                            int amount = (amountRemaining > response->result) ? response->result : amountRemaining;
+                            totalAmount += amount;
+                            amountRemaining -= amount;
+                            nextBlock += amount;
+                            sendingData = ((amountRemaining > 0) && (request->length == result));
+                            result = totalAmount;
+                        }
+                        else
+                        {
+                            sendingData = false;
+                        }
+                        free(response);
+                    }
+                }
             }
-            free(response);
         }
     }
 

@@ -650,10 +650,14 @@ syslog(2, "Entered hcom_nx_ethernet_ping_test(%d)\n", userData);
   switch (userData)
   {
     case 0:
-      info.hostname = "192.168.2.81";
+      info.hostname = "127.0.0.1";
     break;
 
     case 1:
+      info.hostname = "192.168.2.81";
+    break;
+
+    case 2:
       info.hostname = "google.com";
     break;
 

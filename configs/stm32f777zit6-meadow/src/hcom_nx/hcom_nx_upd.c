@@ -234,6 +234,9 @@ static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 
   case HCOM_NX_UPD_START_ESPCP_RUNNING:
   {
+    // Added to allow configuration without usrsock
+    #if defined(CONFIG_NET) && defined(CONFIG_NET_USRSOCK)
+
     // Start the ESP32 coprocessor.
     ret = espcp_init();
     if(ret != OK)
@@ -250,6 +253,7 @@ static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
     }
 
     usrsock_register_sockif(&g_usrsock_sockif_esp32);
+    #endif
     return OK;
   }
 #endif

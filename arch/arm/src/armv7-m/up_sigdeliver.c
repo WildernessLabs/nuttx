@@ -93,9 +93,9 @@ void up_sigdeliver(void)
   int index = rtcb->xcp.nsignals;
   board_autoled_on(LED_SIGNAL);
 
-  sinfo("rtcb=%p sigdeliver=%p sigpendactionq.head=%p\n",
-        rtcb, rtcb->xcp.[index].sigdeliver, rtcb->sigpendactionq.head);
   DEBUGASSERT(rtcb->xcp.signal[index].sigdeliver != NULL);
+  sinfo("rtcb=%p sigdeliver=%p sigpendactionq.head=%p\n",
+        rtcb, rtcb->xcp.signal[index].sigdeliver, rtcb->sigpendactionq.head);
 
   /* Save the return state on the stack. */
 

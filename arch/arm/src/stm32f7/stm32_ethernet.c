@@ -3636,13 +3636,13 @@ static inline void stm32_ethgpioconfig(struct stm32_ethmac_s *priv)
    * RMII_REF_CLK
    */
 
-  stm32_configgpio(GPIO_ETH_RMII_CRS_DV);
-  stm32_configgpio(GPIO_ETH_RMII_REF_CLK);
-  stm32_configgpio(GPIO_ETH_RMII_RXD0);
-  stm32_configgpio(GPIO_ETH_RMII_RXD1);
-  stm32_configgpio(GPIO_ETH_RMII_TXD0);
-  stm32_configgpio(GPIO_ETH_RMII_TXD1);
-  stm32_configgpio(GPIO_ETH_RMII_TX_EN);
+  stm32_configgpio(GPIO_ETH_RMII_CRS_DV);   // PA7 
+  stm32_configgpio(GPIO_ETH_RMII_REF_CLK);  // PA1 
+  stm32_configgpio(GPIO_ETH_RMII_RXD0);     // PC4 
+  stm32_configgpio(GPIO_ETH_RMII_RXD1);     // PC5 
+  stm32_configgpio(GPIO_ETH_RMII_TXD0);     // PG13
+  stm32_configgpio(GPIO_ETH_RMII_TXD1);     // PG14
+  stm32_configgpio(GPIO_ETH_RMII_TX_EN);    // PG11
 
 #endif
 #endif

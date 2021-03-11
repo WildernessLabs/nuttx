@@ -557,6 +557,16 @@ config CDCACM_PRODUCTSTR
 	string "Product string"
 	default "CDC/ACM Serial"
 
+config CDCACM_USE_MCU_SERIAL_NUMB
+	---help---
+		Enabled will cause the MCU's serial number to be used. This is used
+		to create a build where all devices will add their unique serial number
+		to the USB communications with the host PC.
+		Disabling will set the default serial number of 0. This will mean that
+		the host PC will not create a different Comm Port for each F7.
+	bool "Use unique MCU S/N"
+	default y
+
 endif # !CDCACM_COMPOSITE
 endif # CDCACM
 

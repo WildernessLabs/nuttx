@@ -132,7 +132,7 @@ struct interruptPinMap_s
 
   // Contains the configured interrupt mode: None = 0, Rising = 1, Falling = 2 and Both = 3;
   // Note: for mode 'None' configuration is not sent from Meadow.Core.
-  uint8_t GpioInterruptMode;
+  uint8_t InputInterruptMode;
   // LastKnownGpioState - Last known GPIO state (often last reported to Meadow.Core)
   uint8_t LastKnownGpioState;    // 1 = high, 0 = low, 0xff = unknown
 
@@ -762,7 +762,7 @@ static int upd_config_interrupt_prep_timer(int stm32_timer_numb)
   struct stm32_tim_dev_s *tempTimer;
 
   // for 100 microsec
-  uint32_t frequency = STM32_APB2_TIM10_CLKIN / 100; // 1,920,000 MHz;
+  uint32_t frequency = STM32_APB2_TIM10_CLKIN / 100; // 1,920,000 Hz;
   uint32_t period = 192 - 1;
   xcpt_t isrHandler = upd_periodic_timeout_isr;
 
@@ -771,7 +771,7 @@ static int upd_config_interrupt_prep_timer(int stm32_timer_numb)
   // frequency = STM32_APB2_TIM10_CLKIN;
   // period = 192 - 1;
   // -- for 1 millisec --
-  // frequency = STM32_APB2_TIM10_CLKIN / 100; // = 1,920,000 MHz
+  // frequency = STM32_APB2_TIM10_CLKIN / 100; // = 1,920,000 Hz
   // period = 1920 - 1;                        // = 1 millisec
   
   tempTimer = stm32_tim_init(stm32_timer_numb);
@@ -877,6 +877,11 @@ int upd_config_interrupt(struct upd_gpio_int_config* cfg)
 
     // none = 0, rising = 1, falling = 2 & both = 3 (must match F7GPIOManager_interrupts.cs
     // in WireInterrupt()
+  // '00' = rising edge
+  // '01' = falling edge
+  // '10' = reserved do not use
+  // '11' = both edges
+
     gpioMapTblPtr->GpioInterruptMode = (cfg->risingEdge & 0x01) | (cfg->fallingEdge & 0x01) << 1;
 
     // cfgset contains 20-bits of data. It is required by the Nuttx stm32_gpiosetevent

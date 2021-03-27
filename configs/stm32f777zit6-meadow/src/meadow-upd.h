@@ -63,6 +63,17 @@ struct upd_gpio_int_config
   uint32_t glitchDuration;      // millisec * 10
 };
 
+struct upd_timing_config_s
+{
+  // Must match ...\Meadow\Meadow.Core\source\Meadow.Core\Interop\Interop.upd.cs
+  uint32_t port;                // 0 - 15 (A-K)
+  uint32_t pin;                 // 0 - 15
+  uint32_t enable;              // 1 = enable
+  uint32_t risingEdge;          // 1 = enable
+  uint32_t fallingEdge;         // 1 = enable
+  uint32_t resistorMode;        // 0 = float, 1 = pull up, 2 = pull down
+};
+
 // in meadow-upd-interrupt.c called from meadow-upd.c
 int upd_config_interrupt(struct upd_gpio_int_config* cfg);
 

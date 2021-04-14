@@ -80,7 +80,7 @@
 #define MEADOW_UPD_INCLUDE_DIAGNOSTIC_SYSLOG (0)    // 0 > will include
 
 // A free STM32F7 timer
-#define MEADOW_UPD_INTERRUPT_STM32F7_TIMER_NUMBER (10)
+#define MEADOW_UPD_INTERRUPT_STM32F7_TIMER_NUMBER (13)
 
 // This is the threshold any glitch duration greater than this value
 // will use milliseconds timing instead of 100 usec timing.
@@ -761,17 +761,25 @@ static int upd_config_interrupt_prep_timer(int stm32_timer_numb)
   int ret;
   struct stm32_tim_dev_s *tempTimer;
 
+  // Timers 1, 8, 9, 10 & 11 run of the APB2 clock while the others use
+  // the APB1 clock. The APB2 clock runs twice as fast as the APB1.
+  // At this time APB2 is at 192MHz and APB1 is 96MHz.
+  // See board.h CONFIG_STM32F7_OTGFS defines the actual frequencies.
+  // This is hard coded for timer 13
+  DEBUGASSERT(MEADOW_UPD_INTERRUPT_STM32F7_TIMER_NUMBER == 13);
+
   // for 100 microsec
-  uint32_t frequency = STM32_APB2_TIM10_CLKIN / 100; // 1,920,000 MHz;
+  uint32_t frequency = STM32_APB1_TIM13_CLKIN / 50;
   uint32_t period = 192 - 1;
+  
   xcpt_t isrHandler = upd_periodic_timeout_isr;
 
   // For future reference
   // -- for 1 microsec --
-  // frequency = STM32_APB2_TIM10_CLKIN;
+  // frequency = STM32_APB2_TIM10_CLKIN;      // 192MHz
   // period = 192 - 1;
   // -- for 1 millisec --
-  // frequency = STM32_APB2_TIM10_CLKIN / 100; // = 1,920,000 MHz
+  // frequency = STM32_APB2_TIM10_CLKIN / 100; // 1.92MHz
   // period = 1920 - 1;                        // = 1 millisec
   
   tempTimer = stm32_tim_init(stm32_timer_numb);

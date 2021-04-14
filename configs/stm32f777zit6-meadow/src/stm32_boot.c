@@ -70,7 +70,9 @@
 #  include "stm32_qspi.h"
 #endif
 
+// These should to be moved to a header file
 int meadow_upd_initialize(void);
+int meadow_upd_freq_measure_setup(void);
 int hcom_nx_setup_mgr(FAR struct mtd_dev_s *mtd);
 
 /************************************************************************************
@@ -297,6 +299,13 @@ void board_late_initialize(void)
   }
 #endif
 
+  // Initialize Meadow Frequency Measuring
+  ret = meadow_upd_freq_measure_setup();
+  if(ret < 0)
+  {
+    syslog(LOG_EMERG, "ERROR:meadow_upd_timing_setup failed\n");
+    PANIC();
+  }
 }
 
 //--------------------------------------------------------------

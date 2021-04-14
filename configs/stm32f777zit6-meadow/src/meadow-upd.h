@@ -66,4 +66,16 @@ struct upd_gpio_int_config
 // in meadow-upd-interrupt.c called from meadow-upd.c
 int upd_config_interrupt(struct upd_gpio_int_config* cfg);
 
+struct upd_mfreq_config_s
+{
+  uint32_t port;                // 0 - 15 (A-K)
+  uint32_t pin;                 // 0 - 15
+  uint32_t enable;              // 1 = enable
+  uint32_t risingEdge;          // 1 = enable
+  uint32_t fallingEdge;         // 1 = enable
+  uint32_t resistorMode;        // 0 = float, 1 = pull up, 2 = pull down
+};
+
+int upd_config_freq_measure(struct upd_mfreq_config_s* config);
+
 #endif  // __CONFIGS_MEADOW_SRC_MEADOW_UPD__H

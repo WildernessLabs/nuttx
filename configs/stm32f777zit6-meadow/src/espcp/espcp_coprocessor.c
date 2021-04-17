@@ -588,8 +588,10 @@ int espcp_enter_run_mode(void)
     espcp_config_unlock(config);
     syslog(LOG_CRIT, "%s@%d SPI lock released.\n", _thisFile, __LINE__);
     //
-    //  We reset the chip and then pause for 1 ms to let the ESP lines stabilise before we attach
-    //  the interrupt handlers.
+    //  We now wait for a message waiting signal from the ESP32.  There will always be a message
+    //  waiting at startup as the ESP32 will queue a configuration message for the STM32 to retrieve.
+    //  This message ready will repeat at 500ms intervals until it is collected.  The system will
+    //  enter business as usual after the initial configuration message is retrieved.
     //
     espcp_reset();
     // usleep(1000);

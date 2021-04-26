@@ -221,6 +221,31 @@
  *                                     aah, 55h)
  */
 
+/* Status register 2 bit definitions                                      */
+
+#define STATUS_2_STATUS_PROT   (1 << 0) /* Bit 0: Status Register Protect 1 */
+#define STATUS_2_TBD_00        (0 << 0) /*   0 = Not documented             */
+#define STATUS_2_TBD_01        (1 << 0) /*   1 = Not documented             */
+#define STATUS_2_QUAD_MASK     (1 << 1) /* Bit 1: Quad Enable               */
+#define STATUS_2_QUAD_DISABLED (0 << 1) /*   0 = Not in Quad Mode           */
+#define STATUS_2_QUAD_ENABLED  (1 << 1) /*   1 = In Quad Mode               */
+#define STATUS_2_RESERVED_2    (1 << 2) /* Bit 2: Reserved                  */
+#define STATUS_2_LOCK_BITS1    (1 << 3) /* Bit 3: Security Lock bit 1       */
+#define STATUS_2_LOCK_BITS1_RW (0 << 3) /*   0 = LB1 OTP Security bits R/W  */
+#define STATUS_2_LOCK_BITS1_RO (1 << 3) /*   1 = LB1     Security bits R/O  */
+#define STATUS_2_LOCK_BITS2    (1 << 4) /* Bit 4: Security Lock bit 1       */
+#define STATUS_2_LOCK_BITS2_RW (0 << 4) /*   0 = LB2 OTP Security bits R/W  */
+#define STATUS_2_LOCK_BITS2_RO (1 << 4) /*   1 = LB2     Security bits R/O  */
+#define STATUS_2_LOCK_BITS3    (1 << 5) /* Bit 5: Security Lock bit 1       */
+#define STATUS_2_LOCK_BITS3_RW (0 << 5) /*   0 = LB3 OTP Security bits R/W  */
+#define STATUS_2_LOCK_BITS3_RO (1 << 5) /*   1 = LB3     Security bits R/O  */
+#define STATUS_2_COMPLEMENT    (1 << 6) /* Bit 6: Complement Protection     */
+#define STATUS_2_TBD_60        (0 << 6) /*   0 = Not documented             */
+#define STATUS_2_TBD_61        (1 << 6) /*   1 = Not documented             */
+#define STATUS_2_SUSPEND       (1 << 7) /* Bit 7: Suspend Status (RO)       */
+#define STATUS_2_SRP_UNLOCKED  (0 << 7) /*   0 = Era/Prog resume (74h)/power cycle */
+#define STATUS_2_SUSPEND       (1 << 7) /*   1 = Era/Prog enable (75h)      */
+
 /* Chip Geometries **********************************************************/
 
 /* All members of the family support uniform 4K-byte 'sub sectors'; they also
@@ -361,8 +386,10 @@ static int  w25qxxxjv_command_write(FAR struct qspi_dev_s *qspi,
                                     uint8_t cmd,
                                     FAR const void *buffer,
                                     size_t buflen);
-static uint8_t w25qxxxjv_read_status(FAR struct w25qxxxjv_dev_s *priv);
-static void w25qxxxjv_write_status(FAR struct w25qxxxjv_dev_s *priv);
+static uint8_t w25qxxxjv_read_status_1(FAR struct w25qxxxjv_dev_s *priv);
+static void w25qxxxjv_write_status_1(FAR struct w25qxxxjv_dev_s *priv);
+static uint8_t w25qxxxjv_read_status_2(FAR struct w25qxxxjv_dev_s *priv);
+static void w25qxxxjv_write_status_2(FAR struct w25qxxxjv_dev_s *priv);
 #if 0
 static uint8_t w25qxxxjv_read_volcfg(FAR struct w25qxxxjv_dev_s *priv);
 static void w25qxxxjv_write_volcfg(FAR struct w25qxxxjv_dev_s *priv);
@@ -551,10 +578,10 @@ static int w25qxxxjv_command_write(FAR struct qspi_dev_s *qspi, uint8_t cmd,
 }
 
 /****************************************************************************
- * Name: w25qxxxjv_read_status
+ * Name: w25qxxxjv_read_status_1
  ****************************************************************************/
 
-static uint8_t w25qxxxjv_read_status(FAR struct w25qxxxjv_dev_s *priv)
+static uint8_t w25qxxxjv_read_status_1(FAR struct w25qxxxjv_dev_s *priv)
 {
   DEBUGVERIFY(w25qxxxjv_command_read(priv->qspi, W25QXXXJV_READ_STATUS_1,
                                      (FAR void *)&priv->readbuf[0], 1));
@@ -562,10 +589,10 @@ static uint8_t w25qxxxjv_read_status(FAR struct w25qxxxjv_dev_s *priv)
 }
 
 /****************************************************************************
- * Name:  w25qxxxjv_write_status
+ * Name:  w25qxxxjv_write_status_1
  ****************************************************************************/
 
-static void w25qxxxjv_write_status(FAR struct w25qxxxjv_dev_s *priv)
+static void w25qxxxjv_write_status_1(FAR struct w25qxxxjv_dev_s *priv)
 {
   w25qxxxjv_write_enable(priv);
 
@@ -579,6 +606,29 @@ static void w25qxxxjv_write_status(FAR struct w25qxxxjv_dev_s *priv)
 }
 
 /****************************************************************************
+ * Name: w25qxxxjv_read_status_2
+ ****************************************************************************/
+
+static uint8_t w25qxxxjv_read_status_2(FAR struct w25qxxxjv_dev_s *priv)
+{
+  DEBUGVERIFY(w25qxxxjv_command_read(priv->qspi, W25QXXXJV_READ_STATUS_2,
+                                     (FAR void *)&priv->readbuf[0], 1));
+  return priv->readbuf[0];
+}
+
+/****************************************************************************
+ * Name:  w25qxxxjv_write_status_2
+ ****************************************************************************/
+
+static void w25qxxxjv_write_status_2(FAR struct w25qxxxjv_dev_s *priv)
+{
+  w25qxxxjv_write_enable(priv);
+
+  w25qxxxjv_command_write(priv->qspi, W25QXXXJV_WRITE_STATUS_2,
+                       (FAR const void *)priv->cmdbuf, 1);
+  w25qxxxjv_write_disable(priv);
+}
+/****************************************************************************
  * Name:  w25qxxxjv_write_enable
  ****************************************************************************/
 
@@ -589,7 +639,7 @@ static void w25qxxxjv_write_enable(FAR struct w25qxxxjv_dev_s *priv)
   do
     {
       w25qxxxjv_command(priv->qspi, W25QXXXJV_WRITE_ENABLE);
-      status = w25qxxxjv_read_status(priv);
+      status = w25qxxxjv_read_status_1(priv);
     }
   while ((status & STATUS_WEL_MASK) != STATUS_WEL_ENABLED);
 }
@@ -605,7 +655,7 @@ static void w25qxxxjv_write_disable(FAR struct w25qxxxjv_dev_s *priv)
   do
     {
       w25qxxxjv_command(priv->qspi, W25QXXXJV_WRITE_DISABLE);
-      status = w25qxxxjv_read_status(priv);
+      status = w25qxxxjv_read_status_1(priv);
     }
   while ((status & STATUS_WEL_MASK) != STATUS_WEL_DISABLED);
 }
@@ -714,6 +764,22 @@ static inline int w25qxxxjv_readid(struct w25qxxxjv_dev_s *priv)
         return -ENODEV;
     }
 
+  /* 'M' version chips need to be put into Quad mode */
+  if(priv->cmdbuf[1] == W25QXXXJVM_JEDEC_DEVICE_TYPE)
+    {
+      /* Get the status register 2 value and check the Quad bit */
+      priv->cmdbuf[0] = w25qxxxjv_read_status_2(priv);
+      if ((priv->cmdbuf[0] & STATUS_2_QUAD_MASK) == STATUS_2_QUAD_ENABLED)
+        {
+          /* Quad already enabled */
+          return OK;
+        }
+      
+      /* Set the Quad enable bit */
+      priv->cmdbuf[0] |= STATUS_2_QUAD_ENABLED;
+      w25qxxxjv_write_status_2(priv);
+    }
+
   return OK;
 }
 
@@ -726,7 +792,7 @@ static int w25qxxxjv_protect(FAR struct w25qxxxjv_dev_s *priv,
 {
   /* Get the status register value to check the current protection */
 
-  priv->cmdbuf[0] = w25qxxxjv_read_status(priv);
+  priv->cmdbuf[0] = w25qxxxjv_read_status_1(priv);
 
   if ((priv->cmdbuf[0] & priv->protectmask) ==
                            (STATUS_BP_ALL & priv->protectmask))
@@ -739,11 +805,11 @@ static int w25qxxxjv_protect(FAR struct w25qxxxjv_dev_s *priv,
   /* set the BP bits as necessary to protect the range of sectors. */
 
   priv->cmdbuf[0] |= (STATUS_BP_ALL & priv->protectmask);
-  w25qxxxjv_write_status(priv);
+  w25qxxxjv_write_status_1(priv);
 
   /* Check the new status */
 
-  priv->cmdbuf[0] = w25qxxxjv_read_status(priv);
+  priv->cmdbuf[0] = w25qxxxjv_read_status_1(priv);
   if ((priv->cmdbuf[0] & priv->protectmask) !=
                             (STATUS_BP_ALL & priv->protectmask))
     {
@@ -762,7 +828,7 @@ static int w25qxxxjv_unprotect(FAR struct w25qxxxjv_dev_s *priv,
 {
   /* Get the status register value to check the current protection */
 
-  priv->cmdbuf[0] = w25qxxxjv_read_status(priv);
+  priv->cmdbuf[0] = w25qxxxjv_read_status_1(priv);
 
   if ((priv->cmdbuf[0] & priv->protectmask) == STATUS_BP_NONE)
     {
@@ -777,11 +843,11 @@ static int w25qxxxjv_unprotect(FAR struct w25qxxxjv_dev_s *priv,
    */
 
   priv->cmdbuf[0] &= ~priv->protectmask;
-  w25qxxxjv_write_status(priv);
+  w25qxxxjv_write_status_1(priv);
 
   /* Check the new status */
 
-  priv->cmdbuf[0] = w25qxxxjv_read_status(priv);
+  priv->cmdbuf[0] = w25qxxxjv_read_status_1(priv);
   if ((priv->cmdbuf[0] & (STATUS_SRP_MASK | priv->protectmask)) != 0)
     {
       return -EACCES;
@@ -857,7 +923,7 @@ static int w25qxxxjv_erase_sector(FAR struct w25qxxxjv_dev_s *priv,
 
   /* Check that the flash is ready and unprotected */
 
-  status = w25qxxxjv_read_status(priv);
+  status = w25qxxxjv_read_status_1(priv);
   if ((status & STATUS_BUSY_MASK) != STATUS_READY)
     {
       ferr("ERROR: Flash busy: %02x", status);
@@ -884,7 +950,7 @@ static int w25qxxxjv_erase_sector(FAR struct w25qxxxjv_dev_s *priv,
 
   /* Wait for erasure to finish */
 
-  while ((w25qxxxjv_read_status(priv) & STATUS_BUSY_MASK) != 0);
+  while ((w25qxxxjv_read_status_1(priv) & STATUS_BUSY_MASK) != 0);
 
   return OK;
 }
@@ -899,7 +965,7 @@ static int w25qxxxjv_erase_chip(FAR struct w25qxxxjv_dev_s *priv)
 
   /* Check if the FLASH is protected */
 
-  status = w25qxxxjv_read_status(priv);
+  status = w25qxxxjv_read_status_1(priv);
   if ((status & priv->protectmask) != 0)
     {
       ferr("ERROR: FLASH is Protected: %02x", status);
@@ -913,11 +979,11 @@ static int w25qxxxjv_erase_chip(FAR struct w25qxxxjv_dev_s *priv)
 
   /* Wait for the erasure to complete */
 
-  status = w25qxxxjv_read_status(priv);
+  status = w25qxxxjv_read_status_1(priv);
   while ((status & STATUS_BUSY_MASK) != 0)
     {
       nxsig_usleep(200  *1000);
-      status = w25qxxxjv_read_status(priv);
+      status = w25qxxxjv_read_status_1(priv);
     }
 
   return OK;
@@ -1452,6 +1518,14 @@ static int w25qxxxjv_ioctl(FAR struct mtd_dev_s *dev,
           ret = w25qxxxjv_unprotect(priv, prot->startblock, prot->nblocks);
         }
         break;
+
+#ifdef CONFIG_FS_LITTLEFS
+      // LittleFS sends this command. The LittleFS README.md states that if the flash
+      // implementation doesn't contain caching BIOC_FLUSH should return 0.
+      case BIOC_FLUSH:
+        ret = 0;
+        break;
+#endif
 
       default:
         ret = -ENOTTY; /* Bad/unsupported command */

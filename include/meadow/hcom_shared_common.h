@@ -130,7 +130,7 @@
 // and at startup syslog messages are routed to UART1 without
 // the need to send the Uart1Trace command.
 // THIS CAN BE REMOVED. IT'S REPLACED BY CONFIGURATION FILE
-#define HCOM_FORCE_SYSLOG_MASK_F7_AND_UART1           0
+#define HCOM_FORCE_SYSLOG_OUTPUT_TO_UART1             1
 
 // Allow the build to include the ability to print a buffer
 // full of data, showing hex and ascii
@@ -153,6 +153,8 @@
 #define HCOM_DIAG_OUTPUT_SYSLOG_PID_OF_NEW_THREADS    0
 // Ease the understanding of a startup that never finishes
 #define HCOM_DIAG_INCLUDE_STARTUP_SYSLOG              0
+// Should mono be prevented from running?
+#define HCOM_DIAG_DONT_ALLOW_MONO_TO_RUN              1
 
 //-------------------------------------------------------------------
 // Include/exclude test code

@@ -368,7 +368,7 @@ struct w25qxxxjv_dev_s
 
 /* Locking */
 
-static void w25qxxxjv_lock(FAR struct qspi_dev_s *qspi);
+static uint32_t w25qxxxjv_lock(FAR struct qspi_dev_s *qspi);
 static inline void w25qxxxjv_unlock(FAR struct qspi_dev_s *qspi);
 
 /* Low-level message helpers */
@@ -456,7 +456,7 @@ static int  w25qxxxjv_ioctl(FAR struct mtd_dev_s *dev,
  * Name: w25qxxxjv_lock
  ****************************************************************************/
 
-static void w25qxxxjv_lock(FAR struct qspi_dev_s *qspi)
+static uint32_t w25qxxxjv_lock(FAR struct qspi_dev_s *qspi)
 {
   /* On QuadSPI buses where there are multiple devices, it will be necessary
    * to lock QuadSPI to have exclusive access to the buses for a sequence of
@@ -477,7 +477,9 @@ static void w25qxxxjv_lock(FAR struct qspi_dev_s *qspi)
 
   QSPI_SETMODE(qspi, CONFIG_W25QXXXJV_QSPIMODE);
   QSPI_SETBITS(qspi, 8);
-  (void)QSPI_SETFREQUENCY(qspi, CONFIG_W25QXXXJV_QSPI_FREQUENCY);
+
+  // (void)QSPI_SETFREQUENCY(qspi, CONFIG_W25QXXXJV_QSPI_FREQUENCY);
+  return QSPI_SETFREQUENCY(qspi, CONFIG_W25QXXXJV_QSPI_FREQUENCY);
 }
 
 /****************************************************************************
@@ -668,7 +670,8 @@ static inline int w25qxxxjv_readid(struct w25qxxxjv_dev_s *priv)
 {
   /* Lock the QuadSPI bus and configure the bus. */
 
-  w25qxxxjv_lock(priv->qspi);
+  uint32_t actualFreq = w25qxxxjv_lock(priv->qspi);
+  syslog(1, "==> W25Q clock freq:%lu\n", actualFreq);
 
   /* Read the JEDEC ID */
 

@@ -270,28 +270,6 @@ static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
     hcom_nx_common_utils_only_restart_meadow();
     return OK;
 
-  case HCOM_NX_UPD_GET_CONFIG_VALUE:
-    get_cfg_value = (struct hcom_nx_upd_ini_cfg_get_value_s*) arg;
-    return meadow_config_find_value_from_key(get_cfg_value->file_name,
-            get_cfg_value->section_name, get_cfg_value->key_name,
-            get_cfg_value->return_value, get_cfg_value->return_size);
-
-  case HCOM_NX_UPD_GET_CONFIG_MATCH:
-    is_cfg_match = (struct hcom_nx_upd_ini_cfg_get_match_s*) arg;
-    retBool = meadow_ini_cfg_is_match(is_cfg_match->file_name,
-            is_cfg_match->section_name, is_cfg_match->key_name,
-            is_cfg_match->match_value, &ret);
-    is_cfg_match->return_bool = retBool;
-    return ret;
-    
-  case HCOM_NX_UPD_GET_CONFIG_INT_DEFVAL:
-    get_cfg_int = (struct hcom_nx_upd_ini_cfg_get_int_defval_s*) arg;
-    retInt = meadow_ini_cfg_get_int_default(get_cfg_int->file_name,
-            get_cfg_int->section_name, get_cfg_int->key_name,
-            get_cfg_int->default_value, &ret);
-    get_cfg_int->return_int = retInt;
-    return ret;
-
   case HCOM_NX_UPD_GET_CONFIG:
     length = *((int *) arg);
     ret = hcom_nx_copy_config_for_user_mode((uint8_t *) arg, length);

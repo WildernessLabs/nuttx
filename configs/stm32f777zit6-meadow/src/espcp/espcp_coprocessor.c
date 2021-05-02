@@ -240,6 +240,7 @@ int espcp_spi_setup()
     }
 
     uint32_t frequency;
+    hcom_nx_config_lock();
     meadow_configuration_t *config = hcom_nx_get_configuration();
     if (config == NULL)
     {
@@ -247,10 +248,9 @@ int espcp_spi_setup()
     }
     else
     {
-        hcom_nx_config_lock();
         frequency = config->esp_spi_speed;
-        hcom_nx_config_unlock();
     }
+    hcom_nx_config_unlock();
     
     SPI_SETFREQUENCY(g_esp_spi_dev, frequency);
     SPI_SETBITS(g_esp_spi_dev, 8);

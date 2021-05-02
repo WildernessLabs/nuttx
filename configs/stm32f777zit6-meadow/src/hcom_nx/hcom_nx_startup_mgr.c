@@ -103,17 +103,20 @@ int hcom_nx_setup_mgr(FAR struct mtd_dev_s *mtd)
     syslog(LOG_EMERG, "%s@%d-Cannot obtain configuration.\n", thisFile, __LINE__);
     return ERROR;
   }
-  if (config->reset_esp32_at_startup)
+  hcom_nx_config_lock();
+  bool reset_esp32 = config->reset_esp32_at_startup;
+  hcom_nx_config_unlock();
+  if (reset_esp32)
   {
     ret = espcp_init();
-    if(ret != OK)
+    if (ret != OK)
     {
       syslog(LOG_EMERG, "ERROR: ESP32 initialization failed:%d\n", ret);
       return ret;
     }
 
     ret = espcp_enter_run_mode();
-    if(ret != OK)
+    if (ret != OK)
     {
       syslog(LOG_EMERG, "ERROR: ESP32 enter run mode failed:%d\n", ret);
       return ret;

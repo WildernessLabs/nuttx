@@ -135,9 +135,9 @@ struct meadow_configuration_s
   int trace_level;
 
   /*
-   *  How should UART1 be used?  Trace output maybe?
+   *  Should trace output be diverted to UART1?
    */
-  char *uart1_use;
+  uint8_t use_uart1_for_trace;
 
   /*
    *  Clock speed of the SPI interface between the STM32 and the ESP32.

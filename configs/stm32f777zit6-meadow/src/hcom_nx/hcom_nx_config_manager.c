@@ -62,7 +62,7 @@ static meadow_configuration_t *meadow_configuration = NULL;
 /**
  *  Mutex to be used by any code that wants access to the configuration.
  */
-static sem_t config_lock;
+static sem_t config_lock = { };
 
 /****************************************************************************
  * Private Function Prototypes
@@ -208,7 +208,7 @@ meadow_configuration_t *hcom_nx_read_configuration_file(void)
         meadow_configuration->trace_level = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_DIAG_TRACE_LEVEL_KEY, 1, &error_code);
         meadow_configuration->use_uart1_for_trace = 1;
         //
-        int r = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_DIAG_UART_KEY);
+        char *str = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_DIAG_UART_KEY);
         //
         meadow_configuration->esp_spi_speed = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_RESET_ESP32_AT_STARTUP_KEY, MEADOW_INI_CFG_ESP_SPI_SPEED_DEFAULT, &error_code);
         meadow_configuration->device_name = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_TRACE_KEY);

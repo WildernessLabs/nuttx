@@ -177,8 +177,8 @@ void espcp_system_get_configuration_event_handler(espcp_message_t *message)
     {
         if ((message->payload_length > 0) && (message->payload != NULL))
         {
+            espcp_config_lock();
             espcp_configuration_t *config = espcp_get_configuration();
-            espcp_config_lock(config);
             if (config->esp_config != NULL)
             {
                 free(config->esp_config);
@@ -203,7 +203,7 @@ void espcp_system_get_configuration_event_handler(espcp_message_t *message)
                 hcom_nx_config_unlock();
             }
 
-            espcp_config_unlock(config);
+            espcp_config_unlock();
         }
     }
     espcp_delete_message_and_payload(message);

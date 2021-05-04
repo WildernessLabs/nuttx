@@ -99,6 +99,13 @@ SECTIONS
         _einit = ABSOLUTE(.);
     } > uflash
 
+    .got : { 
+	_got = .;
+	*(.got) 
+	*(.got.*) 
+	_egot = .;
+    } > uflash
+
     .ARM.extab : {
         *(.ARM.extab*)
     } > uflash

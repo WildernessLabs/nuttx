@@ -266,6 +266,8 @@ void board_late_initialize(void)
 
 #if defined(CONFIG_STM32F7_QUADSPI)
     FAR struct qspi_dev_s *qspi;
+
+    // Does generic QSPI initialization to the STM32F7's QSPI hardware
     qspi = stm32f7_qspi_initialize(0);
     if (!qspi)
     {
@@ -296,6 +298,7 @@ void board_late_initialize(void)
 #if defined(CONFIG_MTD)
   if (mtd != NULL)
   {
+    // Provides a Nuttx block driver wrapper around an MTD interface
     ret = ftl_initialize(0, mtd);
     if (ret < 0)
     {

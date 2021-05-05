@@ -79,7 +79,7 @@
  * with all commands. up to 133MHz.
  */
 
-#define CONFIG_W25QXXXJV_QSPI_FREQUENCY 100000000
+#define CONFIG_W25QXXXJV_QSPI_FREQUENCY 64000000
 #endif
 
 #ifndef CONFIG_W25QXXXJV_DUMMIES
@@ -88,7 +88,13 @@
  * clock and IO command dependent.(four to six times according to data sheet)
  */
 
-#define CONFIG_W25QXXXJV_DUMMIES 6
+// Setting this to 10 like in the S25FL.c used by Meadow causes the
+// this driver to stop working.
+//
+// Note: If CONFIG_W25QXXXJV_DUMMIES changed here it must also be changed in
+// \Meadow.OS\nuttx\configs\stm32f777zit6-meadow\src\stm32_appinitialize.c
+// APP_INIT_NUMBER_DUMMIES for CONFIG_MTD_W25QXXXJV.
+#define CONFIG_W25QXXXJV_DUMMIES (6)
 #endif
 
 /* W25QXXXJV Commands *******************************************************/
@@ -456,6 +462,8 @@ static int  w25qxxxjv_ioctl(FAR struct mtd_dev_s *dev,
  * Name: w25qxxxjv_lock
  ****************************************************************************/
 
+// Returns the actual, available frequency which is dependent on the processors
+// clock settings
 static uint32_t w25qxxxjv_lock(FAR struct qspi_dev_s *qspi)
 {
   /* On QuadSPI buses where there are multiple devices, it will be necessary
@@ -671,7 +679,7 @@ static inline int w25qxxxjv_readid(struct w25qxxxjv_dev_s *priv)
   /* Lock the QuadSPI bus and configure the bus. */
 
   uint32_t actualFreq = w25qxxxjv_lock(priv->qspi);
-  syslog(1, "==> W25Q clock freq:%lu\n", actualFreq);
+  syslog(LOG_INFO, "W25QxxxJV clock is %lu with Dummy:%d\n", actualFreq, CONFIG_W25QXXXJV_DUMMIES);
 
   /* Read the JEDEC ID */
 

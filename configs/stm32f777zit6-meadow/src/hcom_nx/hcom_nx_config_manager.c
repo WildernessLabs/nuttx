@@ -41,7 +41,7 @@
 #include <meadow/hcom_upd_shared.h>
 #include <nuttx/semaphore.h>
 #include <arch/board/boardctl.h>
-
+#include "stm32_uid.h" // stm32_get_uniqueid()
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -375,5 +375,14 @@ void hcom_nx_config_init(void)
     hcom_nx_config_lock();
     meadow_configuration_t *config = hcom_nx_get_configuration();
     config->mono_version = mono_version;
+
+    stm32_get_uniqueid(config->serial_number);                           // Convert chip Id to serial number
+    config->chip_id[0] = config->serial_number[11];                      // 95-88
+    config->chip_id[1] = config->serial_number[10] + config->serial_number[2];        // 87-80 + 23-16
+    config->chip_id[2] = config->serial_number[9];                       // 79-72
+    config->chip_id[3] = config->serial_number[8] + config->serial_number[0] + 10;    // 71-64 + 7-0 + magic 10
+    config->chip_id[4] = config->serial_number[7];                       // 63-56 
+    config->chip_id[5] = config->serial_number[6];                       // 55-48
+
     hcom_nx_config_unlock();
 }

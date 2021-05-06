@@ -40,6 +40,8 @@
 #include "../inicfg/meadow_inicfg.h"
 #include <meadow/hcom_upd_shared.h>
 #include <nuttx/semaphore.h>
+#include <arch/board/boardctl.h>
+
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -302,6 +304,7 @@ int hcom_nx_copy_config_for_user_mode(uint8_t *buffer, int length)
         storage_required += strlen(config->esp_software_version);
     }
     storage_required += 3;          // Add on space for the terminating 0 in each of the strings.
+    storage_required += sizeof(config->chip_id) + sizeof(config->serial_number);
     if (length < storage_required)
     {
         result = ERROR;
@@ -348,7 +351,29 @@ int hcom_nx_copy_config_for_user_mode(uint8_t *buffer, int length)
  ****************************************************************************/
 void hcom_nx_config_init(void)
 {
-    sem_init(&config_lock, 0, 1);
+    sem_init(&config_lock, 0, 1);                   // Creat the config lock and set to locked.
     sem_setprotocol(&config_lock, SEM_PRIO_NONE);
     hcom_nx_read_configuration_file();
+
+    uint32_t mono_version = 0;
+
+    boardctl(BIOC_ENTER_MEMMAP, 0);
+
+    // Check if Meadow.OS runtime is flashed at external flash.
+    #define STM32_FMCBANK4_BASE  0x90000000     /* 0x90000000-0x9fffffff: FMC bank 4 */
+    uint32_t signature = *((uint32_t *) STM32_FMCBANK4_BASE);
+    if (signature != 0xDDCCBBAA)
+    {
+        syslog(LOG_ERR, "Mono runtime was not found flashed in external flash.\n");
+    }
+    else
+    {
+        mono_version = *((uint32_t *) (STM32_FMCBANK4_BASE + 4));
+    }
+    boardctl(BIOC_EXIT_MEMMAP, 0);
+
+    hcom_nx_config_lock();
+    meadow_configuration_t *config = hcom_nx_get_configuration();
+    config->mono_version = mono_version;
+    hcom_nx_config_unlock();
 }

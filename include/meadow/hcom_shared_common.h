@@ -153,6 +153,21 @@ struct meadow_configuration_s
    *  Version of the software running on the ESP32.
    */
   char *esp_software_version;
+
+  /*
+   *  Mono version.
+   */
+  uint32_t mono_version;
+
+  /*
+   *  Serial number of the STM32 microcontroller.
+   */
+  uint8_t serial_number[16];
+
+  /*
+   *  ID of the STM32 microprocessor.
+   */
+  uint8_t chip_id[12];
 };
 typedef struct meadow_configuration_s meadow_configuration_t;
 

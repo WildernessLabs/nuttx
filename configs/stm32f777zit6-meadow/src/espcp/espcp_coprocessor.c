@@ -79,6 +79,10 @@
 
 #endif
 
+// #define USE_MEADOW_DEBUG_HELPERS
+#undef USE_MEADOW_DEBUG_HELPERS
+#include <meadow/meadow_debug_helpers.h>
+
 /****************************************************************************
  * Definitions
  ****************************************************************************/
@@ -643,6 +647,8 @@ int espcp_spi_ready(int irq, void *context, void *arg)
     config->esp_not_responding = false;
     espcp_config_unlock();
 
+    DEBUG_SET_LOW(DEBUG_PIN_D03);
+
     //
     //  We trigger a request for a response message from the ESP32 on the first interrupt.
     //
@@ -692,6 +698,12 @@ int espcp_init(void)
 {
     int result = OK;
 
+    DEBUG_CONFIGURE_PIN(DEBUG_PIN_D04);
+    DEBUG_SET_HIGH(DEBUG_PIN_D04);
+
+    DEBUG_CONFIGURE_PIN(DEBUG_PIN_D03);
+    DEBUG_SET_HIGH(DEBUG_PIN_D03);
+
     g_espcp_configuration = espcp_get_default_configuration();
     if (g_espcp_configuration != NULL)
     {
@@ -715,5 +727,8 @@ int espcp_init(void)
     {
         result = -ENETDOWN;
     }
+    
+    DEBUG_SET_LOW(DEBUG_PIN_D04);
+
     return result;
 }

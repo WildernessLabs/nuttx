@@ -204,16 +204,16 @@ meadow_configuration_t *hcom_nx_read_configuration_file(void)
         //
         //  Resolve strings not being read correctly.
         //
+        char *str = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_DIAG_UART_KEY);
+        meadow_configuration->use_uart1_for_trace = (strcmp(str, MEADOW_INI_CFG_DIAG_UART_USE) == 0) ? 1 : 0;
         meadow_configuration->mono_trace = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_TRACE_KEY);
         meadow_configuration->mono_debug = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_DEBUG_KEY, 0, &error_code);
         meadow_configuration->mono_run = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_RUN_KEY, 1, &error_code);
         meadow_configuration->trace_level = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_DIAG_TRACE_LEVEL_KEY, 1, &error_code);
-        meadow_configuration->use_uart1_for_trace = 1;
         //
-        char *str = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_DIAG_UART_KEY);
         //
-        meadow_configuration->esp_spi_speed = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_RESET_ESP32_AT_STARTUP_KEY, MEADOW_INI_CFG_ESP_SPI_SPEED_DEFAULT, &error_code);
-        meadow_configuration->device_name = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_TRACE_KEY);
+        meadow_configuration->esp_spi_speed = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_ESP_SPI_SPEED_KEY, MEADOW_INI_CFG_ESP_SPI_SPEED_DEFAULT, &error_code);
+        meadow_configuration->device_name = hcom_nx_get_config_string(MEADOW_INI_CFG_OPERATION_SECTION, MEADOW_INI_CFG_DEV_NAME_KEY);
         meadow_configuration->reset_esp32_at_startup = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_RESET_ESP32_AT_STARTUP_KEY, 1, &error_code);
         meadow_configuration->esp_software_version = NULL;
         if (meadow_configuration->device_name == NULL)

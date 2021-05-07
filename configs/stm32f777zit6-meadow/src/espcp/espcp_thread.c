@@ -154,11 +154,9 @@ static void *espcp_thread(void *parameters)
 
     bool thread_running = true;
     configuration->thread_running = thread_running;
-
 #ifdef CONFIG_BUILD_PROTECTED
     espcp_config_unlock();
 #endif
-
     while (thread_running)
     {
         espcp_message_t *retrieved_message;

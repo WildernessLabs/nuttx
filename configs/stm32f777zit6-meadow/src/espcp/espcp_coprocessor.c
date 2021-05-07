@@ -570,7 +570,6 @@ void espcp_enter_programming_mode(void)
  ****************************************************************************/
 int espcp_enter_run_mode(void)
 {
-    syslog(LOG_CRIT, "%s@%d Entering run mode.\n", _thisFile, __LINE__);
     espcp_release_shared_gpio();
     //
     //  Input pins, one indicating that ESP32 SPI transaction can start (ESP32 SPI interface is ready)

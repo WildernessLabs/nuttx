@@ -159,6 +159,12 @@ struct meadow_configuration_s
    */
   uint32_t mono_version;
 
+
+  /*
+   *  Version of the software running on the STM32.
+   */
+  char *meadow_software_version;
+
   /*
    *  Serial number of the STM32 microcontroller.
    */

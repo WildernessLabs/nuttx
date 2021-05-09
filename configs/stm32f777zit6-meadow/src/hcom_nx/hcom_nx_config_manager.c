@@ -43,8 +43,15 @@
 #include <arch/board/boardctl.h>
 #include "stm32_uid.h" // stm32_get_uniqueid()
 
+#include "hcom_nx_config_manager.h"
+#include "../libcyaml/cyaml.h"
+
 /****************************************************************************
  * Pre-processor Definitions
+ ****************************************************************************/
+
+/****************************************************************************
+ * Local type defintions.
  ****************************************************************************/
 
 /****************************************************************************
@@ -57,7 +64,7 @@
 static char *thisFile = __FILE__;
 
 /**
- *  Local variable to hold a ;ointer to the configuration.
+ *  Local variable to hold a pointer to the configuration.
  */
 static meadow_configuration_t *meadow_configuration = NULL;
 
@@ -65,6 +72,100 @@ static meadow_configuration_t *meadow_configuration = NULL;
  *  Mutex to be used by any code that wants access to the configuration.
  */
 static sem_t config_lock = { };
+
+/**
+ *  Configuration for the CYAML library.
+ */
+static const cyaml_config_t cyaml_config =
+{
+	.log_level = CYAML_LOG_WARNING, /* Logging errors and warnings only. */
+	.log_fn = cyaml_log,            /* Use the default logging function. */
+	.mem_fn = cyaml_mem,            /* Use the default memory allocator. */
+    .flags = CYAML_CFG_IGNORE_UNKNOWN_KEYS | CYAML_CFG_CASE_INSENSITIVE
+};
+
+/**
+ *  This is a local definition of the configuration and it is aimed to be
+ *  used by the CYAML library when reading the configuration data from the
+ *  meadow.yaml configuration file.
+ * 
+ *  This additional structure is used as some of the configuration
+ *  information in the globally available structure is derived from the
+ *  chip / board.
+ */
+struct configuration_s
+{
+  /*
+   *  Pointer to a string that is used to control the tracing output from Mono.
+   *  For more information see https://www.mono-project.com/docs/debug+profile/debug/
+   *  This variable is used in the mono_main.c file.
+   */
+  char *mono_trace;
+
+  /*
+   *  Should Mono be run in debug mode?
+   */
+  int mono_debug;
+
+  /*
+   *  Should mono be run at startup?
+   */
+  int disable_mono;
+
+  /*
+   *  Should the ESP32 be reset at startup.  This is used by developers to prevent
+   *  STM32 code from resetting the ESP32 and disconnecting the debugger.
+   */
+  int reset_esp32_at_startup;
+
+  /*
+   *  Level of trace output to generate.
+   */
+  int trace_level;
+
+  /*
+   *  Should trace output be diverted to UART1?
+   */
+  char *uart1_use;
+
+  /*
+   *  Clock speed of the SPI interface between the STM32 and the ESP32.
+   */
+  uint32_t esp_spi_speed;
+
+  /*
+   *  Name of the board.
+   */
+  char *device_name;
+};
+typedef struct configuration_s configuration_t;
+
+
+/**
+ *  Definition of the fields in the struct configuration_s structure.
+ * 
+ *  This is an array of the field definitions.
+ */
+static const cyaml_schema_field_t configuration_fields_schema[] =
+{
+    CYAML_FIELD_STRING_PTR("MonoTrace", CYAML_FLAG_POINTER | CYAML_FLAG_OPTIONAL, configuration_t, mono_trace, 0, CYAML_UNLIMITED),
+    CYAML_FIELD_STRING_PTR("Uart1Use", CYAML_FLAG_POINTER | CYAML_FLAG_OPTIONAL, configuration_t, uart1_use, 0, CYAML_UNLIMITED),
+    CYAML_FIELD_UINT("MonoDebug", CYAML_FLAG_OPTIONAL, configuration_t, mono_debug),
+	CYAML_FIELD_UINT("DisableMono", CYAML_FLAG_OPTIONAL, configuration_t, disable_mono),
+	CYAML_FIELD_UINT("ResetEsp32AtStartup", CYAML_FLAG_OPTIONAL, configuration_t, reset_esp32_at_startup),
+	CYAML_FIELD_UINT("TraceLevel", CYAML_FLAG_OPTIONAL, configuration_t, trace_level),
+	CYAML_FIELD_UINT("EspSpiSpeed", CYAML_FLAG_OPTIONAL, configuration_t, esp_spi_speed),
+    CYAML_FIELD_STRING_PTR("DeviceName", CYAML_FLAG_POINTER | CYAML_FLAG_OPTIONAL, configuration_t, device_name, 0, CYAML_UNLIMITED),
+	CYAML_FIELD_END
+};
+
+/**
+ *  Top level schema for the data from the YAML configuration file is a mapping.
+ */
+static const cyaml_schema_value_t configuration_schema =
+{
+    CYAML_VALUE_MAPPING(CYAML_FLAG_POINTER, configuration_t, configuration_fields_schema)
+};
 
 /****************************************************************************
  * Private Function Prototypes
@@ -187,42 +288,90 @@ meadow_configuration_t *hcom_nx_get_configuration(void)
  *  None
  *
  ****************************************************************************/
+// meadow_configuration_t *hcom_nx_read_configuration_file(void)
+// {
+//     hcom_nx_config_lock();
+//     if (meadow_configuration != NULL)
+//     {
+//         syslog(LOG_ERR, "%s@%d Attempt to overwrite the configuration object.\n", thisFile, __LINE__);
+//         return(NULL);
+//     }
+
+//     meadow_configuration = (meadow_configuration_t *) malloc(sizeof(meadow_configuration_t));
+//     if (meadow_configuration != NULL)
+//     {
+//         int error_code;
+//         memset(meadow_configuration, 0, sizeof(meadow_configuration_t));
+//         //
+//         //  Resolve strings not being read correctly.
+//         //
+//         char *str = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_DIAG_UART_KEY);
+//         meadow_configuration->use_uart1_for_trace = (strcmp(str, MEADOW_INI_CFG_DIAG_UART_USE) == 0) ? 1 : 0;
+//         meadow_configuration->mono_trace = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_TRACE_KEY);
+//         meadow_configuration->mono_debug = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_DEBUG_KEY, 0, &error_code);
+//         meadow_configuration->mono_run = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_RUN_KEY, 1, &error_code);
+//         meadow_configuration->trace_level = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_DIAG_TRACE_LEVEL_KEY, 1, &error_code);
+//         meadow_configuration->esp_spi_speed = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_ESP_SPI_SPEED_KEY, MEADOW_INI_CFG_ESP_SPI_SPEED_DEFAULT, &error_code);
+//         meadow_configuration->device_name = hcom_nx_get_config_string(MEADOW_INI_CFG_OPERATION_SECTION, MEADOW_INI_CFG_DEV_NAME_KEY);
+//         meadow_configuration->reset_esp32_at_startup = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_RESET_ESP32_AT_STARTUP_KEY, 1, &error_code);
+//         meadow_configuration->esp_software_version = NULL;
+//         if (meadow_configuration->device_name == NULL)
+//         {
+//             meadow_configuration->device_name = MEADOW_INI_CFG_DEFAULT_DEV_NAME;
+//         }
+//     }
+//     hcom_nx_config_unlock();
+
+//     return(meadow_configuration);
+// }
+
 meadow_configuration_t *hcom_nx_read_configuration_file(void)
 {
-    hcom_nx_config_lock();
-    if (meadow_configuration != NULL)
+	cyaml_err_t err;
+	configuration_t *configuration;
+
+	err = cyaml_load_file("/meadow0/meadow.yaml", &cyaml_config, &configuration_schema, (void **) &configuration, NULL);
+	if (err != CYAML_OK)
     {
-        syslog(LOG_ERR, "%s@%d Attempt to overwrite the configuration object.\n", thisFile, __LINE__);
+        syslog(LOG_INFO, "%s@%d Unable to process configuration file, using system defaults.\n", thisFile, __LINE__);
         return(NULL);
     }
-
-    meadow_configuration = (meadow_configuration_t *) malloc(sizeof(meadow_configuration_t));
-    if (meadow_configuration != NULL)
+    else
     {
-        int error_code;
-        memset(meadow_configuration, 0, sizeof(meadow_configuration_t));
-        //
-        //  Resolve strings not being read correctly.
-        //
-        char *str = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_DIAG_UART_KEY);
-        meadow_configuration->use_uart1_for_trace = (strcmp(str, MEADOW_INI_CFG_DIAG_UART_USE) == 0) ? 1 : 0;
-        meadow_configuration->mono_trace = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_TRACE_KEY);
-        meadow_configuration->mono_debug = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_DEBUG_KEY, 0, &error_code);
-        meadow_configuration->mono_run = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_RUN_KEY, 1, &error_code);
-        meadow_configuration->trace_level = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_DIAG_TRACE_LEVEL_KEY, 1, &error_code);
-        //
-        //
-        meadow_configuration->esp_spi_speed = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_ESP_SPI_SPEED_KEY, MEADOW_INI_CFG_ESP_SPI_SPEED_DEFAULT, &error_code);
-        meadow_configuration->device_name = hcom_nx_get_config_string(MEADOW_INI_CFG_OPERATION_SECTION, MEADOW_INI_CFG_DEV_NAME_KEY);
-        meadow_configuration->reset_esp32_at_startup = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_RESET_ESP32_AT_STARTUP_KEY, 1, &error_code);
-        meadow_configuration->esp_software_version = NULL;
-        if (meadow_configuration->device_name == NULL)
+        hcom_nx_config_lock();
+        if (meadow_configuration != NULL)
         {
-            meadow_configuration->device_name = MEADOW_INI_CFG_DEFAULT_DEV_NAME;
+            hcom_nx_config_unlock();
+            syslog(LOG_ERR, "%s@%d Attempt to overwrite the configuration object.\n", thisFile, __LINE__);
+            return(NULL);
         }
+        meadow_configuration = (meadow_configuration_t *) malloc(sizeof(meadow_configuration_t));
+        if (meadow_configuration != NULL)
+        {
+            memset(meadow_configuration, 0, sizeof(meadow_configuration_t));
+            meadow_configuration->use_uart1_for_trace = (strcmp(configuration->uart1_use, "trace") == 0);
+            if (configuration->mono_trace != NULL)
+            {
+                meadow_configuration->mono_trace = strdup(configuration->mono_trace);
+            }
+            meadow_configuration->mono_debug = configuration->mono_debug;
+            meadow_configuration->disable_mono = configuration->disable_mono;
+            meadow_configuration->reset_esp32_at_startup = configuration->reset_esp32_at_startup;
+            meadow_configuration->trace_level = configuration->trace_level;
+            meadow_configuration->esp_spi_speed = configuration->esp_spi_speed;
+            if (configuration->device_name == NULL)
+            {
+                meadow_configuration->device_name = MEADOW_INI_CFG_DEFAULT_DEV_NAME;
+            }
+            else
+            {
+                meadow_configuration->device_name = strdup(configuration->device_name);
+            }
+            meadow_configuration->esp_software_version = NULL;
+        }
+        hcom_nx_config_unlock();
     }
-    hcom_nx_config_unlock();
-
+    cyaml_free(&cyaml_config, &configuration_schema, configuration, 0);
     return(meadow_configuration);
 }
 
@@ -354,6 +503,7 @@ void hcom_nx_config_init(void)
     sem_init(&config_lock, 0, 1);                   // Creat the config lock and set to locked.
     sem_setprotocol(&config_lock, SEM_PRIO_NONE);
     hcom_nx_read_configuration_file();
+    // hcom_nx_read_yaml_configuration_file();
 
     uint32_t mono_version = 0;
 

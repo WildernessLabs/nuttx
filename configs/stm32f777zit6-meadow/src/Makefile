@@ -105,6 +105,17 @@ CSRCS += espcp/espcp_thread.c \
 		 espcp/espcp_usrsock_sockif.c \
 		 espcp/espcp_event_handlers.c
 endif
+
+#
+#	The libyaml library is required by cyaml.
+#
+CSRCS += libyaml/api.c libyaml/dumper.c libyaml/emitter.c libyaml/loader.c \
+         libyaml/parser.c libyaml/reader.c libyaml/scanner.c libyaml//writer.c
+#
+#	The cyaml library maps the items from the libyaml output to the structures used by the application.
+#
+CSRCS += libcyaml/mem.c libcyaml/free.c libcyaml/load.c libcyaml/save.c libcyaml/util.c libcyaml/utf8.c
+
 endif
 
 include $(TOPDIR)/configs/Board.mk

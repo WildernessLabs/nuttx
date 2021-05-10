@@ -37,7 +37,6 @@
 //  configuration of the meadow board.
 
 #include "hcom_nx_common.h"
-#include "../inicfg/meadow_inicfg.h"
 #include <meadow/hcom_upd_shared.h>
 #include <nuttx/semaphore.h>
 #include <arch/board/boardctl.h>
@@ -85,6 +84,67 @@ static const cyaml_config_t cyaml_config =
 };
 
 /**
+ *  Mono startup configuration as defined in the YAML configuration file.
+ */
+struct yaml_mono_control_s
+{
+    /**
+     *  Should Mono be run in debug mode?
+     */
+    int debug;
+
+    /**
+     *  Should mono be run at startup?
+     */
+    int disable;
+
+    /**
+     *  Pointer to a string that is used to control the tracing output from Mono.
+     *  For more information see https://www.mono-project.com/docs/debug+profile/debug/
+     *  This variable is used in the mono_main.c file.
+     */
+    char *trace;
+};
+typedef struct yaml_mono_control_s yaml_mono_control_t;
+
+/**
+ *  Configuration of the coprocessor from the YAML configuration file.
+ */
+struct yaml_coprocessor_s
+{
+    /**
+     *  Is a debugger attached to the ESP32?
+     *
+     *  The ESP32 should not be reset at startup if a debugger is attached otherwise
+     *  the connection between the debugger and the ESP32 will be broken.
+     */
+    int debugger_attached;
+
+    /**
+     *  Clock speed of the SPI interface between the STM32 and the ESP32.
+     */
+    int spi_speed;
+};
+typedef struct yaml_coprocessor_s yaml_coprocessor_t;
+
+/**
+ *  Debugging (internal) configuration options from the YAML file.
+ */
+struct yaml_debug_s
+{
+    /**
+     *  Level of trace output to generate.
+     */
+    int trace_level;
+
+    /**
+     *  Should trace output be diverted to UART1?
+     */
+    char *uart1_use;
+};
+typedef struct yaml_debug_s yaml_debug_t;
+
+/**
  *  This is a local definition of the configuration and it is aimed to be
  *  used by the CYAML library when reading the configuration data from the
  *  meadow.yaml configuration file.
@@ -93,7 +153,7 @@ static const cyaml_config_t cyaml_config =
  *  information in the globally available structure is derived from the
  *  chip / board.
  */
-struct configuration_s
+struct yaml_configuration_s
 {
   /*
    *  Pointer to a string that is used to control the tracing output from Mono.
@@ -138,8 +198,7 @@ struct configuration_s
    */
   char *device_name;
 };
-typedef struct configuration_s configuration_t;
-
+typedef struct yaml_configuration_s yaml_configuration_t;
 
 /**
  *  Definition of the fields in the struct configuration_s structure.
@@ -148,14 +207,14 @@ typedef struct configuration_s configuration_t;
  */
 static const cyaml_schema_field_t configuration_fields_schema[] =
 {
-    CYAML_FIELD_STRING_PTR("MonoTrace", CYAML_FLAG_POINTER | CYAML_FLAG_OPTIONAL, configuration_t, mono_trace, 0, CYAML_UNLIMITED),
-    CYAML_FIELD_STRING_PTR("Uart1Use", CYAML_FLAG_POINTER | CYAML_FLAG_OPTIONAL, configuration_t, uart1_use, 0, CYAML_UNLIMITED),
-    CYAML_FIELD_UINT("MonoDebug", CYAML_FLAG_OPTIONAL, configuration_t, mono_debug),
-	CYAML_FIELD_UINT("DisableMono", CYAML_FLAG_OPTIONAL, configuration_t, disable_mono),
-	CYAML_FIELD_UINT("ResetEsp32AtStartup", CYAML_FLAG_OPTIONAL, configuration_t, reset_esp32_at_startup),
-	CYAML_FIELD_UINT("TraceLevel", CYAML_FLAG_OPTIONAL, configuration_t, trace_level),
-	CYAML_FIELD_UINT("EspSpiSpeed", CYAML_FLAG_OPTIONAL, configuration_t, esp_spi_speed),
-    CYAML_FIELD_STRING_PTR("DeviceName", CYAML_FLAG_POINTER | CYAML_FLAG_OPTIONAL, configuration_t, device_name, 0, CYAML_UNLIMITED),
+    CYAML_FIELD_STRING_PTR("MonoTrace", CYAML_FLAG_POINTER | CYAML_FLAG_OPTIONAL, yaml_configuration_t, mono_trace, 0, CYAML_UNLIMITED),
+    CYAML_FIELD_STRING_PTR("Uart1Use", CYAML_FLAG_POINTER | CYAML_FLAG_OPTIONAL, yaml_configuration_t, uart1_use, 0, CYAML_UNLIMITED),
+    CYAML_FIELD_UINT("MonoDebug", CYAML_FLAG_OPTIONAL, yaml_configuration_t, mono_debug),
+	CYAML_FIELD_UINT("DisableMono", CYAML_FLAG_OPTIONAL, yaml_configuration_t, disable_mono),
+	CYAML_FIELD_UINT("ResetEsp32AtStartup", CYAML_FLAG_OPTIONAL, yaml_configuration_t, reset_esp32_at_startup),
+	CYAML_FIELD_UINT("TraceLevel", CYAML_FLAG_OPTIONAL, yaml_configuration_t, trace_level),
+	CYAML_FIELD_UINT("EspSpiSpeed", CYAML_FLAG_OPTIONAL, yaml_configuration_t, esp_spi_speed),
+    CYAML_FIELD_STRING_PTR("DeviceName", CYAML_FLAG_POINTER | CYAML_FLAG_OPTIONAL, yaml_configuration_t, device_name, 0, CYAML_UNLIMITED),
 	CYAML_FIELD_END
 };
 
@@ -164,7 +223,7 @@ static const cyaml_schema_field_t configuration_fields_schema[] =
  */
 static const cyaml_schema_value_t configuration_schema =
 {
-    CYAML_VALUE_MAPPING(CYAML_FLAG_POINTER, configuration_t, configuration_fields_schema)
+    CYAML_VALUE_MAPPING(CYAML_FLAG_POINTER, yaml_configuration_t, configuration_fields_schema)
 };
 
 /****************************************************************************
@@ -175,37 +234,37 @@ static const cyaml_schema_value_t configuration_schema =
  * Public Functions
  ****************************************************************************/
 
-/****************************************************************************
- * Name: hcom_nx_get_config_string
- *
- * Description:
- *  Get a string value from the config file.
- *
- * Input Parameters:
- *  section - section of the config file to examine.
- * 
- *  key - key to search for.
- *
- * Returned Value:
- *  Pointer to a copy of the string value.
- *
- * Assumptions/Limitations:
- *  None.
- *
- ****************************************************************************/
-char *hcom_nx_get_config_string(char *section, char *key)
-{
-    char *result = NULL;
-    char buffer[128];
-    int bufferLength = 128;
+// /****************************************************************************
+//  * Name: hcom_nx_get_config_string
+//  *
+//  * Description:
+//  *  Get a string value from the config file.
+//  *
+//  * Input Parameters:
+//  *  section - section of the config file to examine.
+//  * 
+//  *  key - key to search for.
+//  *
+//  * Returned Value:
+//  *  Pointer to a copy of the string value.
+//  *
+//  * Assumptions/Limitations:
+//  *  None.
+//  *
+//  ****************************************************************************/
+// char *hcom_nx_get_config_string(char *section, char *key)
+// {
+//     char *result = NULL;
+//     char buffer[128];
+//     int bufferLength = 128;
 
-    int r = meadow_config_find_value_from_key(NULL, section, key, buffer, bufferLength);
-    if (r == 0)
-    {
-        result = strdup(buffer);
-    }
-    return(result);
-}
+//     int r = meadow_config_find_value_from_key(NULL, section, key, buffer, bufferLength);
+//     if (r == 0)
+//     {
+//         result = strdup(buffer);
+//     }
+//     return(result);
+// }
 
 /****************************************************************************
  * Name: hcom_nx_config_lock
@@ -328,7 +387,7 @@ meadow_configuration_t *hcom_nx_get_configuration(void)
 meadow_configuration_t *hcom_nx_read_configuration_file(void)
 {
 	cyaml_err_t err;
-	configuration_t *configuration;
+	yaml_configuration_t *configuration;
 
 	err = cyaml_load_file("/meadow0/meadow.yaml", &cyaml_config, &configuration_schema, (void **) &configuration, NULL);
 	if (err != CYAML_OK)

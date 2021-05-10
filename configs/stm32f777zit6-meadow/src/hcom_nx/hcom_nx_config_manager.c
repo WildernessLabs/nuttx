@@ -234,38 +234,6 @@ static const cyaml_schema_value_t configuration_schema =
  * Public Functions
  ****************************************************************************/
 
-// /****************************************************************************
-//  * Name: hcom_nx_get_config_string
-//  *
-//  * Description:
-//  *  Get a string value from the config file.
-//  *
-//  * Input Parameters:
-//  *  section - section of the config file to examine.
-//  * 
-//  *  key - key to search for.
-//  *
-//  * Returned Value:
-//  *  Pointer to a copy of the string value.
-//  *
-//  * Assumptions/Limitations:
-//  *  None.
-//  *
-//  ****************************************************************************/
-// char *hcom_nx_get_config_string(char *section, char *key)
-// {
-//     char *result = NULL;
-//     char buffer[128];
-//     int bufferLength = 128;
-
-//     int r = meadow_config_find_value_from_key(NULL, section, key, buffer, bufferLength);
-//     if (r == 0)
-//     {
-//         result = strdup(buffer);
-//     }
-//     return(result);
-// }
-
 /****************************************************************************
  * Name: hcom_nx_config_lock
  *
@@ -347,43 +315,6 @@ meadow_configuration_t *hcom_nx_get_configuration(void)
  *  None
  *
  ****************************************************************************/
-// meadow_configuration_t *hcom_nx_read_configuration_file(void)
-// {
-//     hcom_nx_config_lock();
-//     if (meadow_configuration != NULL)
-//     {
-//         syslog(LOG_ERR, "%s@%d Attempt to overwrite the configuration object.\n", thisFile, __LINE__);
-//         return(NULL);
-//     }
-
-//     meadow_configuration = (meadow_configuration_t *) malloc(sizeof(meadow_configuration_t));
-//     if (meadow_configuration != NULL)
-//     {
-//         int error_code;
-//         memset(meadow_configuration, 0, sizeof(meadow_configuration_t));
-//         //
-//         //  Resolve strings not being read correctly.
-//         //
-//         char *str = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_DIAG_UART_KEY);
-//         meadow_configuration->use_uart1_for_trace = (strcmp(str, MEADOW_INI_CFG_DIAG_UART_USE) == 0) ? 1 : 0;
-//         meadow_configuration->mono_trace = hcom_nx_get_config_string(MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_TRACE_KEY);
-//         meadow_configuration->mono_debug = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_DEBUG_KEY, 0, &error_code);
-//         meadow_configuration->mono_run = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_MONO_RUN_KEY, 1, &error_code);
-//         meadow_configuration->trace_level = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_DIAG_TRACE_LEVEL_KEY, 1, &error_code);
-//         meadow_configuration->esp_spi_speed = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_ESP_SPI_SPEED_KEY, MEADOW_INI_CFG_ESP_SPI_SPEED_DEFAULT, &error_code);
-//         meadow_configuration->device_name = hcom_nx_get_config_string(MEADOW_INI_CFG_OPERATION_SECTION, MEADOW_INI_CFG_DEV_NAME_KEY);
-//         meadow_configuration->reset_esp32_at_startup = meadow_ini_cfg_get_int_default(NULL, MEADOW_INI_CFG_STARTUP_SECTION, MEADOW_INI_CFG_RESET_ESP32_AT_STARTUP_KEY, 1, &error_code);
-//         meadow_configuration->esp_software_version = NULL;
-//         if (meadow_configuration->device_name == NULL)
-//         {
-//             meadow_configuration->device_name = MEADOW_INI_CFG_DEFAULT_DEV_NAME;
-//         }
-//     }
-//     hcom_nx_config_unlock();
-
-//     return(meadow_configuration);
-// }
-
 meadow_configuration_t *hcom_nx_read_configuration_file(void)
 {
 	cyaml_err_t err;

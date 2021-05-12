@@ -220,7 +220,8 @@ typedef struct meadow_configuration_s meadow_configuration_t;
 // Ease the understanding of a startup that never finishes
 #define HCOM_DIAG_INCLUDE_STARTUP_SYSLOG              0
 
-// Adds code that takes a HCOM message from CLI and decodes it
+// Adds code that takes the HCOM messages from CLI and outputs
+// a decoded version to syslog
 #define HCOM_DIAG_INCLUDE_DIAG_DECODE_MESSAGE_CODE    0
 
 //-------------------------------------------------------------------

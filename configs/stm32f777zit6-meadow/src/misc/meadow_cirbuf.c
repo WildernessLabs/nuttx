@@ -1,9 +1,7 @@
 /****************************************************************************
- * configs/stm32f777-zit6-meadow/src/hcom/hcom_comsupport.c
+ * \apps\examples\hcom\misc\hcom_circular_buffer.c
  * 
  *   Copyright (C) 2019 - 2020 Wilderness Labs. All rights reserved.
- *   Copyright (C) 2017 Gregory Nutt. All rights reserved.
- *   Copyright (C) 2017 Alan Carvalho de Assis. All rights reserved.
  *   Author:  Wilderness Labs
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,104 +33,30 @@
  *
  ****************************************************************************/
 
+// This module contains an implementation of a circular buffer that is used
+// in a couple of places. It allows 1-n bytes to be saved and a delimited
+// packet to be retrieved.
+
 /****************************************************************************
  * Included Files
  ****************************************************************************/
-
-#include "../hcom_common.h"
+#include <meadow/meadow_cirbuf.h>
 
 /****************************************************************************
- * Private data
- ***************************************************************************/
+ * Pre-processor Definitions
+ ****************************************************************************/
+
+/****************************************************************************
+ * Private Data
+ ****************************************************************************/
+
+/****************************************************************************
+ * Private Function Prototypes
+ ****************************************************************************/
 
 /****************************************************************************
  * Public Functions
- ***************************************************************************/
-// Consistent Overhead Byte Stuffing (COBS) is a scheme to take binary data
-// replace an arbituary byte value, usually 0x00, with an encoding that replaces
-// this value, in a way, that allows the orginal data can be recovered while
-// creating frames around the data.
-//
-// The following C# code was ported from a 'C' example licensed under MIT License
-// https://github.com/bakercp/PacketSerial/blob/master/src/Encoding/COBS.h.
-// After porting, I found errors. I referred to the original authors paper at
-// http://conferences.sigcomm.org/sigcomm/1997/papers/p062.pdf for additional insights.
-// Modifications were needed and adding a starting offset to support large buffers was
-// added to allow sub-segments to be encoded.
-//
-// This function removes all 0x00 values from the source buffer. It allows
-// any length packet to be encoded but adds at least 1 byte every 254 bytes.
-// To used this encoded packet, a 0x00 is added to the end of this encoded
-// message as a packet delimiter. This algorithm is known as 'COBS'
-size_t hcom_comms_cobs_encoder(uint8_t source[], size_t startingOffset, size_t length, uint8_t encoded[])
-{
-  DEBUGASSERT(length <= HCOM_PROTOCOL_PACKET_MAX_SIZE);
-  
-  size_t sourceOffset = startingOffset; // Offset to pre-encoded data buffer
-  size_t encodedOffset = 1;             // Offset to encoded data buffer
-  size_t replaceOffset = 0;             // Offset where 0 is being tracked
-  uint8_t replacement = 1;              // Value that will be inserted to indicate 0 replaced
-
-  while (sourceOffset < length + startingOffset)
-  {
-    // Is source value is the one we want to replace?
-    if (source[sourceOffset] == HCOM_PROTOCOL_PACKET_DELIMITER_VALUE)
-    {
-      encoded[replaceOffset] = replacement; // Replace '0' value with offset
-      replaceOffset = encodedOffset++;      // Update replacement offset and bump encoded offset
-      replacement = 1;                      // Reset replacement
-    }
-    else
-    {
-      encoded[encodedOffset++] = source[sourceOffset]; // Just copy original value
-      replacement++;
-
-      // 0xff is reserved for when when longer than 254 bytes
-      if (replacement == 0xff)
-      {
-        encoded[replaceOffset] = replacement; // see above for identical code
-        replaceOffset = encodedOffset++;
-        replacement = 1;
-      }
-    }
-    sourceOffset++; // Point to next source value
-  }
-
-  encoded[replaceOffset] = replacement;
-  DEBUGASSERT(encodedOffset <= HCOM_SAFE_PACKET_BUF_SIZE);
-  return encodedOffset; // Number of bytes written to result buffer
-}
-
-//-------------------------------------------------------------------------
-// This function restores the removed 0x00s, thus returning the packet to it's
-// original content.
-size_t hcom_comms_cobs_decoder(uint8_t encoded[], size_t length, uint8_t decoded[])
-{
-  size_t encodedOffset = 0; // Offset into original (encoded) buffer
-  size_t decodedOffset = 0; // Offset into destination (decoded) buffer
-  uint8_t replacement = 0;  // Value that will be inserted to indicate replaced value
-
-  while (encodedOffset < length)
-  {
-    replacement = encoded[encodedOffset]; // Grab next byte
-    if (((encodedOffset + replacement) > length) && (replacement != 1))
-      return 0;
-
-    encodedOffset++; // Point to next source
-
-    // Copy all unchanged bytes (use memcpy?)
-    for (int i = 1; i < replacement; i++)
-      decoded[decodedOffset++] = encoded[encodedOffset++];
-
-    // Sometimes don't need a trailing delimiter added
-    if (replacement < 0xff && encodedOffset != length)
-      decoded[decodedOffset++] = HCOM_PROTOCOL_PACKET_DELIMITER_VALUE;
-  }
-
-  return decodedOffset;
-}
-
-//=====================================================================
+ ****************************************************************************/
 // Circular Buffer
 // This circular buffer was written for the Meadow F7. Unlike the classic
 // version, this version has a byte array as input (received data). It 
@@ -141,8 +65,9 @@ size_t hcom_comms_cobs_decoder(uint8_t encoded[], size_t length, uint8_t decoded
 // encoding scheme. It both buffers and isolates the packets.
 //
 // Note: this is not thread safe as all functions share a common buffer.
-// However, at this time only one thread access these functions.
-int hcom_cirbuf_init(struct host_com_cir_buffer_s *hcbuf, size_t totalCapacity, uint8_t delimiter)
+// However, at this time only one thread access these functions / buffer.
+int hcom_cirbuf_init(struct host_com_cir_buffer_s *hcbuf, size_t totalCapacity,
+          uint8_t delimiter)
 {
   hcbuf->delimiter = delimiter;
 
@@ -173,12 +98,13 @@ size_t hcom_cirbuf_avail_space(struct host_com_cir_buffer_s *hcbuf)
 int hcom_cirbuf_release_memory(struct host_com_cir_buffer_s *hcbuf)
 {
   free(hcbuf->bottom);
-  free(hcbuf);
   return HCOM_CIR_BUF_INIT_OK;
 }
 
 //==============================================================================
-int hcom_cirbuf_add_bytes(struct host_com_cir_buffer_s *hcbuf, uint8_t *newBytes, uint32_t bytesToAdd)
+// Add the bytes requested, if they will fit
+int hcom_cirbuf_add_bytes(struct host_com_cir_buffer_s *hcbuf, uint8_t *newBytes,
+          uint32_t bytesToAdd)
 {
   if (bytesToAdd == 0)
     return HCOM_CIR_BUF_ADD_BAD_ARG;
@@ -230,19 +156,19 @@ int hcom_cirbuf_get_next_packet(struct host_com_cir_buffer_s *hcbuf, uint8_t *pa
     found = (uint8_t *)memchr(hcbuf->tail, hcbuf->delimiter, hcbuf->top - hcbuf->tail);
   }
 
-  // Move first part
+  // Move bytes of packet or it's first half
   if (found != NULL)
   {
     // Found the delimiter, message in one contiguous packet
     sizeFoundTop = found - hcbuf->tail + 1;
     if (sizeFoundTop > packetDestBufSize)
     {
-      // Won't fit in provided packet
+      // Won't fit in caller supplied packet
       *packetLength = sizeFoundTop;   // Size needed
       return HCOM_CIR_BUF_GET_DEST_NO_ROOM;
     }
 
-    // Since it will fit we can copy and exit
+    // It will all fit we can copy and exit
     memcpy(packetDestBuf, hcbuf->tail, sizeFoundTop);
     hcbuf->tail = found + 1;
     *packetLength = sizeFoundTop;     // Size found

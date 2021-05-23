@@ -1,10 +1,8 @@
 /****************************************************************************
- * configs/stm32f777-zit6-meadow/src/hcom/hcom_mono_main.h
- * 
- *   Copyright (C) 2019 - 2020 Wilderness Labs. All rights reserved.
- *   Copyright (C) 2017 Gregory Nutt. All rights reserved.
- *   Copyright (C) 2017 Alan Carvalho de Assis. All rights reserved.
- *   Author:  Wilderness Labs
+ * espcp_event_handlers.h
+ *
+ *   Copyright (C) 2020 Wilderness Labs. All rights reserved.
+ *   Author: Mark Stevens
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,19 +32,51 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
-#ifndef __CONFIGS_MEADOW_SRC_MEADOW_MONOMAIN__H
-#define __CONFIGS_MEADOW_SRC_MEADOW_MONOMAIN__H
+
+#ifndef __ESPCP_EVENT_HANDLERS_H__
+#define __ESPCP_EVENT_HANDLERS_H__
+
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include <assert.h>
+#include <errno.h>
+#include <debug.h>
+#include <fcntl.h>
+
+#include "espcp_wifi.h"
+#include "espcp_shared_enums.h"
+#include "espcp_message.h"
+#include "espcp_encoders.h"
+#include "espcp_system.h"
+#include "espcp_common.h"
+#include "espcp_usrsock.h"
+
 /****************************************************************************
- * Included Files
+ * Structures
  ****************************************************************************/
 
-//-------------------------------------------------------------
-// Mono control constants
-#define HCOM_MONO_MAIN_ACCESS_KEY 0x1c0ffee1
-#define HCOM_MONO_MAIN_ACTION_ENABLE_KEY ((uint32_t)-1765123)
+/*
+ *  Structure used to hold a table of interrupt handlers for the ESP functions.
+ */
+struct espcp_event_handlers_s
+{
+    /**
+     *  Function expecting to receive and interrupt.
+     */
+    uint32_t function;
 
-// Host message support
-#define HCOM_MONO_MAIN_STDOUT_PIPE "/dev/userstdoutfifo"
-#define HCOM_REMOTE_DBG_SOCKET_NAME "/dev/monodbg"
+    /**
+     *  Method that will take the message and process it.
+     */
+    void (*event_handler)(espcp_message_t *);
+};
+typedef struct espcp_event_handlers_s espcp_event_handlers_t;
 
-#endif // __CONFIGS_MEADOW_SRC_MEADOW_MONOMAIN__H
+/****************************************************************************
+ * Public Function Prototypes
+ ****************************************************************************/
+void espcp_usrsock_poll_interrupt_handler(espcp_message_t *);   // Found in espcp_usrsock_sockif.c
+void espcp_dispatch_event(espcp_message_t *);
+
+#endif /* __ESPCP_EVENT_HANDLERS_H__ */

@@ -43,6 +43,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <debug.h>
+#include <fcntl.h>
 
 #include <arch/irq.h>
 
@@ -50,14 +51,15 @@
 #include <nuttx/semaphore.h>
 #include <nuttx/net/net.h>
 #include <nuttx/net/usrsock.h>
-#include <nuttx/pthread.h>
 #include <nuttx/mqueue.h>
+#include <nuttx/config.h>
 
-#include "../hcom/hcom_common.h"
 #include "espcp_coprocessor.h"
 #include "espcp_queue.h"
 #include "espcp_message.h"
 #include "espcp_shared_enums.h"
+#include "espcp_coprocessor.h"
+#include "espcp_event_handlers.h"
 
 /****************************************************************************
  * Definitions
@@ -101,20 +103,31 @@
  *  Message queue does not already exist.
  *
  ****************************************************************************/
-mqd_t espcp_create_message_queue(char *name)
+bool espcp_create_message_queues(espcp_configuration_t *config)
 {
-  mqd_t queue_id = 0;
-  
-  struct mq_attr queue_attributes;
-  memset(&queue_attributes, 0, sizeof(queue_attributes));
-  mode_t mode;
-  memset(&mode, 0, sizeof(mode));
-  queue_attributes.mq_maxmsg = ESPCP_MAXIMUM_MESSAGE_QUEUE_LENGTH;
-  queue_attributes.mq_msgsize = sizeof(struct message_and_semaphore_s *);
-  queue_attributes.mq_flags = 0;
-  queue_id = mq_open(ESPCP_MESSAGE_QUEUE_NAME, O_RDWR | O_CREAT, mode, &queue_attributes);
-  
-  return(queue_id);
+    mqd_t request_queue_id = 0;
+
+    struct mq_attr queue_attributes;
+    memset(&queue_attributes, 0, sizeof(queue_attributes));
+    mode_t mode;
+    memset(&mode, 0, sizeof(mode));
+    queue_attributes.mq_maxmsg = ESPCP_MAXIMUM_MESSAGE_QUEUE_LENGTH;
+    queue_attributes.mq_msgsize = sizeof(struct message_and_semaphore_s *);
+    queue_attributes.mq_flags = 0;
+    request_queue_id = mq_open(ESPCP_REQUEST_MESSAGE_QUEUE_NAME, O_RDWR | O_CREAT, mode, &queue_attributes);
+
+    mqd_t event_queue_id = 0;
+    queue_attributes.mq_maxmsg = ESPCP_MAXIMUM_MESSAGE_QUEUE_LENGTH;
+    queue_attributes.mq_msgsize = sizeof(espcp_event_data_t);
+    queue_attributes.mq_flags = 0;
+    event_queue_id = mq_open(ESPCP_EVENT_MESSAGE_QUEUE_NAME, O_RDWR | O_CREAT, mode, &queue_attributes);
+
+    espcp_config_lock();
+    config->request_queue = request_queue_id;
+    config->event_queue = event_queue_id;
+    espcp_config_unlock();
+
+    return ((request_queue_id >= 0) && (event_queue_id >= 0));
 }
 
 /****************************************************************************
@@ -141,11 +154,11 @@ mqd_t espcp_create_message_queue(char *name)
  ****************************************************************************/
 int espcp_delete_message_queue(mqd_t queue_id)
 {
-  if (mq_close(queue_id) < 0)
-  {
-    return(-1);
-  }
-  return(mq_unlink(ESPCP_MESSAGE_QUEUE_NAME));
+    if (mq_close(queue_id) < 0)
+    {
+        return (-1);
+    }
+    return (mq_unlink(ESPCP_REQUEST_MESSAGE_QUEUE_NAME));
 }
 
 /****************************************************************************
@@ -169,12 +182,11 @@ int espcp_delete_message_queue(mqd_t queue_id)
  ****************************************************************************/
 int espcp_add_message_to_queue(mqd_t queue_id, espcp_message_t *message)
 {
-  int result = OK;
-  
-  result = mq_send(queue_id, (const void *) &message, sizeof(message), 
-                   ESPCP_DEFAULT_MESSAGE_PRIORITY);
-  
-  return (result);
+    int result = OK;
+
+    result = mq_send(queue_id, (const void *) &message, sizeof(message), ESPCP_DEFAULT_MESSAGE_PRIORITY);
+
+    return (result);
 }
 
 /****************************************************************************
@@ -196,15 +208,15 @@ int espcp_add_message_to_queue(mqd_t queue_id, espcp_message_t *message)
  ****************************************************************************/
 void *espcp_get_message_from_queue(mqd_t queue_id)
 {
-  void *message = NULL;
-  
-  int number_of_bytes = mq_receive(queue_id, (void *) &message, sizeof(message), NULL);
-  if (number_of_bytes != sizeof(message))
-  {
-    message = NULL;
-  }
-    
-  return message;
+    void *message = NULL;
+
+    int number_of_bytes = mq_receive(queue_id, (void *)&message, sizeof(message), NULL);
+    if (number_of_bytes != sizeof(message))
+    {
+        message = NULL;
+    }
+
+    return message;
 }
 
 /****************************************************************************
@@ -231,13 +243,12 @@ void *espcp_get_message_from_queue(mqd_t queue_id)
  ****************************************************************************/
 void espcp_queue_kill_nuttx_thread_message(mqd_t queue_id)
 {
-  espcp_message_t *kill_thread_message = (espcp_message_t *) malloc(sizeof(espcp_message_t));
-  memset(kill_thread_message, 0, sizeof(espcp_message_t));
-  kill_thread_message->message_type = espcp_message_types_transport;
-  kill_thread_message->interface = espcp_esp32_interfaces_transport;
-  kill_thread_message->function = espcp_transport_function_kill_nuttx_thread;
-  kill_thread_message->semaphore = NULL;
+    espcp_message_t *kill_thread_message = (espcp_message_t *)malloc(sizeof(espcp_message_t));
+    memset(kill_thread_message, 0, sizeof(espcp_message_t));
+    kill_thread_message->message_type = espcp_message_types_transport;
+    kill_thread_message->interface = espcp_esp32_interfaces_transport;
+    kill_thread_message->function = espcp_transport_function_kill_nuttx_thread;
+    kill_thread_message->semaphore = NULL;
 
-  espcp_add_message_to_queue(queue_id, kill_thread_message);
+    espcp_add_message_to_queue(queue_id, kill_thread_message);
 }
-

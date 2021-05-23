@@ -25,18 +25,32 @@ enum espcp_status_codes
     espcp_status_codes_failure = 3,
     espcp_status_codes_invalid_interface = 4,
     espcp_status_codes_queue_error = 5,
-    espcp_status_codes_invalid_packet = 6,
-    espcp_status_codes_invalid_header = 7,
-    espcp_status_codes_unexpected_data = 8,
-    espcp_status_codes_missing_end_of_frame_marker = 9,
-    espcp_status_codes_header_body_field_mismatch = 10,
-    espcp_status_codes_wi_fi_already_started = 11,
-    espcp_status_codes_invalid_ssid = 12,
-    espcp_status_codes_invalid_password = 13,
+    espcp_status_codes_timeout = 6,
+    espcp_status_codes_invalid_packet = 7,
+    espcp_status_codes_invalid_header = 8,
+    espcp_status_codes_unexpected_data = 9,
+    espcp_status_codes_missing_end_of_frame_marker = 10,
+    espcp_status_codes_header_body_field_mismatch = 11,
+    espcp_status_codes_wi_fi_already_started = 12,
+    espcp_status_codes_invalid_wi_fi_credentials = 13,
     espcp_status_codes_wi_fi_disconnected = 14,
-    espcp_status_codes_invalid_antenna_data = 15,
-    espcp_status_codes_invalid_antenna_value = 16,
-    espcp_status_codes_no_messages_waiting = 17
+    espcp_status_codes_cannot_start_network_interface = 15,
+    espcp_status_codes_cannot_connect_to_access_point = 16,
+    espcp_status_codes_invalid_antenna_data = 17,
+    espcp_status_codes_invalid_antenna_value = 18,
+    espcp_status_codes_no_messages_waiting = 19,
+    espcp_status_codes_coprocessor_not_responding = 20,
+    espcp_status_codes_esp_wi_fi_not_started = 21,
+    espcp_status_codes_esp_out_of_memory = 22,
+    espcp_status_codes_esp_wi_fi_invalid_ssid = 23,
+    espcp_status_codes_access_point_not_found = 24,
+    espcp_status_codes_beacon_timeout = 25,
+    espcp_status_codes_authentication_failed = 26,
+    espcp_status_codes_association_failed = 27,
+    espcp_status_codes_handshake_timeout = 28,
+    espcp_status_codes_connection_failed = 29,
+    espcp_status_codes_ap_tsf_reset = 30,
+    espcp_status_codes_unmapped_error_code = 31
 };
 typedef enum espcp_status_codes espcp_status_codes_t;
 
@@ -60,9 +74,10 @@ typedef enum espcp_esp32_interfaces espcp_esp32_interfaces_t;
 enum espcp_system_function
 {
     espcp_system_function_get_configuration = 0,
-    espcp_system_function_set_configuration = 1,
+    espcp_system_function_set_configuration_item = 1,
     espcp_system_function_deep_sleep = 2,
-    espcp_system_function_get_battery_charge_level = 3
+    espcp_system_function_get_battery_charge_level = 3,
+    espcp_system_function_error_event = 4
 };
 typedef enum espcp_system_function espcp_system_function_t;
 
@@ -71,23 +86,36 @@ typedef enum espcp_system_function espcp_system_function_t;
  */
 enum espcp_wi_fi_function
 {
-    espcp_wi_fi_function_start = 0,
+    espcp_wi_fi_function_start_network = 0,
     espcp_wi_fi_function_stop = 1,
-    espcp_wi_fi_function_connect_to_ap = 2,
-    espcp_wi_fi_function_disconnect = 3,
+    espcp_wi_fi_function_connect_to_access_point = 2,
+    espcp_wi_fi_function_disconnect_from_access_point = 3,
     espcp_wi_fi_function_get_access_points = 4,
-    espcp_wi_fi_function_get_configuration = 5,
-    espcp_wi_fi_function_set_configuration = 6,
-    espcp_wi_fi_function_set_antenna = 7,
-    espcp_wi_fi_function_get_antenna = 8,
-    espcp_wi_fi_function_get_addr_info = 9,
-    espcp_wi_fi_function_socket = 10,
-    espcp_wi_fi_function_connect = 11,
-    espcp_wi_fi_function_free_addr_info = 12,
-    espcp_wi_fi_function_write = 13,
-    espcp_wi_fi_function_set_sock_opt = 14,
-    espcp_wi_fi_function_read = 15,
-    espcp_wi_fi_function_close = 16
+    espcp_wi_fi_function_get_addr_info = 5,
+    espcp_wi_fi_function_socket = 6,
+    espcp_wi_fi_function_connect = 7,
+    espcp_wi_fi_function_free_addr_info = 8,
+    espcp_wi_fi_function_write = 9,
+    espcp_wi_fi_function_set_sock_opt = 10,
+    espcp_wi_fi_function_read = 11,
+    espcp_wi_fi_function_close = 12,
+    espcp_wi_fi_function_send_to = 13,
+    espcp_wi_fi_function_recv_from = 14,
+    espcp_wi_fi_function_poll = 15,
+    espcp_wi_fi_function_interrupt_poll_response = 16,
+    espcp_wi_fi_function_send = 17,
+    espcp_wi_fi_function_bind = 18,
+    espcp_wi_fi_function_listen = 19,
+    espcp_wi_fi_function_accept = 20,
+    espcp_wi_fi_function_ioctl = 21,
+    espcp_wi_fi_function_get_sock_name = 22,
+    espcp_wi_fi_function_get_peer_name = 23,
+    espcp_wi_fi_function_set_antenna = 24,
+    espcp_wi_fi_function_set_time_of_day_event = 25,
+    espcp_wi_fi_function_connect_event = 26,
+    espcp_wi_fi_function_disconnect_event = 27,
+    espcp_wi_fi_function_start_interface_event = 28,
+    espcp_wi_fi_function_stop_interface_event = 29
 };
 typedef enum espcp_wi_fi_function espcp_wi_fi_function_t;
 
@@ -96,8 +124,11 @@ typedef enum espcp_wi_fi_function espcp_wi_fi_function_t;
  */
 enum espcp_bluetooth_function
 {
-    espcp_bluetooth_function_get_configuration = 0,
-    espcp_bluetooth_function_set_configuration = 1
+    espcp_bluetooth_function_start = 0,
+    espcp_bluetooth_function_stop = 1,
+    espcp_bluetooth_function_get_handles = 2,
+    espcp_bluetooth_function_server_data_set = 3,
+    espcp_bluetooth_function_client_write_request_event = 4
 };
 typedef enum espcp_bluetooth_function espcp_bluetooth_function_t;
 
@@ -108,7 +139,8 @@ enum espcp_transport_function
 {
     espcp_transport_function_response_ready = 0,
     espcp_transport_function_send_response = 1,
-    espcp_transport_function_kill_nuttx_thread = 2
+    espcp_transport_function_kill_nuttx_thread = 2,
+    espcp_transport_function_reset_esp32 = 3
 };
 typedef enum espcp_transport_function espcp_transport_function_t;
 
@@ -120,13 +152,75 @@ enum espcp_message_types
     espcp_message_types_ack = 0x00,
     espcp_message_types_nak = 0x01,
     espcp_message_types_reset = 0x02,
-    espcp_message_types_ready = 0x04,
+    espcp_message_types_event = 0x04,
     espcp_message_types_response = 0x10,
     espcp_message_types_transport = 0x20,
     espcp_message_types_header = 0x40,
     espcp_message_types_data = 0x80
 };
 typedef enum espcp_message_types espcp_message_types_t;
+
+/*
+ *    Name of items that can be configured (changed by the code on the STM32) on the ESP32.
+ */
+enum espcp_configuration_items
+{
+    espcp_configuration_items_maximum_message_queue_length = 0,
+    espcp_configuration_items_automatically_start_network = 1,
+    espcp_configuration_items_automatically_reconnect = 2,
+    espcp_configuration_items_maximum_retry_count = 3,
+    espcp_configuration_items_device_name = 4,
+    espcp_configuration_items_default_ap_and_password = 5,
+    espcp_configuration_items_ntp_server = 6,
+    espcp_configuration_items_get_time_at_startup = 7,
+    espcp_configuration_items_use_dhcp = 8,
+    espcp_configuration_items_static_ip_address = 9,
+    espcp_configuration_items_dns_server = 10,
+    espcp_configuration_items_default_gateway = 11,
+    espcp_configuration_items_antenna = 12,
+    espcp_configuration_items_board_mac_address = 13,
+    espcp_configuration_items_soft_ap_mac_address = 14
+};
+typedef enum espcp_configuration_items espcp_configuration_items_t;
+
+/*
+ *    WiFi reason codes
+ */
+enum espcp_wi_fi_reasons
+{
+    espcp_wi_fi_reasons_unspecified = 1,
+    espcp_wi_fi_reasons_authentication_expired = 2,
+    espcp_wi_fi_reasons_authentication_leave = 3,
+    espcp_wi_fi_reasons_association_expired = 4,
+    espcp_wi_fi_reasons_association_too_many = 5,
+    espcp_wi_fi_reasons_not_authenticated = 6,
+    espcp_wi_fi_reasons_not_associated = 7,
+    espcp_wi_fi_reasons_association_leave = 8,
+    espcp_wi_fi_reasons_association_not_authorized = 9,
+    espcp_wi_fi_reasons_disassociated_power_capability_bad = 10,
+    espcp_wi_fi_reasons_disassociated_supplementary_channel_bad = 11,
+    espcp_wi_fi_reasons_invalid_element = 13,
+    espcp_wi_fi_reasons_message_integrity_code_failure = 14,
+    espcp_wi_fi_reasons_four_way_handshake_timeout = 15,
+    espcp_wi_fi_reasons_group_key_update_timeout = 16,
+    espcp_wi_fi_reasons_invalid_element_in_four_way_handshake = 17,
+    espcp_wi_fi_reasons_invalid_group_cipher = 18,
+    espcp_wi_fi_reasons_invalid_pairwise_cipher = 19,
+    espcp_wi_fi_reasons_invalid_akmp = 20,
+    espcp_wi_fi_reasons_unsupported_rsne_version = 21,
+    espcp_wi_fi_reasons_invalid_rsne_capabilities = 22,
+    espcp_wi_fi_reasons_authentication801_failed = 23,
+    espcp_wi_fi_reasons_cipher_suite_rejected = 24,
+    espcp_wi_fi_reasons_invalid_pmkid = 53,
+    espcp_wi_fi_reasons_beacon_timeout = 200,
+    espcp_wi_fi_reasons_no_access_point_found = 201,
+    espcp_wi_fi_reasons_authentication_failed = 202,
+    espcp_wi_fi_reasons_association_failed = 203,
+    espcp_wi_fi_reasons_handshake_timeout = 204,
+    espcp_wi_fi_reasons_connection_failed = 205,
+    espcp_wi_fi_reasons_tsf_reset = 206
+};
+typedef enum espcp_wi_fi_reasons espcp_wi_fi_reasons_t;
 
 /*
  *    Access point authentication method.
@@ -138,7 +232,9 @@ enum espcp_wi_fi_authentication_mode
     espcp_wi_fi_authentication_mode_wpa_psk = 2,
     espcp_wi_fi_authentication_mode_wpa2_psk = 3,
     espcp_wi_fi_authentication_mode_wpa_wpa2_psk = 4,
-    espcp_wi_fi_authentication_mode_wpa2_enterprise = 5
+    espcp_wi_fi_authentication_mode_wpa2_enterprise = 5,
+    espcp_wi_fi_authentication_mode_wpa3_psk = 6,
+    espcp_wi_fi_authentication_mode_wpa2_wpa3_psk = 7
 };
 typedef enum espcp_wi_fi_authentication_mode espcp_wi_fi_authentication_mode_t;
 

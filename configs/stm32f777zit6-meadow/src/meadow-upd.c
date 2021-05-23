@@ -29,9 +29,16 @@
 #include <dirent.h>
 
 #include <nuttx/timers/timer.h>
+#include <nuttx/timers/watchdog.h>
 #include <sys/ioctl.h>
 #include "stm32_tim.h"
 #include "meadow-upd.h"
+#include <meadow/hcom_nuttx_shared.h>
+#include <meadow/hcom_shared_common.h>
+#include "stm32_uid.h" // stm32_get_uniqueid()
+
+#include "espcp/espcp_common.h"
+#include "espcp/espcp_encoders.h"
 
 /****************************************************************************
  * Private Types
@@ -102,6 +109,38 @@ struct upd_dir_enum_cmd
   uint32_t resultLength; // length of data buffer
 };
 
+
+/*
+ *  Information about the function that should be requested to
+ *  be performed by the ESP32.
+ */
+struct upd_esp32_command
+{
+  uint8_t interface;          // Interface (WiFi, System etc.) to perform the request.
+  uint32_t function;          // Function number to be executed.
+  uint32_t status_code;       // Status code returned by the ESP32.
+  uint8_t *payload;           // Pointer to the data required by the function.
+  uint32_t payload_length;    // Length of the data block.
+  uint8_t *result;            // Pointer to the result.
+  uint32_t result_length;     // Length of the result data block.
+  uint8_t block;              // Is this a blocking call?
+};
+
+struct upd_event_data_request
+{
+  uint32_t message_address;   // Pointer to the message generating he event.
+  uint32_t status_code;       // Status code returned by the ESP32.
+  uint8_t *payload;           // Pointer to the data required by the function.
+  uint32_t payload_length;    // Length of the data block.
+};
+
+struct upd_device_info
+{
+  char *infoBuf;
+  int infoBufLen;
+  int infoRetLen;
+};
+
 /****************************************************************************
  * Private Function Prototypes
  ****************************************************************************/
@@ -119,6 +158,12 @@ static int upd_handle_spi_speed(int cmd, struct upd_spi_speed_cmd*);
 static int upd_handle_spi_mode(int cmd, struct upd_spi_mode_cmd*);
 static int upd_handle_spi_bits(int cmd, struct upd_spi_bits_cmd* data);
 static int upd_handle_dir_enum(struct upd_dir_enum_cmd*);
+
+static int upd_handle_esp32_command(struct upd_esp32_command *);
+static int upd_handle_esp32_get_event_result(struct upd_event_data_request *);
+
+static int upd_handle_watchdog_set(unsigned long cmd);
+static int upd_handle_watchdog_pet(void);
 
 /****************************************************************************
  * Private Data
@@ -142,6 +187,8 @@ static struct i2c_config_s g_i2c_cfg;
 
 static struct spi_dev_s *g_spi3 = NULL; // external
 static struct spi_dev_s *g_spi2 = NULL; // to ESP32
+
+static int s_wd_fd = -1;
 
 static int upd_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 {
@@ -194,8 +241,76 @@ static int upd_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
       *((int*)arg) = errno;
       return OK;
 
+    case MUPD_ESP32_COMMAND:
+      return upd_handle_esp32_command((struct upd_esp32_command *) arg);
+    case MUPD_ESP32_GET_EVENT_RESULT:
+      return upd_handle_esp32_get_event_result((struct upd_event_data_request *) arg);
+
+    case MUPD_PWR_RESET:
+      up_systemreset();
+      break;
+
+    case MUPD_PWR_SLEEP1:
+    case MUPD_PWR_SLEEP2:
+      return EINVAL;
   }
   return ERROR;
+}
+
+static int upd_handle_watchdog_set(unsigned long timeoutMilliseconds)
+{
+  int ret;
+  bool needsStart = false;
+
+  // has the WD already been opened? (i.e. are we starting or updating it?)
+  if(s_wd_fd < 0)
+  {
+      s_wd_fd = open("/dev/watchdog0", O_RDONLY);
+      if(s_wd_fd < 0)
+      {
+        syslog(LOG_ERR, "Failed to open WD driver: %i", errno);
+        return ENODEV;
+      }
+      needsStart = true;
+  }
+
+  ret = ioctl(s_wd_fd, WDIOC_SETTIMEOUT, timeoutMilliseconds);
+  if(ret < 0)
+  {
+    syslog(LOG_ERR, "Failed to set WD timeout: %i", errno);
+    return errno;
+  }
+
+  if(needsStart)
+  {
+    ret = ioctl(s_wd_fd, WDIOC_START, 0);
+    if(ret < 0)
+    {
+      syslog(LOG_ERR, "Failed to start WD timer: %i", errno);
+      return errno;
+    }
+  }
+
+  return OK;
+}
+
+static int upd_handle_watchdog_pet()
+{
+  // has the WD been enabled?
+  if(s_wd_fd < 0)
+  {
+    syslog(LOG_ERR, "WD hasn't been enabled");
+    return ENODEV;    
+  }
+
+  int ret = ioctl(s_wd_fd, WDIOC_KEEPALIVE, 0);
+  if(ret < 0)
+  {
+    syslog(LOG_ERR, "Failed to reset WD timer: %i", errno);
+    return errno;
+  }
+
+  return OK;
 }
 
 static int upd_handle_dir_enum(struct upd_dir_enum_cmd* cmd)
@@ -469,6 +584,148 @@ static int upd_close(struct file *filep)
   mq_close(s_int_queue);
 
   return OK;
+}
+
+/****************************************************************************
+ * Name: upd_handle_esp32_command
+ *
+ * Description:
+ *  Take the command for the ESP32 and package this up into a message to
+ *  send to the ESP32.
+ *
+ * Input Parameters:
+ *  data - structure containing a pointer to the structure containing the
+ *         message information.
+ *
+ * Returned Value:
+ *  OK if the command was executed or ERROR if there was a problem.
+ *
+ * Assumptions/Limitations:
+ *  None
+ *
+ ****************************************************************************/
+int upd_handle_esp32_command(struct upd_esp32_command *data)
+{
+  int result = ERROR;
+  uint8_t *payload = NULL;
+  espcp_message_t *message = NULL;
+
+  data->status_code = espcp_status_codes_failure;
+  
+  espcp_configuration_t *config = espcp_get_configuration();
+  if (config == NULL)
+  {
+    return ERROR;
+  }
+  if (config->esp_not_responding)
+  {
+    data->status_code = espcp_status_codes_coprocessor_not_responding;
+    return(ERROR);
+  }
+  if (data->payload_length != 0)
+  {
+    /*
+      *  Note that we must take a copy of the message payload here as
+      *  the process of sending the message that will be created next
+      *  will dispose of the message and the payload after the message
+      *  has been dealt with.  We do not want to mess with the managed
+      *  memory so we take copies.
+      */
+    payload = (uint8_t *) malloc(data->payload_length);
+    if (payload == NULL)
+    {
+      return ERROR;
+    }
+    memcpy(payload, data->payload, data->payload_length);
+  }
+  else
+  {
+    payload = NULL;
+  }
+
+  message = espcp_create_message_on_heap(espcp_message_types_header,
+    data->interface, data->function, 0, espcp_get_next_message_id(),
+    payload, data->payload_length);
+  if (message == NULL)
+  {
+    if (payload != NULL)
+    {
+      free(payload);
+    }
+    return ERROR;
+  }
+
+  if (espcp_queue_message(message, data->block != 0) == espcp_status_codes_completed_ok)
+  {
+    result = OK;
+    if (data->block != 0)
+    {
+      data->status_code = message->status_code;
+      if (message->payload_length > 0)
+      {
+        if (message->payload_length <= data->result_length)
+        {
+          memcpy(data->result, message->payload, message->payload_length);
+          data->result_length = message->payload_length;
+        }
+        else
+        {
+          result = ERROR;
+        }
+      }
+    }
+    data->status_code = espcp_status_codes_completed_ok;
+  }
+  return(result);
+}
+
+/****************************************************************************
+ * Name: upd_handle_esp32_get_event_result
+ * 
+ * Description:
+ *  Get any payload and status information for events returning more than
+ *  a trivial amount of data.
+ * 
+ *  This method is necessary as message queues can only hold 22 bytes of data.
+ *  After overheads are taken into considertion this only leaves 13 bytes.  It
+ *  was decided to use the payload and payload_length concept used with
+ *  messages to transfer any data other than interface, function and status
+ *  code.
+ *
+ * Input Parameters:
+ *  data - pointer to a structure to hold the event data.  The memory should
+ *         be allocated in the managed code.
+ *
+ * Returned Value:
+ *  OK if the command was executed or ERROR if there was a problem.
+ *
+ * Assumptions/Limitations:
+ *  None
+ *
+ ****************************************************************************/
+int upd_handle_esp32_get_event_result(struct upd_event_data_request *data)
+{
+  int result = OK;
+
+  espcp_message_t *message = (espcp_message_t *) data->status_code;
+  if (data->payload_length >= message->payload_length)
+  {
+    if (data->payload_length > 0)
+    {
+      memcpy(data->payload, message->payload, message->payload_length);
+    }
+    data->payload_length = message->payload_length;
+    data->status_code = message->status_code;
+  }
+  else
+  {
+    data->payload_length = 0;
+    data->status_code = espcp_status_codes_failure;
+    result = ERROR;
+  }
+
+  espcp_delete_message_and_payload(message);
+  return(result);
 }
 
 /****************************************************************************

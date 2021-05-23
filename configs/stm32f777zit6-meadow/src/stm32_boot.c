@@ -57,9 +57,11 @@
 
 #include "up_arch.h"
 #include "stm32f777zit6-meadow.h"
-#include "hcom/hcom_common.h"
+#include "espcp/espcp_coprocessor.h"
 #include "stm32_mpuinit.h"
 #include "stm32_pwr.h"
+
+#include "espcp/espcp_usrsock.h"
 
 #include "mpu.h"
 
@@ -69,6 +71,7 @@
 #endif
 
 int meadow_upd_initialize(void);
+int hcom_nx_setup_mgr(FAR struct mtd_dev_s *mtd);
 
 /************************************************************************************
  * Pre-processor Definitions
@@ -212,8 +215,6 @@ void board_late_initialize(void)
 #if defined(CONFIG_STM32F7_PWR)
   // Initialize the backup SRAM and the 32 registers
   stm32_pwr_initbkp(true);    // initialize as writable
-
-  hcom_manager_syslog_mask_init();
 #endif
 
 #ifdef CONFIG_PWM
@@ -230,16 +231,22 @@ void board_late_initialize(void)
 #endif
 
 #ifdef CONFIG_BUILD_PROTECTED
+ #if defined(CONFIG_ARM_MPU)
   // Map in the entire GPIO register range.
   // Due to MPU alignemnt requirements, size needs to be slightly larger
   // than the GPIO memory region, leaving the CRC, RCC and Flash interface
   // registers open to user code as well.
   size_t size = 1 << mpu_log2regionceil(STM32_GPIOK_BASE - STM32_GPIOA_BASE);
   stm32_mpu_uheap((uintptr_t)STM32_GPIOA_BASE, size);
+ #endif
 #endif
 
 #ifdef CONFIG_EXAMPLES_MONO
-  meadow_upd_initialize();
+  ret = meadow_upd_initialize();
+  if (ret < 0)
+    {
+      syslog(LOG_ERR, "ERROR: meadow_upd_initialize() failed: %d\n", ret);
+    }
 #endif
 
 #if defined(CONFIG_STM32F7_QUADSPI)
@@ -253,8 +260,11 @@ void board_late_initialize(void)
 
     g_qspi = qspi;
 
+  #if defined(CONFIG_ARM_MPU)
     // Allow user-space access to the QSPI flash memory region.
     stm32_mpu_uheap((uintptr_t)STM32_FMC_BANK4, CONFIG_STM32F7_QSPI_FLASH_SIZE);
+  #endif
+
 #endif
 
   FAR struct mtd_dev_s *mtd = 0;
@@ -278,14 +288,15 @@ void board_late_initialize(void)
 #endif
 
 #if defined(CONFIG_MEADOW_HCOM)
-  // Initialize Meadow HCOM host communications
-  ret = hcom_manager_setup(mtd);
+  // Initialize Meadow HCOM nuttx
+  ret = hcom_nx_setup_mgr(mtd);
   if(ret < 0)
   {
-    syslog(LOG_EMERG, "ERROR: HCOM initialization failed!\n");
+    syslog(LOG_EMERG, "ERROR: HCOM proxy initialization failed!\n");
     PANIC();
   }
 #endif
+
 }
 
 //--------------------------------------------------------------

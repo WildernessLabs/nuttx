@@ -87,6 +87,22 @@ int hcom_nx_route_cli_command(struct hcom_nx_cmd_data *cmdData)
       ret = hcom_nx_exec_ex_flash_renew_file_system(cmdData);
       return ret;
 
+    case HCOM_MDOW_REQUEST_NO_TRACE_TO_HOST:
+      ret = hcom_nx_exec_trace_do_not_send_to_host(cmdData);
+      return ret;
+
+    case HCOM_MDOW_REQUEST_SEND_TRACE_TO_HOST:
+      ret = hcom_nx_exec_trace_forward_to_host(cmdData);
+      return ret;
+
+    case HCOM_MDOW_REQUEST_NO_TRACE_TO_UART:
+      ret = hcom_nx_exec_trace_do_not_send_to_uart1(cmdData);
+      return ret;
+
+    case HCOM_MDOW_REQUEST_SEND_TRACE_TO_UART:
+      ret = hcom_nx_exec_trace_forward_to_uart1(cmdData);
+      return ret;
+
     default:
       cmdData->logLevel = LOG_ERR;
       cmdData->logLen = snprintf(cmdData->logMsg, HCOM_NX_CMD_LOG_MSG_SIZE,

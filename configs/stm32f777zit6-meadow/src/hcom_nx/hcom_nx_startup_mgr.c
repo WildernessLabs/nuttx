@@ -78,6 +78,17 @@ int hcom_nx_setup_mgr(FAR struct mtd_dev_s *mtd)
     return ERROR;
   }
 
+// Initialize the syslog message pump so messages can be displayed
+#if defined (CONFIG_RAMLOG_SYSLOG)
+  ret = hcom_nx_trace_msg_pump_setup();
+  if (ret < 0)
+  {
+    syslog(LOG_CRIT, "%s@%d-setup F/S helper %d\n", thisFile, __LINE__, ret);
+    return ret;
+  }
+#endif
+
+
 // Initialize the file system first so config file can be read by others
 #if defined(CONFIG_HCOM_FILESYSTEM_INIT)    // defined in menuconfig
   ret = hcom_nx_create_fs_initialize(mtd);

@@ -197,6 +197,7 @@ struct hcom_nx_upd_ini_cfg_get_int_defval_s
 #define HCOM_NX_UPD_ONLY_RESTART_MEADOW_MCU     27
 #define HCOM_NX_UPD_GET_CONFIG                  28
 #define HCOM_NX_UPD_GET_STRING                  29
+#define HCOM_NX_UPD_MONO_HAS_STARTED            30
 
 //---------------------------------------------------------------------
 // GPIO Definitions that are used by hcom_nx_upd

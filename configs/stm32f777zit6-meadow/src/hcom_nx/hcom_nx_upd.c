@@ -163,8 +163,6 @@ int hcom_upd_nx_read(FAR struct file *filep, FAR char *buffer, size_t buflen)
 static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 {
   int ret;
-  bool retBool;
-  int  retInt;
   int length;
   struct hcom_nx_upd_register_value *register_val;
   struct hcom_nx_upd_register_update *register_update;
@@ -172,9 +170,6 @@ static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
   struct hcom_nx_upd_bbr_update *bbr_update;
   struct hcom_nx_cmd_data *cmdData;
   struct hcom_nx_upd_is_part_mounted *is_mounted;
-  struct hcom_nx_upd_ini_cfg_get_value_s *get_cfg_value;
-  struct hcom_nx_upd_ini_cfg_get_match_s *is_cfg_match;
-  struct hcom_nx_upd_ini_cfg_get_int_defval_s *get_cfg_int;
 
   switch (cmd)
   {
@@ -255,6 +250,9 @@ static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
   }
 #endif
 
+  case HCOM_NX_UPD_MONO_HAS_STARTED:
+    return hcom_nx_trace_msg_mono_started();
+    
   case HCOM_NX_UPD_RESTORE_UART_CONFIG:
     return hcom_nx_restore_uart_reconfig(arg);
 

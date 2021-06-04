@@ -37,8 +37,7 @@
 
 ASRCS =
 CSRCS = stm32_boot.c stm32_spi.c stm32_extmem.c stm32_i2c.c \
- meadow-upd.c meadow-upd-interrupt.c inicfg/meadow_inicfg.c \
- inicfg/meadow_ini.c misc/meadow_cirbuf.c
+ meadow-upd.c meadow-upd-interrupt.c misc/meadow_cirbuf.c
 
 ifeq ($(CONFIG_ARCH_LEDS),y)
 CSRCS += stm32_autoleds.c
@@ -88,7 +87,8 @@ hcom_nx/commands/hcom_nx_ex_flash.c \
 hcom_nx/create_fs/hcom_nx_fs.c \
 hcom_nx/create_fs/hcom_nx_fs_littlefs.c \
 hcom_nx/diag/hcom_nx_upd_diag.c \
-hcom_nx/tests/hcom_nx_qspi_flash_tests.c
+hcom_nx/tests/hcom_nx_qspi_flash_tests.c \
+hcom_nx/hcom_nx_config_manager.c
 
 ifeq ($(CONFIG_MEADOW_ESPCP_MANAGER),y)
 CSRCS += espcp/espcp_thread.c \
@@ -105,6 +105,17 @@ CSRCS += espcp/espcp_thread.c \
 		 espcp/espcp_usrsock_sockif.c \
 		 espcp/espcp_event_handlers.c
 endif
+
+#
+#	The libyaml library is required by cyaml.
+#
+CSRCS += libyaml/api.c libyaml/dumper.c libyaml/emitter.c libyaml/loader.c \
+         libyaml/parser.c libyaml/reader.c libyaml/scanner.c libyaml//writer.c
+#
+#	The cyaml library maps the items from the libyaml output to the structures used by the application.
+#
+CSRCS += libcyaml/mem.c libcyaml/free.c libcyaml/load.c libcyaml/save.c libcyaml/util.c libcyaml/utf8.c
+
 endif
 
 include $(TOPDIR)/configs/Board.mk

@@ -249,14 +249,13 @@ int espcp_teardown_message_dispatcher(void)
  ****************************************************************************/
 int espcp_queue_send_response_message(int irq, void *context, void *arg)
 {
+    espcp_config_lock();
     espcp_configuration_t *config = espcp_get_configuration();
-    espcp_config_lock(config);
     if (config->esp_not_responding)
     {
         config->esp_not_responding = false;
-        sem_post(&config->spi_lock);
     }
-    espcp_config_unlock(config);
+    espcp_config_unlock();
 
     espcp_add_message_to_queue(g_message_queue, g_request_response_message);
     return 0;
@@ -323,11 +322,11 @@ espcp_message_t *espcp_get_message_header(espcp_configuration_t *configuration)
 {
     espcp_message_t *message_header = NULL;
 
-    espcp_config_lock(configuration);
+    espcp_config_lock();
     espcp_send_data_function_t send_data_to_esp32 = configuration->send_data_to_esp32;
     uint32_t header_only_buffer_size = configuration->header_only_buffer_size;
     uint8_t *header = (uint8_t *) malloc(configuration->header_only_buffer_size);
-    espcp_config_unlock(configuration);
+    espcp_config_unlock();
 
     if (send_data_to_esp32 != NULL)
     {
@@ -367,9 +366,9 @@ espcp_message_t *espcp_get_message_body(espcp_configuration_t *configuration, es
     uint8_t *buffer = (uint8_t *) malloc(buffer_length);
     espcp_message_t *message = NULL;
 
-    espcp_config_lock(configuration);
+    espcp_config_lock();
     espcp_send_data_function_t send_data_to_esp32 = configuration->send_data_to_esp32;
-    espcp_config_unlock(configuration);
+    espcp_config_unlock();
 
     if (send_data_to_esp32 != NULL)
     {
@@ -427,10 +426,10 @@ int espcp_get_message_header_acknowledgement(espcp_configuration_t *configuratio
 {
     int result = espcp_status_codes_completed_ok;
 
-    espcp_config_lock(configuration);
+    espcp_config_lock();
     espcp_send_data_function_t send_data_to_esp32 = configuration->send_data_to_esp32;
     uint32_t header_only_buffer_size = configuration->header_only_buffer_size;
-    espcp_config_unlock(configuration);
+    espcp_config_unlock();
 
     uint8_t *encoded_message = (uint8_t *) malloc(header_only_buffer_size);
     if (send_data_to_esp32 != NULL)
@@ -553,9 +552,9 @@ int espcp_send_header(espcp_configuration_t *configuration, espcp_message_t *mes
     uint8_t *encoded_header = espcp_encode_message(message, &encoded_header_size, true);
     int result = espcp_status_codes_completed_ok;
 
-    espcp_config_lock(configuration);
+    espcp_config_lock();
     espcp_send_data_function_t send_data_to_esp32 = configuration->send_data_to_esp32;
-    espcp_config_unlock(configuration);
+    espcp_config_unlock();
 
     if (encoded_header != NULL)
     {
@@ -592,7 +591,7 @@ int espcp_send_header(espcp_configuration_t *configuration, espcp_message_t *mes
  ****************************************************************************/
 void espcp_send_acknowledgement(espcp_configuration_t *configuration, espcp_message_t *message, espcp_status_codes_t status_code)
 {
-    espcp_message_t *acknowledgement = (espcp_message_t *)malloc(sizeof(espcp_message_t));
+    espcp_message_t *acknowledgement = (espcp_message_t *) malloc(sizeof(espcp_message_t));
 
     memcpy(acknowledgement, message, sizeof(espcp_message_t));
     if (status_code == espcp_status_codes_completed_ok)
@@ -610,9 +609,9 @@ void espcp_send_acknowledgement(espcp_configuration_t *configuration, espcp_mess
     uint32_t length = 0;
     uint8_t *encoded_message = espcp_encode_message(acknowledgement, &length, false);
 
-    espcp_config_lock(configuration);
+    espcp_config_lock();
     espcp_send_data_function_t send_data_to_esp32 = configuration->send_data_to_esp32;
-    espcp_config_unlock(configuration);
+    espcp_config_unlock();
 
     if (send_data_to_esp32 != NULL)
     {
@@ -645,11 +644,11 @@ int espcp_send_message_body(espcp_configuration_t *configuration, espcp_message_
     int result = espcp_status_codes_failure;
     uint32_t encoded_length = 0;
 
-    espcp_config_lock(configuration);
+    espcp_config_lock();
     espcp_send_data_function_t send_data_to_esp32 = configuration->send_data_to_esp32;
     uint32_t header_only_buffer_size = configuration->header_only_buffer_size;
     uint8_t *header = (uint8_t *) malloc(configuration->header_only_buffer_size);
-    espcp_config_unlock(configuration);
+    espcp_config_unlock();
 
     if (send_data_to_esp32 != NULL)
     {
@@ -720,9 +719,9 @@ int espcp_send_message(espcp_configuration_t *configuration, espcp_message_t *me
     }
     else
     {
-        espcp_config_lock(configuration);
+        espcp_config_lock();
         espcp_send_data_function_t send_data_to_esp32 = configuration->send_data_to_esp32;
-        espcp_config_unlock(configuration);
+        espcp_config_unlock();
 
         if (send_data_to_esp32 != NULL)
         {
@@ -774,10 +773,28 @@ int espcp_send_message(espcp_configuration_t *configuration, espcp_message_t *me
                  *  been sent to the ESP32.  So release any memory allocated while waiting
                  *  for the response.
                  */
-                // espcp_delete_message_payload(message);
+                espcp_delete_message_payload(message);
                 sem_wait(&g_messages_waiting_for_a_response_mutex);
                 gl_add_item_to_head(g_messages_waiting_for_a_response, message);
                 sem_post(&g_messages_waiting_for_a_response_mutex);
+            }
+            else
+            {
+                if ((message->interface != espcp_esp32_interfaces_transport) && (message->function != espcp_transport_function_send_response))
+                {
+                    /*
+                    *  This is a non blocking message (as it has no semaphore) and any response
+                    *  will come via the event mechanism so we no longer need the message or
+                    *  payload.
+                    * 
+                    *  The send response function in the transport interface is a special message,
+                    *  We hold a static message that is reused and so this message should not be
+                    *  deleted, hence the guard condition above.
+                    * 
+                    *  Note that this is the earliest we can dispose of the message.
+                    */
+                    espcp_delete_message_and_payload(message);
+                }
             }
         }
     }

@@ -162,8 +162,6 @@ static int upd_handle_dir_enum(struct upd_dir_enum_cmd*);
 static int upd_handle_esp32_command(struct upd_esp32_command *);
 static int upd_handle_esp32_get_event_result(struct upd_event_data_request *);
 
-static int upd_handle_dev_info_request(struct upd_device_info *);
-
 static int upd_handle_watchdog_set(unsigned long cmd);
 static int upd_handle_watchdog_pet(void);
 
@@ -255,9 +253,6 @@ static int upd_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
     case MUPD_PWR_SLEEP1:
     case MUPD_PWR_SLEEP2:
       return EINVAL;
-
-    case MUPD_GET_DEVICE_INFO:
-      return upd_handle_dev_info_request((struct upd_device_info *) arg);
   }
   return ERROR;
 }
@@ -611,10 +606,12 @@ static int upd_close(struct file *filep)
  ****************************************************************************/
 int upd_handle_esp32_command(struct upd_esp32_command *data)
 {
-  int result = OK;
+  int result = ERROR;
   uint8_t *payload = NULL;
   espcp_message_t *message = NULL;
 
+  data->status_code = espcp_status_codes_failure;
+  
   espcp_configuration_t *config = espcp_get_configuration();
   if (config == NULL)
   {
@@ -623,35 +620,46 @@ int upd_handle_esp32_command(struct upd_esp32_command *data)
   if (config->esp_not_responding)
   {
     data->status_code = espcp_status_codes_coprocessor_not_responding;
+    return(ERROR);
   }
-  else
+  if (data->payload_length != 0)
   {
-    if (data->payload_length != 0)
-    {
-      //
-      //  TODO: This may not be required, it may be possible to use the original payload pointer.
-      //
-      payload = (uint8_t *) malloc(data->payload_length);
-      if (payload == NULL)
-      {
-        return ERROR;
-      }
-      memcpy(payload, data->payload, data->payload_length);
-    }
-    
-    message = espcp_create_message_on_heap(espcp_message_types_header,
-      data->interface, data->function, 0, espcp_get_next_message_id(),
-      payload, data->payload_length);
-    if (message == NULL)
+    /*
+      *  Note that we must take a copy of the message payload here as
+      *  the process of sending the message that will be created next
+      *  will dispose of the message and the payload after the message
+      *  has been dealt with.  We do not want to mess with the managed
+      *  memory so we take copies.
+      */
+    payload = (uint8_t *) malloc(data->payload_length);
+    if (payload == NULL)
     {
       return ERROR;
     }
+    memcpy(payload, data->payload, data->payload_length);
+  }
+  else
+  {
+    payload = NULL;
+  }
 
-    result = espcp_queue_message(message, data->block != 0);
-
-    if (result == espcp_status_codes_completed_ok)
+  message = espcp_create_message_on_heap(espcp_message_types_header,
+    data->interface, data->function, 0, espcp_get_next_message_id(),
+    payload, data->payload_length);
+  if (message == NULL)
+  {
+    if (payload != NULL)
     {
-      result = OK;
+      free(payload);
+    }
+    return ERROR;
+  }
+
+  if (espcp_queue_message(message, data->block != 0) == espcp_status_codes_completed_ok)
+  {
+    result = OK;
+    if (data->block != 0)
+    {
       data->status_code = message->status_code;
       if (message->payload_length > 0)
       {
@@ -662,24 +670,11 @@ int upd_handle_esp32_command(struct upd_esp32_command *data)
         }
         else
         {
-          data->result_length = 0;
           result = ERROR;
         }
       }
-      else
-      {
-        data->result_length = 0;
-      }
     }
-    else
-    {
-      result = ERROR;
-    }
-    espcp_delete_message_and_payload(message);
-  }
-  if (result == ERROR)
-  {
-    data->status_code = espcp_status_codes_failure;
+    data->status_code = espcp_status_codes_completed_ok;
   }
   return(result);
 }
@@ -731,64 +726,6 @@ int upd_handle_esp32_get_event_result(struct upd_event_data_request *data)
 
   espcp_delete_message_and_payload(message);
   return(result);
-}
-
-//==============================================================
-// Returns null terminated string containing device information with
-// elements separated by 0x03
-static int upd_handle_dev_info_request(struct upd_device_info *devInfo)
-{
-  int ret;
-  int stringLen;
-  char strMcuSn[16];
-  uint8_t mcuId[12];
-  char returnValueBuf[MEADOW_DEFAULT_INI_CFG_BUF_LEN];
-
-  stm32_get_uniqueid(mcuId);  // 96 bit unique chip id as 12 bytes
-  char strChipId[64];
-  snprintf(strChipId, 64, "%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x", 
-     mcuId[0],  mcuId[1],  mcuId[2],  mcuId[3],  mcuId[4],  mcuId[5],
-     mcuId[6],  mcuId[7],  mcuId[8],  mcuId[9],  mcuId[10],  mcuId[11]);
-
-  ret = hcom_nx_common_utils_calculate_serial_numb(NULL, strMcuSn);
-  if(ret < 0)
-  {
-    strcpy(strMcuSn, "<calc error>");
-  }
-  
-  ret = meadow_config_find_value_from_key(NULL, MEADOW_INI_CFG_OPERATION_SECTION,
-          MEADOW_INI_CFG_DEV_NAME_KEY, returnValueBuf, MEADOW_DEFAULT_INI_CFG_BUF_LEN);
-  if(ret != OK)
-  {
-    strcpy(returnValueBuf, MEADOW_INI_CFG_DEFAULT_DEV_NAME);
-  }
-
-  // Build a ETX (0x03) delimited string
-  stringLen = snprintf(devInfo->infoBuf, devInfo->infoBufLen,
-                "%s%c"      // Device Name - user defined or MeadowF7
-                "%s%c"      // Product Info - Meadow by Wilderness Labs
-                "%s%c"      // Model - F7Micro
-                "%s%c"      // Meadow OS ver - 0.4.0
-                "%s @ %s%c" // build date & time - Dec  5 2020 @ 09:04:51
-                "%s%c"      // Processor type - STM32F777IIK6
-                "%s%c"      // MCU Id - 19-00-27-00-0e-51-38-32-37-35-36-30
-                "%s%c"      // MCU S/N - 305D355A3238
-                "%s%c"      // Co processor type - ESP32
-                "%s%c"      // Co processor version - 0.4.1.6
-                "%s",       // Mono version - 0.0.0.1
-                returnValueBuf, 0x03,
-                HCOM_DEVICE_INFO_PRODUCT, 0x03,
-                HCOM_DEVICE_INFO_MODEL, 0x03,
-                HCOM_DEVICE_INFO_MEADOW_OS_VERSION, 0x03,
-                __DATE__, __TIME__, 0x03,
-                HCOM_DEVICE_INFO_PROCESSOR_TYPE, 0x03,
-                strChipId, 0x03,
-                strMcuSn, 0x03,
-                HCOM_DEVICE_INFO_COPROCESSOR_TYPE, 0x03,
-                HCOM_DEVICE_INFO_COPROCESSOR_OS_VERSION, 0x03,
-                HCOM_DEVICE_INFO_MONO_VERSION);
-  devInfo->infoRetLen = stringLen;
-  return OK;
 }
 
 /****************************************************************************

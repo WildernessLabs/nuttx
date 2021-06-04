@@ -346,7 +346,7 @@ static ssize_t espcp_usrsock_sockif_send(struct socket *psock, const void *buffe
     espcp_send_request_t *request = (espcp_send_request_t *) malloc(sizeof(espcp_send_request_t));
     if (request == NULL)
     {
-        return(-1);
+        return(-ENOMEM);
     }
     request->socket_handle = psock->s_esp32_sockfd;
     request->buffer = (uint8_t *) buffer;
@@ -359,7 +359,7 @@ static ssize_t espcp_usrsock_sockif_send(struct socket *psock, const void *buffe
     if (payload == NULL)
     {
         free(request);
-        return(-1);
+        return(-ENOMEM);
     }
     else
     {
@@ -383,8 +383,7 @@ static ssize_t espcp_usrsock_sockif_send(struct socket *psock, const void *buffe
             }
             else
             {
-                errno = response->response_errno;
-                result = response->result;
+                result = (response->result < 0) ? response->response_errno : response->result;
                 free(response);
             }
         }
@@ -418,8 +417,7 @@ static int espcp_usrsock_sockif_close(struct socket *psock)
 
     if (espcp_get_configuration()->esp_not_responding)
     {
-        errno = ENETDOWN;
-        return(-1);
+        return(-ENETDOWN);
     }
     espcp_usrsock_not_implemented(__func__);
     return (-1);
@@ -515,7 +513,7 @@ int espcp_usrsock_accept(struct socket *psock, struct sockaddr *addr, socklen_t 
     espcp_accept_request_t *request = (espcp_accept_request_t *) malloc(sizeof(espcp_accept_request_t));
     if (request == NULL)
     {
-        return(-1);
+        return(-ENOMEM);
     }
     request->socket_handle = psock->s_esp32_sockfd;
 
@@ -524,6 +522,7 @@ int espcp_usrsock_accept(struct socket *psock, struct sockaddr *addr, socklen_t 
     if (payload == NULL)
     {
         free(request);
+        result = -ENOMEM;
     }
     else
     {
@@ -576,6 +575,10 @@ int espcp_usrsock_accept(struct socket *psock, struct sockaddr *addr, socklen_t 
                             free(sockAddr);
                         }
                     }
+                    else
+                    {
+                        result = -response->response_errno;
+                    }
                     free(response);
                 }
             }
@@ -619,8 +622,7 @@ int espcp_usrsock_bind(struct socket *psock, const struct sockaddr *addr, sockle
 {
     if (espcp_get_configuration()->esp_not_responding)
     {
-        errno = ENETDOWN;
-        return(-1);
+        return(-ENETDOWN);
     }
 
     int32_t result = -1;
@@ -630,8 +632,7 @@ int espcp_usrsock_bind(struct socket *psock, const struct sockaddr *addr, sockle
     espcp_sock_addr_t *sockAddr = (espcp_sock_addr_t *) malloc(sizeof(espcp_sock_addr_t));
     if (sockAddr == NULL)
     {
-        errno = ENOMEM;
-        return(-1);
+        return(-ENOMEM);
     }
     sockAddr->family = sin->sin_family;
     sockAddr->port = sin->sin_port;
@@ -641,8 +642,7 @@ int espcp_usrsock_bind(struct socket *psock, const struct sockaddr *addr, sockle
     if (encodedSockAddr == NULL)
     {
         free(sockAddr);
-        errno = ENOMEM;
-        return(-1);
+        return(-ENOMEM);
     }
     espcp_encode_sock_addr(sockAddr, encodedSockAddr);
     free(sockAddr);
@@ -651,8 +651,7 @@ int espcp_usrsock_bind(struct socket *psock, const struct sockaddr *addr, sockle
     if (request == NULL)
     {
         free(encodedSockAddr);
-        errno = ENOMEM;
-        return(-1);
+        return(-ENOMEM);
     }
     request->socket_handle = psock->s_esp32_sockfd;
     request->addr = encodedSockAddr;
@@ -662,10 +661,9 @@ int espcp_usrsock_bind(struct socket *psock, const struct sockaddr *addr, sockle
     uint8_t *payload = (uint8_t *) malloc(payload_length);
     if (payload == NULL)
     {
-        errno = ENOMEM;
         free(encodedSockAddr);
         free(request);
-        return(-1);
+        return(-ENOMEM);
     }
     else
     {
@@ -678,7 +676,7 @@ int espcp_usrsock_bind(struct socket *psock, const struct sockaddr *addr, sockle
                                                espcp_get_next_message_id(), payload, payload_length);
         if (message == NULL)
         {
-            errno = ENOMEM;
+            result = -ENOMEM;
         }
         else
         {
@@ -687,12 +685,11 @@ int espcp_usrsock_bind(struct socket *psock, const struct sockaddr *addr, sockle
                 espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
                 if (response == NULL)
                 {
-                    errno = ENOMEM;
+                    result = -ENOMEM;
                 }
                 else
                 {
-                    result = response->result;
-                    errno = response->response_errno;
+                    result = -response->response_errno;
                     free(response);
                 }
             }
@@ -728,8 +725,7 @@ int espcp_usrsock_close(struct socket *psock)
 {
     if (espcp_get_configuration()->esp_not_responding)
     {
-        errno = ENETDOWN;
-        return(-1);
+        return(-ENETDOWN);
     }
 
     int32_t result = -1;
@@ -738,7 +734,7 @@ int espcp_usrsock_close(struct socket *psock)
     espcp_close_request_t *request = (espcp_close_request_t *) malloc(sizeof(espcp_close_request_t));
     if (request == NULL)
     {
-        return(-1);
+        return(-ENOMEM);
     }
     request->socket_handle = psock->s_esp32_sockfd;
 
@@ -747,6 +743,7 @@ int espcp_usrsock_close(struct socket *psock)
     if (payload == NULL)
     {
         free(request);
+        result = -ENOMEM;
     }
     else
     {
@@ -758,20 +755,24 @@ int espcp_usrsock_close(struct socket *psock)
                                                espcp_get_next_message_id(), payload, payload_length);
         if (message == NULL)
         {
-            errno = ENOMEM;
+            result = -ENOMEM;
         }
         else
         {
             if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
             {
-                espcp_integer_response_t *response = espcp_extract_integer_response(message->payload);
+                espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
                 if (response == NULL)
                 {
-                    errno = ENOMEM;
+                    result = -ENOMEM;
                 }
                 else
                 {
                     result = response->result;
+                    if (result < 0)
+                    {
+                        result = -response->response_errno;
+                    }
                     free(response);
                 }
             }
@@ -801,8 +802,7 @@ int espcp_usrsock_connect(struct socket *psock, const struct sockaddr *addr, soc
 {
     if (espcp_get_configuration()->esp_not_responding)
     {
-        errno = ENETDOWN;
-        return(-1);
+        return(-ENETDOWN);
     }
 
     int32_t result = -1;
@@ -822,7 +822,7 @@ int espcp_usrsock_connect(struct socket *psock, const struct sockaddr *addr, soc
     if (encodedSockAddr == NULL)
     {
         free(sockAddr);
-        return(-1);
+        return(-ENOMEM);
     }
     espcp_encode_sock_addr(sockAddr, encodedSockAddr);
     free(sockAddr);
@@ -831,7 +831,7 @@ int espcp_usrsock_connect(struct socket *psock, const struct sockaddr *addr, soc
     if (request == NULL)
     {
         free(encodedSockAddr);
-        return(-1);
+        return(-ENOMEM);
     }
     request->socket_handle = psock->s_esp32_sockfd;
     request->addr = encodedSockAddr;
@@ -843,6 +843,7 @@ int espcp_usrsock_connect(struct socket *psock, const struct sockaddr *addr, soc
     {
         free(encodedSockAddr);
         free(request);
+        return(-ENOMEM);
     }
     else
     {
@@ -855,7 +856,7 @@ int espcp_usrsock_connect(struct socket *psock, const struct sockaddr *addr, soc
                                                espcp_get_next_message_id(), payload, payload_length);
         if (message == NULL)
         {
-            errno = ENOMEM;
+            result = -ENOMEM;
         }
         else
         {
@@ -864,12 +865,126 @@ int espcp_usrsock_connect(struct socket *psock, const struct sockaddr *addr, soc
                 espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
                 if (response == NULL)
                 {
-                    errno = ENOMEM;
+                    result = -ENOMEM;
+                }
+                else
+                {
+                    result = -response->response_errno;
+                    free(response);
+                }
+            }
+            else
+            {
+                result = -EFAULT;
+            }
+        }
+    }
+
+    espcp_delete_message_and_payload(message);
+    return (result);
+}
+
+/****************************************************************************
+ * Name: espcp_usrsock_getsockpeername
+ *
+ * Description:
+ *   The getsockname() function retrieves the locally-bound name of the
+ *   specified socket, stores this address in the sockaddr structure pointed
+ *   to by the 'addr' argument, and stores the length of this address in the
+ *   object pointed to by the 'addrlen' argument.
+ *
+ *   If the actual length of the address is greater than the length of the
+ *   supplied sockaddr structure, the stored address will be truncated.
+ *
+ *   If the socket has not been bound to a local name, the value stored in
+ *   the object pointed to by address is unspecified.
+ *
+ * Input Parameters:
+ *   conn     usrsock socket connection structure
+ *   addr     sockaddr structure to receive data [out]
+ *   addrlen  Length of sockaddr structure [in/out]
+ *   function Function to call, getsockname or getpeername.
+ *
+ * Returns:
+ *  0 on success, -1 on failure and errno will indicate the cause of the
+ *  error
+ *
+ ****************************************************************************/
+static int espcp_usrsock_getsockpeername(struct socket *psock, struct sockaddr *addr, socklen_t *addrlen, enum espcp_wi_fi_function function)
+{
+    if (espcp_get_configuration()->esp_not_responding)
+    {
+        set_errno(ENETDOWN);
+        return(-ENETDOWN);
+    }
+
+    int32_t result = -1;
+    espcp_message_t *message = NULL;
+
+    espcp_get_sock_peer_name_request_t *request = (espcp_get_sock_peer_name_request_t *) malloc(sizeof(espcp_get_sock_peer_name_request_t));
+    if (request == NULL)
+    {
+        return(-ENOMEM);
+    }
+    request->socket_handle = psock->s_esp32_sockfd;
+
+    int payload_length = espcp_get_sock_peer_name_request_buffer_size(request);
+    uint8_t *payload = (uint8_t *) malloc(payload_length);
+    if (payload == NULL)
+    {
+        free(request);
+        return(-ENOMEM);
+    }
+    else
+    {
+        espcp_encode_get_sock_peer_name_request(request, payload);
+        free(request);
+
+        message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi,
+                                               function, espcp_status_codes_completed_ok,
+                                               espcp_get_next_message_id(), payload, payload_length);
+        if (message == NULL)
+        {
+            result = -ENOMEM;
+        }
+        else
+        {
+            if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
+            {
+                espcp_get_sock_peer_name_response_t *response = espcp_extract_get_sock_peer_name_response(message->payload);
+                if (response == NULL)
+                {
+                    set_errno(ENOMEM);
                 }
                 else
                 {
                     result = response->result;
-                    errno = response->response_errno;
+                    if (result == 0)
+                    {
+                        espcp_sock_addr_t *sockAddr = espcp_extract_sock_addr(response->addr);
+                        if (sockAddr == NULL)
+                        {
+                            result = -ENOMEM;
+                        }
+                        else
+                        {
+                            if ((addr != NULL) && (addrlen != NULL))
+                            {
+                                struct sockaddr_in sai = {};
+                                sai.sin_family = sockAddr->family;
+                                memcpy(&sai.sin_addr, &sockAddr->ip4_address, sizeof(sai.sin_addr));
+                                sai.sin_port = sockAddr->port;
+                                int copyAmount = (sizeof(struct sockaddr_in) <= *addrlen) ? sizeof(struct sockaddr_in) : *addrlen;
+                                memcpy(addr, &sai, copyAmount);
+                                *addrlen = sizeof(sai);
+                            }
+                            free(sockAddr);
+                        }
+                    }
+                    else
+                    {
+                        result = -response->response_errno;
+                    }
                     free(response);
                 }
             }
@@ -909,12 +1024,10 @@ int espcp_usrsock_getpeername(struct socket *psock, struct sockaddr *addr, sockl
 {
     if (espcp_get_configuration()->esp_not_responding)
     {
-        errno = ENETDOWN;
-        return(-1);
+        return(-ENETDOWN);
     }
 
-    espcp_usrsock_not_implemented(__func__);
-    return(-1);
+    return(espcp_usrsock_getsockpeername(psock, addr, addrlen, espcp_wi_fi_function_get_peer_name));
 }
 
 /****************************************************************************
@@ -946,81 +1059,10 @@ int espcp_usrsock_getsockname(struct socket *psock, struct sockaddr *addr, sockl
 {
     if (espcp_get_configuration()->esp_not_responding)
     {
-        errno = ENETDOWN;
-        return(-1);
+        return(-ENETDOWN);
     }
 
-    int32_t result = -1;
-    espcp_message_t *message = NULL;
-
-    espcp_get_sock_name_request_t *request = (espcp_get_sock_name_request_t *) malloc(sizeof(espcp_get_sock_name_request_t));
-    if (request == NULL)
-    {
-        return(-1);
-    }
-    request->socket_handle = psock->s_esp32_sockfd;
-
-    int payload_length = espcp_get_sock_name_request_buffer_size(request);
-    uint8_t *payload = (uint8_t *) malloc(payload_length);
-    if (payload == NULL)
-    {
-        free(request);
-        return(-1);
-    }
-    else
-    {
-        espcp_encode_get_sock_name_request(request, payload);
-        free(request);
-
-        message = espcp_create_message_on_heap(espcp_message_types_header, espcp_esp32_interfaces_wi_fi,
-                                               espcp_wi_fi_function_get_sock_name, espcp_status_codes_completed_ok,
-                                               espcp_get_next_message_id(), payload, payload_length);
-        if (message == NULL)
-        {
-            errno = ENOMEM;
-        }
-        else
-        {
-            if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
-            {
-                espcp_get_sock_name_response_t *response = espcp_extract_get_sock_name_response(message->payload);
-                if (response == NULL)
-                {
-                    errno = ENOMEM;
-                }
-                else
-                {
-                    result = response->result;
-                    if (result == 0)
-                    {
-                        espcp_sock_addr_t *sockAddr = espcp_extract_sock_addr(response->addr);
-                        if (sockAddr == NULL)
-                        {
-                            errno = ENOMEM;
-                        }
-                        else
-                        {
-                            if ((addr != NULL) && (addrlen != NULL))
-                            {
-                                struct sockaddr_in sai = {};
-                                sai.sin_family = sockAddr->family;
-                                memcpy(&sai.sin_addr, &sockAddr->ip4_address, sizeof(sai.sin_addr));
-                                sai.sin_port = sockAddr->port;
-                                int copyAmount = (sizeof(struct sockaddr_in) <= *addrlen) ? sizeof(struct sockaddr_in) : *addrlen;
-                                memcpy(addr, &sai, copyAmount);
-                                *addrlen = sizeof(sai);
-                            }
-                            free(sockAddr);
-                        }
-                    }
-                    free(response);
-                }
-            }
-        }
-    }
-
-    espcp_delete_message_and_payload(message);
-    return (result);
+    return(espcp_usrsock_getsockpeername(psock, addr, addrlen, espcp_wi_fi_function_get_sock_name));
 }
 
 /****************************************************************************
@@ -1086,11 +1128,9 @@ int espcp_usrsock_ioctl(struct socket *psock, int cmd, void *arg, size_t arglen)
     int result = 0;
     espcp_message_t *message = NULL;
 
-    errno = 0;
     if (espcp_get_configuration()->esp_not_responding)
     {
-        errno = ENETDOWN;
-        return(-1);
+        return(-ENETDOWN);
     }
 
     if (arg != NULL)
@@ -1107,8 +1147,7 @@ int espcp_usrsock_ioctl(struct socket *psock, int cmd, void *arg, size_t arglen)
             espcp_ioctl_request_t *request = (espcp_ioctl_request_t *) malloc(sizeof(espcp_ioctl_request_t));
             if (request == NULL)
             {
-                errno = ENOMEM;
-                return(-1);
+                return(-ENOMEM);
             }
             request->command = cmd;
 
@@ -1129,8 +1168,7 @@ int espcp_usrsock_ioctl(struct socket *psock, int cmd, void *arg, size_t arglen)
                 if (message == NULL)
                 {
                     free(payload);
-                    errno = ENOMEM;
-                    return(-1);
+                    return(-ENOMEM);
                 }
                 if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
                 {
@@ -1156,7 +1194,7 @@ int espcp_usrsock_ioctl(struct socket *psock, int cmd, void *arg, size_t arglen)
                                     espcp_sock_addr_t *sockAddr = espcp_extract_sock_addr(response->addr);
                                     if (sockAddr == NULL)
                                     {
-                                        errno = ENOMEM;
+                                        result = -ENOMEM;
                                     }
                                     else
                                     {
@@ -1173,16 +1211,14 @@ int espcp_usrsock_ioctl(struct socket *psock, int cmd, void *arg, size_t arglen)
                                 break;
                             default:
                                 syslog(LOG_CRIT, "%s@%d Unknown ioctl command %08x.\n", _thisFile, __LINE__, cmd);
-                                errno = EINVAL;
-                                result = -1;
+                                result = -EINVAL;
                                 break;
                         }
                         free(response);
                     }
                     else
                     {
-                        errno = EINVAL;
-                        result = -1;
+                        result = -EINVAL;
                     }
                 }
             }
@@ -1190,8 +1226,7 @@ int espcp_usrsock_ioctl(struct socket *psock, int cmd, void *arg, size_t arglen)
     }
     else
     {
-        errno = EINVAL;
-        result = -1;
+        result = -EINVAL;
     }
 
     espcp_delete_message_and_payload(message);
@@ -1236,8 +1271,7 @@ int espcp_usrsock_listen(struct socket *psock, int backlog)
     espcp_listen_request_t *request = (espcp_listen_request_t *) malloc(sizeof(espcp_listen_request_t));
     if (request == NULL)
     {
-        errno = -ENOMEM;
-        return(-1);
+        return(-ENOMEM);
     }
     request->socket_handle = psock->s_esp32_sockfd;
     request->back_log = backlog;
@@ -1246,8 +1280,8 @@ int espcp_usrsock_listen(struct socket *psock, int backlog)
     uint8_t *payload = (uint8_t *) malloc(payload_length);
     if (payload == NULL)
     {
-        errno = -ENOMEM;
         free(request);
+        result = -ENOMEM;
     }
     else
     {
@@ -1259,7 +1293,7 @@ int espcp_usrsock_listen(struct socket *psock, int backlog)
                                                espcp_get_next_message_id(), payload, payload_length);
         if (message == NULL)
         {
-            errno = -ENOMEM;
+            result = -ENOMEM;
         }
         else
         {
@@ -1268,12 +1302,11 @@ int espcp_usrsock_listen(struct socket *psock, int backlog)
                 espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
                 if (response == NULL)
                 {
-                    errno = -ENOMEM;
+                    result = -ENOMEM;
                 }
                 else
                 {
-                    result = response->result;
-                    errno = response->response_errno;
+                    result = -response->response_errno;
                     free(response);
                 }
             }
@@ -1367,7 +1400,7 @@ static int espcp_usrsock_poll_setup(struct socket *psock, struct pollfd *fds)
                 result = response->result;
                 if (result < 0)
                 {
-                    errno = response->response_errno;
+                    result = -response->response_errno;
                 }
                 free(response);
             }
@@ -1466,7 +1499,11 @@ static int espcp_usrsock_poll_teardown(struct socket *psock, struct pollfd *fds)
                 result = response->result;
                 if (result < 0)
                 {
-                    errno = response->response_errno;
+                    //
+                    //  TODO: Cannot set errno in this manner here.
+                    //  Resolve before reinstating the poll method.
+                    //
+                    // errno = response->response_errno;
                 }
                 free(response);
             }
@@ -1502,7 +1539,11 @@ void espcp_usrsock_poll_interrupt_handler(espcp_message_t *message)
         if (pr != NULL)
         {
             pr->fd->revents = ipr->returned_events;
-            errno = ipr->response_errno;
+            //
+            //  TODO: Cannot set errno in this manner here.
+            //  Resolve before reinstating the poll method.
+            //
+            // errno = ipr->response_errno;
             nxsem_post(pr->fd->sem);
             free(pr);
         }
@@ -1580,7 +1621,11 @@ static int espcp_usrsock_direct_poll(struct socket *psock, struct pollfd *fds)
             result = response->result;
             if (result < 0)
             {
-                errno = response->response_errno;
+                //
+                //  TODO: Cannot set errno in this manner here.
+                //  Resolve before reinstating the poll method.
+                //
+                // errno = response->response_errno;
             }
             fds->revents = response->returned_events;
             if (fds->revents != 0)
@@ -1632,7 +1677,6 @@ int espcp_usrsock_poll(struct socket *psock, struct pollfd *fds, bool setup)
     //     syslog(LOG_CRIT, "%s@%d fds is null.\n", _thisFile, __LINE__);
     // }
 
-    errno = 0;
     if (setup)
     {
         // result = espcp_usrsock_poll_setup(psock, fds);
@@ -1681,15 +1725,13 @@ ssize_t espcp_usrsock_recvfrom(struct socket *psock, void *buffer, size_t len,
 {
     if (espcp_get_configuration()->esp_not_responding)
     {
-        errno = ENETDOWN;
-        return(-1);
+        return(-ENETDOWN);
     }
 
     espcp_recv_from_request_t *request = (espcp_recv_from_request_t *) malloc(sizeof(espcp_recv_from_request_t));
     if (request == NULL)
     {
-        errno = ENOMEM;
-        return(-1);
+        return(-ENOMEM);
     }
     request->socket_handle = psock->s_esp32_sockfd;
     request->length = len;
@@ -1715,8 +1757,7 @@ ssize_t espcp_usrsock_recvfrom(struct socket *psock, void *buffer, size_t len,
         if (payload == NULL)
         {
             free(request);
-            errno = ENOMEM;
-            return(-1);
+            return(-ENOMEM);
         }
         espcp_encode_recv_from_request(request, payload);
 
@@ -1726,8 +1767,8 @@ ssize_t espcp_usrsock_recvfrom(struct socket *psock, void *buffer, size_t len,
         if (message == NULL)
         {
             free(payload);
-            errno = ENOMEM;
             gettingData = false;
+            result = -ENOMEM;
         }
         else
         {
@@ -1737,16 +1778,13 @@ ssize_t espcp_usrsock_recvfrom(struct socket *psock, void *buffer, size_t len,
                 if (response == NULL)
                 {
                     free(payload);
-                    errno = ENOMEM;
                     gettingData = false;
+                    result = -ENOMEM;
                 }
                 else
                 {
-                    errno = response->response_errno;
-                    result = response->result;
-
                     int amount = 0;
-                    if (result > 0)
+                    if (response->result > 0)
                     {
                         if ((totalAmount == 0) && (from != NULL))       /* We only do this the first time. */
                         {
@@ -1754,7 +1792,7 @@ ssize_t espcp_usrsock_recvfrom(struct socket *psock, void *buffer, size_t len,
                             if (sa == NULL)
                             {
                                 free(payload);
-                                errno = ENOMEM;
+                                result = -ENOMEM;
                                 gettingData = false;
                             }
                             else
@@ -1800,6 +1838,7 @@ ssize_t espcp_usrsock_recvfrom(struct socket *psock, void *buffer, size_t len,
                     else
                     {
                         gettingData = false;
+                        result = -response->response_errno;
                     }
                     if (response->buffer != NULL)
                     {
@@ -1810,7 +1849,6 @@ ssize_t espcp_usrsock_recvfrom(struct socket *psock, void *buffer, size_t len,
             }
         }
     }
-
     free(request);
 
     espcp_delete_message_and_payload(message);
@@ -1844,8 +1882,7 @@ ssize_t espcp_usrsock_sendto(struct socket *psock, const void *buffer,
 {
     if (espcp_get_configuration()->esp_not_responding)
     {
-        errno = ENETDOWN;
-        return(-1);
+        return(-ENETDOWN);
     }
 
     espcp_sock_addr_t *sa;
@@ -1856,8 +1893,7 @@ ssize_t espcp_usrsock_sendto(struct socket *psock, const void *buffer,
         sa = (espcp_sock_addr_t *) malloc(sizeof(espcp_sock_addr_t));
         if (sa == NULL)
         {
-            errno = ENOMEM;
-            return(-1);
+            return(-ENOMEM);
         }
         //
         //  TODO: Make this deal with send requests where the buffer is > 4000 bytes.
@@ -1870,12 +1906,11 @@ ssize_t espcp_usrsock_sendto(struct socket *psock, const void *buffer,
         if (encodedSockAddr == NULL)
         {
             free(sa);
-            errno = ENOMEM;
-            return(-1);
+            return(-ENOMEM);
         }
         espcp_encode_sock_addr(sa, encodedSockAddr);
         encodedSockAddrLen = espcp_sock_addr_buffer_size(sa);
-        free(sa); 
+        free(sa);
     }
     else
     {
@@ -1887,8 +1922,7 @@ ssize_t espcp_usrsock_sendto(struct socket *psock, const void *buffer,
     if (request == NULL)
     {
         free(encodedSockAddr);
-        errno = ENOMEM;
-        return(-1);
+        return(-ENOMEM);
     }
     request->socket_handle = psock->s_esp32_sockfd;
     request->flags = flags;
@@ -1919,8 +1953,8 @@ ssize_t espcp_usrsock_sendto(struct socket *psock, const void *buffer,
             {
                 free(encodedSockAddr);
             }
-            errno = ENOMEM;
-            free(request);
+            sendingData = false;
+            result = -ENOMEM;
         }
         else
         {
@@ -1932,8 +1966,8 @@ ssize_t espcp_usrsock_sendto(struct socket *psock, const void *buffer,
             if (message == NULL)
             {
                 free(payload);
-                free(request);
-                errno = ENOMEM;
+                sendingData = false;
+                result = -ENOMEM;
             }
             else
             {
@@ -1943,16 +1977,13 @@ ssize_t espcp_usrsock_sendto(struct socket *psock, const void *buffer,
                     if (response == NULL)
                     {
                         free(payload);
-                        free(request);
                         free(message);
-                        errno = ENOMEM;
+                        sendingData = false;
+                        result = -ENOMEM;
                     }
                     else
                     {
-                        errno = response->response_errno;
-                        result = response->result;
-
-                        if (result > 0)
+                        if (response->result > 0)
                         {
                             int amount = (amountRemaining > response->result) ? response->result : amountRemaining;
                             totalAmount += amount;
@@ -1964,6 +1995,7 @@ ssize_t espcp_usrsock_sendto(struct socket *psock, const void *buffer,
                         else
                         {
                             sendingData = false;
+                            result = (response->result < 0) ? response->response_errno : response->result;
                         }
                         free(response);
                     }
@@ -2023,15 +2055,13 @@ int espcp_usrsock_setsockopt(struct socket *psock, int level, int option,
 {
     if (espcp_get_configuration()->esp_not_responding)
     {
-        errno = ENETDOWN;
-        return(-1);
+        return(-ENETDOWN);
     }
 
     espcp_set_sock_opt_request_t *request = (espcp_set_sock_opt_request_t *) malloc(sizeof(espcp_set_sock_opt_request_t));
     if (request == NULL)
     {
-        errno = ENOMEM;
-        return(-1);
+        return(-ENOMEM);
     }
     memset(request, 0, sizeof(espcp_set_sock_opt_request_t));
     espcp_time_val_t *tv;
@@ -2044,8 +2074,7 @@ int espcp_usrsock_setsockopt(struct socket *psock, int level, int option,
             if (tv == NULL)
             {
                 free(request);
-                errno = ENOMEM;
-                return (-1);
+                return (-ENOMEM);
             }
             memset(tv, 0, sizeof(espcp_time_val_t));
             struct timeval *ov = (struct timeval *) value;
@@ -2062,8 +2091,7 @@ int espcp_usrsock_setsockopt(struct socket *psock, int level, int option,
             else
             {
                 free(request);
-                errno = ENOMEM;
-                return (-1);
+                return (-ENOMEM);
             }
             break;
         case SO_OOBINLINE:
@@ -2082,8 +2110,7 @@ int espcp_usrsock_setsockopt(struct socket *psock, int level, int option,
             else
             {
                 free(request);
-                errno = ENOMEM;
-                return (-1);
+                return (-ENOMEM);
             }
             break;
     }
@@ -2102,7 +2129,7 @@ int espcp_usrsock_setsockopt(struct socket *psock, int level, int option,
         {
             free(request->option_value);
             free(request);
-            errno = ENOMEM;
+            result = -ENOMEM;
         }
         else
         {
@@ -2116,7 +2143,7 @@ int espcp_usrsock_setsockopt(struct socket *psock, int level, int option,
             if (message == NULL)
             {
                 free(payload);
-                errno = ENOMEM;
+                result = -ENOMEM;
             }
             else
             {
@@ -2125,16 +2152,13 @@ int espcp_usrsock_setsockopt(struct socket *psock, int level, int option,
                     espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
                     if (response == NULL)
                     {
-                        errno = ENOMEM;
-                        result = -1;
+                        result = -ENOMEM;
                     }
                     else
                     {
-                        errno = response->response_errno;
-                        result = response->result;
+                        result = (response->result < 0) ? response->response_errno : response->result;
                         if (errno == ENOPROTOOPT)
                         {
-                            errno = 0;
                             result = 0;
                         }
                         free(response);
@@ -2148,7 +2172,6 @@ int espcp_usrsock_setsockopt(struct socket *psock, int level, int option,
         //
         //  For non-supported options, pretend we have succeeded.
         //
-        errno = 0;
         result = 0;
     }
 
@@ -2198,8 +2221,7 @@ int espcp_usrsock_socket(int domain, int type, int protocol, struct socket *psoc
 {
     if (espcp_get_configuration()->esp_not_responding)
     {
-        errno = ENETDOWN;
-        return(-1);
+        return(-ENETDOWN);
     }
 
     int result = -1;
@@ -2237,14 +2259,21 @@ int espcp_usrsock_socket(int domain, int type, int protocol, struct socket *psoc
     {
         if (espcp_queue_message(message, true) == espcp_status_codes_completed_ok)
         {
-            espcp_integer_response_t *response = espcp_extract_integer_response(message->payload);
+            espcp_integer_and_errno_response_t *response = espcp_extract_integer_and_errno_response(message->payload);
             if (response == NULL)
             {
                 result = -ENOMEM;
             }
             else
             {
-                result = response->result;
+                if (response->result < 0)
+                {
+                    result = -response->response_errno;
+                }
+                else
+                {
+                    result = response->result;
+                }
                 free(response);
                 psock->s_domain = domain;
                 psock->s_type = type;
@@ -2287,20 +2316,18 @@ int32_t espcp_usrsock_read(struct socket *psock, const void *buffer, size_t coun
 {
     if (espcp_get_configuration()->esp_not_responding)
     {
-        errno = ENETDOWN;
-        return(-1);
+        return(-ENETDOWN);
     }
 
     if ((buffer == NULL) || (count > MAXIMUM_READ_WRITE_BUFFER_SIZE))
     {
-        return (-1);
+        return (-EFAULT);
     }
 
     espcp_read_request_t *request = (espcp_read_request_t *) malloc(sizeof(espcp_read_request_t));
     if (request == NULL)
     {
-        errno = ENOMEM;
-        return(-1);
+        return(-ENOMEM);
     }
     request->socket_handle = psock->s_esp32_sockfd;
     request->count = count;
@@ -2309,11 +2336,10 @@ int32_t espcp_usrsock_read(struct socket *psock, const void *buffer, size_t coun
     uint8_t *payload = (uint8_t *) malloc(payload_length);
     int32_t result = -1;
     espcp_message_t *message = NULL;
-    errno = 0;
     if (payload == NULL)
     {
         free(request);
-        errno = ENOMEM;
+        result = -ENOMEM;
     }
     else
     {
@@ -2326,7 +2352,7 @@ int32_t espcp_usrsock_read(struct socket *psock, const void *buffer, size_t coun
 
         if (message == NULL)
         {
-            errno = ENOMEM;
+            result = -ENOMEM;
         }
         else
         {
@@ -2335,7 +2361,7 @@ int32_t espcp_usrsock_read(struct socket *psock, const void *buffer, size_t coun
                 espcp_read_response_t *response = espcp_extract_read_response(message->payload);
                 if (response == NULL)
                 {
-                    errno = ENOMEM;
+                    result = -ENOMEM;
                 }
                 else
                 {
@@ -2344,8 +2370,7 @@ int32_t espcp_usrsock_read(struct socket *psock, const void *buffer, size_t coun
                         memcpy((void *) buffer, response->buffer, response->buffer_length);
                         free(response->buffer);
                     }
-                    errno = response->read_response_errno;
-                    result = response->read_response_result;
+                    result = (response->read_response_result < 0) ? response->read_response_errno : response->read_response_result;
                     free(response);
                 }
             }

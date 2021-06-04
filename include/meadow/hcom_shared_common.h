@@ -35,6 +35,9 @@
 #ifndef __INCLUDE_MEADOW_HCOM_SHARED_COMMON__H
 #define __INCLUDE_MEADOW_HCOM_SHARED_COMMON__H
 
+#include <unistd.h>
+#include <nuttx/semaphore.h>
+
 /****************************************************************************
  * Included Files
  ****************************************************************************/
@@ -83,19 +86,82 @@
 // Default name of meadow configuration file
 // Only the default file name is case sensitive.
 // All other INI CFG items are case insensitive
-#define MEADOW_INI_CFG_DEFAULT_FILE_NAME "/meadow0/meadow.cfg"
-#define MEADOW_INI_CFG_OPERATION_SECTION "operation"
-#define MEADOW_INI_CFG_STARTUP_SECTION "startup"
-#define MEADOW_INI_CFG_DEFAULT_DEV_NAME "MeadowF7"
-#define MEADOW_INI_CFG_DEV_NAME_KEY "DeviceName"
-#define MEADOW_INI_CFG_DIAG_UART_KEY "uart1"
-#define MEADOW_INI_CFG_DIAG_UART_USE "trace"
-#define MEADOW_INI_CFG_DIAG_TRACE_LEVEL_KEY "tracelevel"
-#define MEADOW_INI_CFG_MONO_RUN_KEY "monorun"
-#define MEADOW_INI_CFG_MONO_RUN_USE "no"
-#define MEADOW_INI_CFG_MONO_TRACE_KEY "MonoTrace"
-#define MEADOW_INI_CFG_MONO_DEBUG_KEY "MonoDebug"
-#define MEADOW_INI_CFG_RESET_ESP32_AT_STARTUP_KEY "ResetEsp32AtStartup"
+#define MEADOW_CONFIG_DEFAULT_FILE_NAME "/meadow0/meadow.yaml"
+#define MEADOW_CONFIG_DEFAULT_DEVICE_NAME "MeadowF7"
+
+//==================================================
+//  Structure to hold the configuration of the Meadow board.
+struct meadow_configuration_s
+{
+  /*
+   *  Pointer to a string that is used to control the tracing output from Mono.
+   *  For more information see https://www.mono-project.com/docs/debug+profile/debug/
+   *  This variable is used in the mono_main.c file.
+   */
+  char *mono_trace;
+
+  /*
+   *  Should Mono be run in debug mode?
+   */
+  int mono_debug;
+
+  /*
+   *  Should mono be run at startup?
+   */
+  int disable_mono;
+
+  /*
+   *  Should the ESP32 be reset at startup.  This is used by developers to prevent
+   *  STM32 code from resetting the ESP32 and disconnecting the debugger.
+   */
+  int reset_esp32_at_startup;
+
+  /*
+   *  Level of trace output to generate.
+   */
+  int trace_level;
+
+  /*
+   *  Should trace output be diverted to UART1?
+   */
+  uint8_t use_uart1_for_trace;
+
+  /*
+   *  Clock speed of the SPI interface between the STM32 and the ESP32.
+   */
+  uint32_t esp_spi_speed;
+
+  /*
+   *  Name of the board.
+   */
+  char *device_name;
+
+  /*
+   *  Version of the software running on the ESP32.
+   */
+  char *esp_software_version;
+
+  /*
+   *  Mono version.
+   */
+  uint32_t mono_version;
+
+  /*
+   *  Version of the software running on the STM32.
+   */
+  char *meadow_software_version;
+
+  /*
+   *  Serial number of the STM32 microcontroller.
+   */
+  uint8_t serial_number[16];
+
+  /*
+   *  ID of the STM32 microprocessor.
+   */
+  uint8_t chip_id[12];
+};
+typedef struct meadow_configuration_s meadow_configuration_t;
 
 // Errors from configuration file processing
 #define MEADOW_CONFIG_ERROR_NO_KEY_FOUND -1
@@ -161,11 +227,19 @@
 // Should mono be prevented from running?
 #define HCOM_DIAG_DONT_ALLOW_MONO_TO_RUN              0
 
+// Adds code that takes the HCOM messages from CLI and outputs
+// a decoded version to syslog
+#define HCOM_DIAG_INCLUDE_DIAG_DECODE_MESSAGE_CODE    0
+
 //-------------------------------------------------------------------
 // Include/exclude test code
 #define HCOM_VS_DEBUGGING_TESTS_INCLUDE_IN_BUILD      0
+
 #define HCOM_INCLUDE_BATTERY_BACKED_REG_TEST          0
+
+// NOTE: CFG TESTS ARE PRE-YAML AND SHOULD NOT BE USED UNLESS UPDATED
 #define HCOM_INCLUDE_INI_CFG_TESTS_IN_BUILD           0
+
 #define HCOM_INCLUDE_QSPI_FLASH_TESTS_IN_BUILD        0
 
 #endif  // __INCLUDE_MEADOW_HCOM_SHARED_COMMON__H

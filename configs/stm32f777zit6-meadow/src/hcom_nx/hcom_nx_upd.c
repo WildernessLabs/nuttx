@@ -170,6 +170,7 @@ static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
   struct hcom_nx_upd_bbr_update *bbr_update;
   struct hcom_nx_cmd_data *cmdData;
   struct hcom_nx_upd_is_part_mounted *is_mounted;
+  hcom_nx_upd_cli_msg_transport_t *cli_transport;
 
   switch (cmd)
   {
@@ -252,7 +253,13 @@ static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 
   case HCOM_NX_UPD_MONO_HAS_STARTED:
     return hcom_nx_trace_msg_mono_started();
-    
+
+  case HCOM_NX_UPD_CLI_MESSAGE_TRANSPORT:
+    cli_transport = (hcom_nx_upd_cli_msg_transport_t *)arg;
+    cli_transport->msg_length = hcom_nx_trace_cli_message_transport(
+              cli_transport->transport_buf, cli_transport->buf_length);
+    return OK;
+
   case HCOM_NX_UPD_RESTORE_UART_CONFIG:
     return hcom_nx_restore_uart_reconfig(arg);
 
@@ -279,7 +286,7 @@ static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
   case HCOM_NX_UPD_GPIO_CONFIG:
     return hcom_nx_upd_execute_gpio_config(arg);
 
-  case HCOM_NX_UPD_ENTER_INTO_DEF_MODE:
+  case HCOM_NX_UPD_ENTER_INTO_DFU_MODE:
     *((unsigned long *)MEADOW_ENTER_DFU_MODE_MEMORY_ADDR) = MEADOW_ENTER_DFU_MODE_MAGIC_NUMB;
     return OK;
 

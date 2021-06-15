@@ -210,7 +210,16 @@ void board_late_initialize(void)
 {
   int ret;
 
-  syslog(LOG_INFO, "\nMeadow Initialization has begun.\n");
+  syslog(LOG_INFO, "\nMeadow initialization has begun.\n");
+
+#if defined (CONFIG_RAMLOG_SYSLOG)
+  // Initialize the syslog message pump
+  ret = hcom_nx_trace_msg_proc_setup();
+  if (ret < 0)
+  {
+    syslog(LOG_CRIT, "%s@%d-setup trace msg pump %d\n", __FILE__, __LINE__, ret);
+  }
+#endif
 
 #if defined(CONFIG_STM32F7_PWR)
   // Initialize the backup SRAM and the 32 registers

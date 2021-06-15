@@ -92,7 +92,7 @@ int hcom_nx_route_cli_command(struct hcom_nx_cmd_data *cmdData)
       return ret;
 
     case HCOM_MDOW_REQUEST_SEND_TRACE_TO_HOST:
-      ret = hcom_nx_exec_trace_forward_to_host(cmdData);
+      ret = hcom_nx_exec_trace_do_send_to_host(cmdData);
       return ret;
 
     case HCOM_MDOW_REQUEST_NO_TRACE_TO_UART:

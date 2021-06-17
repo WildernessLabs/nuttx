@@ -67,6 +67,8 @@ int hcom_nx_route_cli_command(struct hcom_nx_cmd_data *cmdData)
 {
   int ret;
 
+  // Note: These are all called from the original HCOM message and
+  // have been forwarded here via hcom_nx_upd.
   switch(cmdData->hcomCmd)
   {
     // Note: This is called from the original HCOM_MDOW_REQUEST_MONO_FLASH

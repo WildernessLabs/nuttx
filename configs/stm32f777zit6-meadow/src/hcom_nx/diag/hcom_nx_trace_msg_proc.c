@@ -54,8 +54,14 @@
 #include <ctype.h>
 #include <poll.h>
 
+#include <signal.h>
+
 #include <arch/board/board.h>
 #include "stm32_gpio.h"
+
+#define USE_MEADOW_DEBUG_HELPERS
+// #undef USE_MEADOW_DEBUG_HELPERS
+#include <meadow/meadow_debug_helpers.h>
 
 #if defined (CONFIG_RAMLOG_SYSLOG)
 /****************************************************************************
@@ -86,11 +92,11 @@ static bool _shutting_down;
 static host_com_cir_buffer_t *_ramlog_cbuf;
 // This buffer is where each messages is placed before being sent out
 // via uart or to CLI. When we must send to CLI a semaphore protects
-// this shared memory
+// this shared memory.
 static uint8_t *_ramlogMsgBuf;
 static int _ramlog_fd;
 static int _uart1_fd;
-static bool _trace_ramlog_initialized;
+static bool _trace_kthread_running;
 static bool _trace_log_to_host;
 static bool _trace_log_to_uart1;
 static bool _mono_has_started;
@@ -105,10 +111,10 @@ static int _ramlog_reader_kthread_pid;
  ****************************************************************************/
 static void *hcom_nx_trace_msg_kthread(int argc, char *argv[]);
 
-static void hcom_nx_trace_set_startup_values(void);
+static void hcom_nx_trace_read_bbreg_config(void);
 static int hcom_nx_trace_msg_make_thread(void);
 static int hcom_nx_trace_msg_open_ramlog(void);
-static int hcom_nx_trace_msg_lazy_initialization(bool startup);
+static int hcom_nx_trace_msg_lazy_initialization(void);
 static void hcom_nx_trace_msg_close_and_delay(bool ramLogClose);
 static int hcom_nx_trace_msg_read_ramlog_loop(void);
 static int hcom_nx_trace_msg_save_recvd_data(uint8_t recvBuff[], const ssize_t recvByteCnt);
@@ -118,45 +124,40 @@ static void hcom_nx_trace_msg_err_logger(int priority, FAR const IPTR char *fmt,
 static int hcom_nx_trace_msg_send_msg_to_uart1(const char *sendBuff, size_t numbBytes);
 static int hcom_nx_trace_msg_open_uart1_serial_port(void);
 static void hcom_nx_trace_msg_wait_sem(sem_t *semaphore);
+static void hcom_nx_trace_kthread_exit_initiate(void);
+static void hcom_nx_trace_kthread_exit_cleanup(void);
+static void hcom_nx_trace_msg_sig_recv(int signo, FAR siginfo_t *info, FAR void *context);
 
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
 int hcom_nx_trace_msg_proc_setup()
 {
-  hcom_nx_trace_set_startup_values();
-  
-  _mono_has_started = false;
+  _mono_has_started = false;  // mono will only tell us once
+  _ramlog_reader_kthread_pid = 0;
 
-  // If either enabled initialize now
-  if(_trace_log_to_uart1 || _trace_log_to_host)
-  {
-    // The only way to undo this initialization is to restart
-    hcom_nx_trace_msg_lazy_initialization(true);
-  }
-
-  return OK;
-}
-
-//==========================================================================
-// Basic initialization is done here so it can be redone if syslog processing
-// started and stopped multiple times.
-void hcom_nx_trace_set_startup_values()
-{
-  int bbrRegValue;
-
-  _shutting_down = false;
-  _ramlog_fd = -1;
-  _uart1_fd = -1;
-  _uart1_needs_reconfig = 0;
-  _trace_ramlog_initialized = false;
-  _cliMsgLength = 0;
-
+  // These are only needed for sending trace to CLI
   sem_init(&_readNxtSem, 0, 0);
   sem_setprotocol(&_readNxtSem, SEM_PRIO_NONE);
 
   sem_init(&_sendCliSem, 0, 0);
   sem_setprotocol(&_sendCliSem, SEM_PRIO_NONE);
+
+  // Check the BBR to determine if initialization is needed, but
+  // only during startup
+  hcom_nx_trace_read_bbreg_config();
+
+  // Follow through with initialization if needed
+  if(_trace_log_to_host || _trace_log_to_uart1)
+    hcom_nx_trace_msg_lazy_initialization();
+  return OK;
+}
+
+//==========================================================================
+// This function reads the battery backed register and sets appropriate flags
+void hcom_nx_trace_read_bbreg_config()
+{
+  int bbrRegValue;
 
   // If started after nuttx start time recheck the battery
   // backed registersn as it could have been days ago.
@@ -202,41 +203,18 @@ int hcom_nx_trace_msg_mono_started()
 }
 
 //==========================================================================
-void hcom_nx_trace_msg_shutdown_clean_up()
-{
-  syslog(1, "==> Entered hcom_nx_trace_msg_shutdown_clean_up()\n");
-
-  // Only stop everything if neither UART1 nor CLI wants syslog messages.
-  if(_trace_log_to_uart1 || _trace_log_to_host)
-    return;
-
-  _shutting_down = true;
-
-  // Closing the file descriptors should now cause our kthread to exit
-  close(_ramlog_fd);
-  close(_uart1_fd);
-
-  // Wait for thread to exit
-  syslog(1, "==> syslog kthread exited\n");
-
-  hcom_cirbuf_release_memory(_ramlog_cbuf);
-  free(_ramlog_cbuf);
-  free(_ramlogMsgBuf);
-
-  _trace_ramlog_initialized = false;
-}
-
-//==========================================================================
-// Because this feature is rarely used we initialize only when needed
-int hcom_nx_trace_msg_lazy_initialization(bool startup)
+// Because this feature is rarely used we initialize only when requested
+// May be called at start or from CLI command or both
+int hcom_nx_trace_msg_lazy_initialization()
 {
   int ret;
 
-  // Maybe called at start or from CLI command
-  if(_trace_ramlog_initialized)
-  {
-    return OK;
-  }
+  _ramlog_fd = -1;
+  _uart1_fd = -1;
+  _uart1_needs_reconfig = 0;
+  _cliMsgLength = 0;
+  _trace_kthread_running = false;
+  _ramlog_reader_kthread_pid = 0;
 
   // Create a circular buffer instance to manage messages read from ramlog
   _ramlog_cbuf = (host_com_cir_buffer_t *)malloc(sizeof(struct host_com_cir_buffer_s));
@@ -263,7 +241,6 @@ int hcom_nx_trace_msg_lazy_initialization(bool startup)
     return -1;
   }
 
-  //--------------------------------------------------
   // Create a thread to read the ramlog
   ret = hcom_nx_trace_msg_make_thread();
   if (ret < 0)
@@ -272,6 +249,7 @@ int hcom_nx_trace_msg_lazy_initialization(bool startup)
               thisFile, __LINE__, errno);
     return -1;
   }
+
   return OK;
 }
 
@@ -300,18 +278,34 @@ int hcom_nx_trace_msg_make_thread()
 void *hcom_nx_trace_msg_kthread(int argc, char *argv[])
 {
   int ret;
-  
+  struct sigaction act;
+
+  _shutting_down = false;
+
+  // Attach a signal handler to catch the kill command
+  act.sa_sigaction = hcom_nx_trace_msg_sig_recv;
+  act.sa_flags = SA_SIGINFO;
+  sigemptyset(&act.sa_mask);
+
+  ret = sigaction(SIGALRM, &act, NULL);
+  if (ret < 0)
+  {
+    //hcom_logging_syslog(LOG_ERR, "%s@%d-attach signal errno:%d\n", thisFile, __LINE__, errno);
+    return;
+  }
+
 #if HCOM_DIAG_OUTPUT_SYSLOG_PID_OF_NEW_THREADS > 0
   syslog(2, "New kthread [PID:%d],'%s'\n", getpid(), HCOM_THREAD_NAME_TRACE_RAMLOG);
 #endif
 
-  _trace_ramlog_initialized = true;
+  _trace_kthread_running = true;
 
-  // Never leave this loop until shutdown
+  // Only leave this loop when shutting down
   while(!_shutting_down)
   {
     // Must have ramlog, it's the source of all trace info
     ret = hcom_nx_trace_msg_open_ramlog();
+    if(_shutting_down) break;
     if(ret < 0)
     {
       hcom_nx_trace_msg_close_and_delay(false);
@@ -322,6 +316,7 @@ void *hcom_nx_trace_msg_kthread(int argc, char *argv[])
     if(_trace_log_to_uart1)
     {
       ret = hcom_nx_trace_msg_open_uart1_serial_port();
+      if(_shutting_down) break;
       if(ret < 0)
       {
         hcom_nx_trace_msg_close_and_delay(false);
@@ -331,13 +326,72 @@ void *hcom_nx_trace_msg_kthread(int argc, char *argv[])
 
     // Attempt to read from the ramlog buffer
     ret = hcom_nx_trace_msg_read_ramlog_loop();
+    if(_shutting_down) break;
     if(ret < 0)
     {
       hcom_nx_trace_msg_close_and_delay(true);
     }
   }
 
+  // Time for this thread to exit
+  hcom_nx_trace_kthread_exit_cleanup();
+
+  _trace_kthread_running = false;
+
   return NULL;
+}
+
+//=================================================================
+// Need signal handler or the default Nuttx behavior kicks in
+void hcom_nx_trace_msg_sig_recv(int signo, FAR siginfo_t *info, FAR void *context)
+{
+}
+
+//==========================================================================
+// Initiate the kthread exit.
+void hcom_nx_trace_kthread_exit_initiate()
+{
+  // A pthread cannot kill a kthread so we must indirectly kill the thread
+  // by setting _shutting_down true, closing connections and waiting
+  _shutting_down = true;
+
+  // Signal the kthread so _shutting_down will be tested, forcing it to exit
+  kill(_ramlog_reader_kthread_pid, SIGALRM);
+
+  // Nuttx kthreads have no 'join' functionality. We stay in this loop
+  // until the exiting kthread has cleaned up it's resources.
+  while(_trace_kthread_running)
+  {
+    usleep(10 * 1000);
+  }
+}
+
+//==========================================================================
+// This function is called by the kthread just before it exits
+// and is used to reclaim resources
+void hcom_nx_trace_kthread_exit_cleanup()
+{
+  // These need to be false in case a restarted comes later
+  _trace_log_to_uart1 = false;
+  _trace_log_to_host = false;
+
+  close(_ramlog_fd);
+  _ramlog_fd = -1;
+
+  close(_uart1_fd);
+  _uart1_fd = -1;
+
+  if(_ramlog_cbuf != NULL)
+  {
+    hcom_cirbuf_release_memory(_ramlog_cbuf);
+    free(_ramlog_cbuf);
+    _ramlog_cbuf = NULL;
+  }
+  if(_ramlogMsgBuf != NULL)
+  {
+    free(_ramlogMsgBuf);
+    _ramlogMsgBuf = NULL;
+  }
 }
 
 //=================================================================
@@ -370,6 +424,7 @@ int hcom_nx_trace_msg_open_ramlog()
   }
 
   _ramlog_fd = open(HCOM_TRACE_RAMLOG_DEVICE_NAME, O_RDONLY);
+  if(_shutting_down) return OK;
   if (_ramlog_fd < 0)
   {
     hcom_nx_trace_msg_err_logger(LOG_ERR, "%s@%d-open %s, errno:%d\n",
@@ -390,6 +445,7 @@ int hcom_nx_trace_msg_open_uart1_serial_port()
   }
 
   _uart1_fd = open(HCOM_TRACE_RAMLOG_SERIAL_NAME, O_WRONLY);
+  if(_shutting_down) return OK;
   if (_uart1_fd < 0)
   {
     hcom_nx_trace_msg_err_logger(LOG_ERR, "%s@%d-open %s, errno:%d\n",
@@ -413,6 +469,7 @@ int hcom_nx_trace_msg_read_ramlog_loop()
   {
     // Read ramlog
     readReturn = read(_ramlog_fd, buffer, HCOM_TRACE_RAMLOG_READ_BUF_SIZE);
+    if(_shutting_down) break;
     if (readReturn < 0 )
     {
       // Error
@@ -505,6 +562,7 @@ int hcom_nx_trace_msg_save_recvd_data(uint8_t recvBuff[], const ssize_t recvByte
     }
     else
     {
+      if(_shutting_down) break;
       // Undefined error????
       hcom_nx_trace_msg_err_logger(LOG_ERR, "%s@%d-Unknown cir buf add err:%d\n", thisFile, __LINE__, addResult);
       return OK; // Report, throw data away and keep going
@@ -530,6 +588,7 @@ int hcom_nx_trace_msg_pull_all_packets_from_buffer()
     // the needed buffer size.
     ret = hcom_cirbuf_get_next_packet(_ramlog_cbuf, _ramlogMsgBuf,
             HCOM_PROTOCOL_REQUEST_MAX_PAYLOAD_LEN, &packetLength);
+    if(_shutting_down) break;
 
     // Any messages available?
     if (ret == HCOM_CIR_BUF_GET_NONE_FOUND)
@@ -551,6 +610,7 @@ int hcom_nx_trace_msg_pull_all_packets_from_buffer()
 
     // Route the isolated message
     ret = hcom_nx_trace_msg_route_trace_text();
+    if(_shutting_down) break;
     if (ret == OK)
     {
       continue; // pull next packet, if there is one
@@ -692,6 +752,7 @@ void hcom_nx_trace_msg_wait_sem(sem_t *semaphore)
 // it like syslog so that this can be used as a substitute for syslog.
 // Note:This can only be called from a kthread calling from a user pthread
 // will crash Nuttx.
+// PeterM-I THINK THERE"S A BUG HERE IF THE UART HAS NOT BEEN OPENED YET
 void hcom_nx_uart1_direct(int priority, const char *fmt, ...)
 {
 #define HCOM_NX_UART1_DIRECT_BUF_LEN (256)
@@ -718,7 +779,7 @@ void hcom_nx_uart1_direct(int priority, const char *fmt, ...)
   hcom_nx_trace_msg_send_msg_to_uart1("\r", 1);
 }
 
-// PeterM - duplicate code here!
+// PeterM - duplicate code here! ^ and v
 
 //==========================================================================
 // There's really isn't a good way to handle errors with ramlog because errors
@@ -762,7 +823,6 @@ void hcom_nx_trace_msg_err_logger(int priority, FAR const IPTR char *fmt, ...)
 // Called from Meadow.CLI to enable tracing to host.
 int hcom_nx_exec_trace_do_send_to_host(struct hcom_nx_cmd_data *cmdData)
 {
-  syslog(1, "==> k-land CLI xport start command\n");
   // Set the appropriate battery backed register bit
   modifyreg32(HCOM_NX_MEADOW_BATTERY_BACKED_REGISTER,
               0, HCOM_BBREG_ROUTE_TRACE_MSG_TO_HOST_BIT);
@@ -770,14 +830,16 @@ int hcom_nx_exec_trace_do_send_to_host(struct hcom_nx_cmd_data *cmdData)
   // If ramlog configured, need to init ramlog now. This insures
   // that Meadow.CLI is listening
 #if defined (CONFIG_RAMLOG_SYSLOG)
-  _trace_log_to_host = true;  // Enable on ramlogs to host
-  hcom_nx_trace_msg_lazy_initialization(false);
+  _trace_log_to_host = true;
+
+  // Sending syslogs already to UART1? If not we must initialize.
+  if(!_trace_log_to_uart1)
+    hcom_nx_trace_msg_lazy_initialization();
 
   char *sendMsgToHost = "Trace logs will be sent to CLI";
 #else
   char *sendMsgToHost = "Trace logs cannot be sent to CLI, tracing not available";
 #endif
-
   cmdData->send_host_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0, sendMsgToHost,
           thisFile, __LINE__);
   return OK;
@@ -787,21 +849,23 @@ int hcom_nx_exec_trace_do_send_to_host(struct hcom_nx_cmd_data *cmdData)
 // Called from Meadow.CLI for both ramlog and syslog
 int hcom_nx_exec_trace_do_not_send_to_host(struct hcom_nx_cmd_data *cmdData)
 {
-  syslog(1, "==> k-land 2nd CLI xport stop command called\n");
-
   // Clear the appropriate battery backed register bit
   modifyreg32(HCOM_NX_MEADOW_BATTERY_BACKED_REGISTER,
               HCOM_BBREG_ROUTE_TRACE_MSG_TO_HOST_BIT, 0);
 
 #if defined (CONFIG_RAMLOG_SYSLOG)
+  // Cause the waiting transport pthread to return to userland and exit
+  sem_post(&_sendCliSem);
+
   // Disable ramlogs to host
   _trace_log_to_host = false;
   
-  // Cause the waiting transport pthread to return to userland
-  sem_post(&_sendCliSem);
-
-  // Terminate the main ramlog reader thread and clean up resources
-  kthread_delete(_ramlog_reader_kthread_pid);
+  if(!_trace_log_to_uart1)
+  {
+    // Since no longer needed, terminate the main ramlog reader thread
+    // and clean up resources
+    hcom_nx_trace_kthread_exit_initiate();
+  }
 #endif
 
   char *sendMsgToHost = "Trace logs no longer sent to CLI";
@@ -816,20 +880,27 @@ int hcom_nx_exec_trace_do_not_send_to_host(struct hcom_nx_cmd_data *cmdData)
 int hcom_nx_exec_trace_forward_to_uart1(struct hcom_nx_cmd_data *cmdData)
 {
   // Set the appropriate battery backed register bit
-  // PeterM hcom_bbreg_set_bbr_bits(HCOM_BBREG_ROUTE_TRACE_MSG_TO_UART1_BIT);
   modifyreg32(HCOM_NX_MEADOW_BATTERY_BACKED_REGISTER,
               0, HCOM_BBREG_ROUTE_TRACE_MSG_TO_UART1_BIT);
 
   // If ramlog configured, need to init ramlog now. This insures
   // that Meadow.CLI is listening
 #if defined (CONFIG_RAMLOG_SYSLOG)
-  _trace_log_to_uart1 = true;  // Enable on ramlogs to uart1
+  if(_trace_log_to_uart1)
+    return OK;
+
+  // Any need to initialize trace processing?
+  _trace_log_to_uart1 = true;
 
   if(_mono_has_started)
     _uart1_needs_reconfig = 1;  // Allow the first message to reconfigure UART1
 
-  // Initialize if needed
-  // hcom_nx_trace_msg_lazy_initialization(false);
+  // Sending syslogs already to host? If not we must initialize.
+  if(!_trace_log_to_host)
+  {
+    hcom_nx_trace_msg_lazy_initialization();
+  }
+
   char *sendMsgToHost = "Trace logs will be sent via UART1";
 #else
   char *sendMsgToHost = "Trace logs cannot be sent to UART1, trace logging not available";
@@ -851,12 +922,22 @@ int hcom_nx_exec_trace_do_not_send_to_uart1(struct hcom_nx_cmd_data *cmdData)
               HCOM_BBREG_ROUTE_TRACE_MSG_TO_UART1_BIT, 0);
 
 #if defined (CONFIG_RAMLOG_SYSLOG)
+  if(!_trace_log_to_uart1)
+    return OK;    // Already disabled
+
   _trace_log_to_uart1 = false;
+
+  if(!_trace_log_to_host)
+  {
+    // Since no longer needed, terminate the main ramlog reader thread
+    // and clean up resources
+    hcom_nx_trace_kthread_exit_initiate();
+  }
 #endif
 
-  char *sendMsgToHost = "UART1 is available for .Net Apps";
-  cmdData->send_host_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0, sendMsgToHost,
-          thisFile, __LINE__);
+  
+  cmdData->send_host_msg(HCOM_HOST_REQUEST_TEXT_INFORMATION, 0,
+            "UART1 is available for .Net Apps", thisFile, __LINE__);
   
   return OK;
 }

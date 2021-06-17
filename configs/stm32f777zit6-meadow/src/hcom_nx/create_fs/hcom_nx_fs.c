@@ -1,6 +1,6 @@
 /****************************************************************************
  * \configs\stm32f777zit6-meadow\src\hcom_nx\create_fs\hcom_nx_fs.c
- * 
+ *
  *   Copyright (C) 2019 - 2020 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs
  *
@@ -94,7 +94,7 @@ int hcom_nx_create_fs_initialize(FAR struct mtd_dev_s *mtd)
     _partInfo[i].isPartMounted = false;
     _partInfo[i].partPageOffset = 0;
   }
-  
+
   _totalPartitionCount = 0;
   _pagesPerEraSector = 0;
 
@@ -185,7 +185,7 @@ int hcom_fs_create_partition_initialize_and_mount_fs(FAR struct mtd_dev_s *mtd,
 
 //==============================================================================
 // This method is called from littlefs to mount either a partition or the
-// only partition in the file system 
+// only partition in the file system
 int hcom_nx_create_fs_mount(const char *sourceDevice, const char *targetDevice,
                                         const char *fileSystemType, uint32_t partitionId,
                                         const char *mountCommand)
@@ -229,10 +229,10 @@ int hcom_nx_create_fs_mount(const char *sourceDevice, const char *targetDevice,
   }
 
   _partInfo[partitionId].isPartMounted = true;
-  
+
   syslog(LOG_DEBUG, "%s@%d-Mounted partition %d as '%s' to '%s' for type '%s'\n", thisFile, __LINE__,
         partitionId, finalSourceName, fullMountPtName, fileSystemType);
-        
+
   free(finalSourceName);
   free(fullMountPtName);
 

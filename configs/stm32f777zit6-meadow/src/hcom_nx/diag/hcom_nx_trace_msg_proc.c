@@ -133,6 +133,12 @@ static void hcom_nx_trace_msg_sig_recv(int signo, FAR siginfo_t *info, FAR void 
  ****************************************************************************/
 int hcom_nx_trace_msg_proc_setup()
 {
+
+  DEBUG_CONFIGURE_PIN(DEBUG_PIN_A0);
+  DEBUG_CONFIGURE_PIN(DEBUG_PIN_A1);
+  DEBUG_SET_LOW(DEBUG_PIN_A0);
+  DEBUG_SET_LOW(DEBUG_PIN_A1);
+
   _mono_has_started = false;  // mono will only tell us once
   _ramlog_reader_kthread_pid = 0;
 
@@ -193,11 +199,16 @@ void hcom_nx_trace_read_bbreg_config()
 // Called when mono starts
 int hcom_nx_trace_msg_mono_started()
 {
+  DEBUG_SET_HIGH(DEBUG_PIN_A0);
+
   // Because we cannot know when/if mono has messed with UART1's configuration
   // we'll do it for the first few trace messages after mono has started.
   _mono_has_started = true;
   if(_trace_log_to_uart1)
+  {
     _uart1_needs_reconfig = 5;
+    DEBUG_SET_HIGH(DEBUG_PIN_A1);
+  }
 
   return OK;
 }
@@ -209,11 +220,14 @@ int hcom_nx_trace_msg_lazy_initialization()
 {
   int ret;
 
+  // Already running, don't restart
+  if(_trace_kthread_running)
+    return OK;
+  
   _ramlog_fd = -1;
   _uart1_fd = -1;
   _uart1_needs_reconfig = 0;
   _cliMsgLength = 0;
-  _trace_kthread_running = false;
   _ramlog_reader_kthread_pid = 0;
 
   // Create a circular buffer instance to manage messages read from ramlog
@@ -521,6 +535,7 @@ int hcom_nx_trace_msg_save_recvd_data(uint8_t recvBuff[], const ssize_t recvByte
   {
     // Can return HCOM_CIR_BUF_ADD_SUCCESS, HCOM_CIR_BUF_ADD_WONT_FIT, HCOM_CIR_BUF_ADD_BAD_ARG,
     addResult = hcom_cirbuf_add_bytes(_ramlog_cbuf, recvBuff, recvByteCnt);
+    if(_shutting_down) break;
     if(addResult == HCOM_CIR_BUF_ADD_SUCCESS)
     {
       break;    // Leave loop and check for data ready to read
@@ -532,6 +547,7 @@ int hcom_nx_trace_msg_save_recvd_data(uint8_t recvBuff[], const ssize_t recvByte
       // Only returns -error, HCOM_CIR_BUF_GET_NONE_FOUND or
       // HCOM_CIR_BUF_GET_DEST_NO_ROOM
       pullResult = hcom_nx_trace_msg_pull_all_packets_from_buffer();
+      if(_shutting_down) break;
       if (pullResult == HCOM_CIR_BUF_GET_FOUND_MSG)
       {
         // Pulled and processed some message so attempt to add again
@@ -545,6 +561,7 @@ int hcom_nx_trace_msg_save_recvd_data(uint8_t recvBuff[], const ssize_t recvByte
                  thisFile, __LINE__);
         return OK;    // Reported so throw data away.
       }
+      
       if (pullResult == HCOM_CIR_BUF_GET_DEST_NO_ROOM)
       {
 
@@ -562,7 +579,6 @@ int hcom_nx_trace_msg_save_recvd_data(uint8_t recvBuff[], const ssize_t recvByte
     }
     else
     {
-      if(_shutting_down) break;
       // Undefined error????
       hcom_nx_trace_msg_err_logger(LOG_ERR, "%s@%d-Unknown cir buf add err:%d\n", thisFile, __LINE__, addResult);
       return OK; // Report, throw data away and keep going
@@ -832,9 +848,8 @@ int hcom_nx_exec_trace_do_send_to_host(struct hcom_nx_cmd_data *cmdData)
 #if defined (CONFIG_RAMLOG_SYSLOG)
   _trace_log_to_host = true;
 
-  // Sending syslogs already to UART1? If not we must initialize.
-  if(!_trace_log_to_uart1)
-    hcom_nx_trace_msg_lazy_initialization();
+  // Initialize if needed
+  hcom_nx_trace_msg_lazy_initialization();
 
   char *sendMsgToHost = "Trace logs will be sent to CLI";
 #else
@@ -886,20 +901,13 @@ int hcom_nx_exec_trace_forward_to_uart1(struct hcom_nx_cmd_data *cmdData)
   // If ramlog configured, need to init ramlog now. This insures
   // that Meadow.CLI is listening
 #if defined (CONFIG_RAMLOG_SYSLOG)
-  if(_trace_log_to_uart1)
-    return OK;
-
-  // Any need to initialize trace processing?
   _trace_log_to_uart1 = true;
 
   if(_mono_has_started)
     _uart1_needs_reconfig = 1;  // Allow the first message to reconfigure UART1
 
-  // Sending syslogs already to host? If not we must initialize.
-  if(!_trace_log_to_host)
-  {
-    hcom_nx_trace_msg_lazy_initialization();
-  }
+  // Initialize if needed
+  hcom_nx_trace_msg_lazy_initialization();
 
   char *sendMsgToHost = "Trace logs will be sent via UART1";
 #else

@@ -252,12 +252,18 @@ static int hcom_upd_nx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 #endif
 
   case HCOM_NX_UPD_MONO_HAS_STARTED:
+#if defined (CONFIG_RAMLOG_SYSLOG)
     return hcom_nx_trace_msg_mono_started();
+#else
+    return OK;
+#endif
 
   case HCOM_NX_UPD_CLI_MESSAGE_TRANSPORT:
+#if defined (CONFIG_RAMLOG_SYSLOG)
     cli_transport = (hcom_nx_upd_cli_msg_transport_t *)arg;
     cli_transport->msg_length = hcom_nx_trace_cli_message_transport(
               cli_transport->transport_buf, cli_transport->buf_length);
+#endif
     return OK;
 
   case HCOM_NX_UPD_RESTORE_UART_CONFIG:

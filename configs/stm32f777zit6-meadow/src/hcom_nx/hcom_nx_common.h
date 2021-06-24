@@ -111,7 +111,6 @@ extern "C"
 // is defined in chip/stm32_rtcc.h
 #define HCOM_NX_MEADOW_BATTERY_BACKED_REGISTER STM32_RTC_BK31R
 
-
 // The ramlog is part of nuttx and contains the syslog text
 #define HCOM_THREAD_PRIORITY_TRACE_RAMLOG 180
 #define HCOM_THREAD_NAME_TRACE_RAMLOG "RamlogRead"
@@ -145,9 +144,12 @@ extern "C"
   int hcom_nx_exec_trace_do_send_to_host(struct hcom_nx_cmd_data *cmdData);
   int hcom_nx_exec_trace_do_not_send_to_uart1(struct hcom_nx_cmd_data *cmdData);
   int hcom_nx_exec_trace_forward_to_uart1(struct hcom_nx_cmd_data *cmdData);
+#if defined (CONFIG_RAMLOG_SYSLOG)
   int hcom_nx_trace_msg_proc_setup(void);
   int hcom_nx_trace_msg_mono_started(void);
   size_t hcom_nx_trace_cli_message_transport(char *buff, size_t bufLen);
+  void hcom_nx_uart1_direct(int priority, const char *outputMsg, ...);
+#endif
 
   // Low-level file system
   int hcom_nx_create_fs_initialize(FAR struct mtd_dev_s *mtd);
@@ -182,7 +184,6 @@ int hcom_nx_copy_config_for_user_mode(uint8_t *, int);
   void hcom_nx_utils_diag_print_buffer(const uint8_t buffer[], const int bufLen, uint8_t msgPriority);
   void hcom_nx_utils_diag_print_buffer_x(const uint8_t buffer[], const int bufLen, uint8_t msgPriority,
         void (*logger)(int priority, const char *string, ...));
-void hcom_nx_uart1_direct(int priority, const char *outputMsg, ...);
 #endif
 
 #endif // __ASSEMBLY__

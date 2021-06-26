@@ -175,7 +175,7 @@ void hcom_nx_trace_read_bbreg_config()
   else
     _trace_log_to_uart1 = false;
 
-#if HCOM_FORCE_SYSLOG_MASK_F7_AND_UART1 > 0
+#if HCOM_FORCE_SYSLOG_OUTPUT_TO_UART1 > 0
   _trace_log_to_uart1 = true;
 #endif
 

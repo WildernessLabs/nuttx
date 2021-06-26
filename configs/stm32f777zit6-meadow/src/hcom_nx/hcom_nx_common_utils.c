@@ -61,6 +61,7 @@
  * Private Data
  ****************************************************************************/
 static char *thisFile = __FILE__;
+static int _syslogMask;
 
 static int _syslogMask;
 
@@ -98,7 +99,6 @@ void hcom_nx_common_utils_only_restart_meadow()
 //============================================================================
 int hcom_nx_utils_startup_handling_of_trace_level()
 {
-
 #if defined(CONFIG_STM32F7_PWR)
   // Check if this is a reboot or a power-on restart. The MCU at 
   // Power-on (unless there's a coin cell) clears all 32 battery
@@ -129,18 +129,23 @@ int hcom_nx_utils_startup_handling_of_trace_level()
   //             LOG_MASK(LOG_INFO);  // | LOG_MASK(LOG_DEBUG);
 
   // Sets new mask and returns the previous syslog_mask
-  int _syslogMaskPrev = setlogmask(_syslogMask);
-  if (_syslogMaskPrev < 0)
+  int syslogMaskPrev = setlogmask(_syslogMask);
+  if (syslogMaskPrev < 0)
   {
-    syslog(LOG_CRIT, "%s@%d-setlogmask err:0x%08x\n", thisFile, __LINE__, _syslogMaskPrev);
-    return _syslogMaskPrev;    // not old mask be error
+    syslog(LOG_CRIT, "%s@%d-setlogmask err:0x%08x\n", thisFile, __LINE__, syslogMaskPrev);
+    return syslogMaskPrev;    // not old mask but error
   }
 #else
 #warning "CONFIG_STM32F7_PWR not defined\n"
   // Without battery backed registers the best we can do is defaults
   _syslogMask = LOG_MASK(LOG_EMERG) | LOG_MASK(LOG_ALERT) | LOG_MASK(LOG_CRIT) |
               LOG_MASK(LOG_ERR) | LOG_MASK(LOG_WARNING);
-  _syslogMaskPrev = setlogmask(__syslogMask);
+  int syslogMaskPrev = setlogmask(_syslogMask);
+  if (syslogMaskPrev < 0)
+  {
+    syslog(LOG_CRIT, "%s@%d-setlogmask err:0x%08x\n", thisFile, __LINE__, syslogMaskPrev);
+    return syslogMaskPrev;    // not old mask but error
+  }
 #endif
   return OK;
 }
@@ -202,7 +207,7 @@ void hcom_diag_misc_print_buffer(const uint8_t buffer[], const int bufLen, uint8
 #if HCOM_INCLUDE_DIAG_PRINT_BUFFER_CODE > 0
 //============================================================================
 // For diagnostic use only
-// This version makes no assumptions about the function to use for output
+// This version makes no assumptions about the function used for output
 void hcom_nx_utils_diag_print_buffer_x(const uint8_t buffer[], const int bufLen, uint8_t msgPriority,
         void (*logger)(int priority, const char *string, ...))
 {
@@ -281,4 +286,3 @@ void hcom_nx_utils_diag_print_buffer_x(const uint8_t buffer[], const int bufLen,
 {
 }
 #endif
-

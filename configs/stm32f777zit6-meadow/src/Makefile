@@ -88,6 +88,7 @@ hcom_nx/create_fs/hcom_nx_fs.c \
 hcom_nx/create_fs/hcom_nx_fs_littlefs.c \
 hcom_nx/diag/hcom_nx_upd_diag.c \
 hcom_nx/diag/hcom_nx_trace_msg_proc.c \
+hcom_nx/tests/hcom_nx_qspi_flash_tests.c \
 hcom_nx/hcom_nx_config_manager.c
 
 ifeq ($(CONFIG_MEADOW_ESPCP_MANAGER),y)
@@ -103,7 +104,8 @@ CSRCS += espcp/espcp_thread.c \
 		 espcp/espcp_system.c \
 		 espcp/espcp_common.c \
 		 espcp/espcp_usrsock_sockif.c \
-		 espcp/espcp_event_handlers.c
+		 espcp/espcp_event_handlers.c \
+		 espcp/espcp_tests.c
 endif
 
 #

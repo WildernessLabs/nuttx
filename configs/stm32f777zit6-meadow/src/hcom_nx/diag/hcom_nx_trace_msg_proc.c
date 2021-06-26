@@ -96,17 +96,18 @@ static host_com_cir_buffer_t *_ramlog_cbuf;
 // It would be nice if we could just copy the data to a different buffer
 // but then there would be a risk that messages would arrive faster than
 // CLI can consume them.
-static uint8_t *_ramlogMsgBuf;
+static uint8_t *_syslogMsgBuf;
 static int _ramlog_fd;
 static int _uart1_fd;
 static bool _trace_kthread_running;
 static bool _trace_log_to_host;
 static bool _trace_log_to_uart1;
 static size_t _cliMsgLength;
+static sem_t _startupSem;
 static sem_t _readNxtSem;
 static sem_t _sendCliSem;
 static int _ramlog_reader_kthread_pid;
-static uint32_t _txRxRecfgStopTime;
+static uint32_t _txRxReCfgStopTime;
 
 /****************************************************************************
  * Private Functions
@@ -117,11 +118,11 @@ static int hcom_nx_trace_msg_make_thread(void);
 static int hcom_nx_trace_msg_open_ramlog(void);
 static int hcom_nx_trace_msg_lazy_initialization(void);
 static void hcom_nx_trace_msg_close_and_delay(bool ramLogClose);
-static int hcom_nx_trace_msg_read_ramlog_loop(void);
-static int hcom_nx_trace_msg_save_recvd_data(uint8_t recvBuff[], const ssize_t recvByteCnt);
+static int hcom_nx_trace_msg_read_ramlog_loop(uint8_t *readBuf);
+static int hcom_nx_trace_msg_save_recvd_data(uint8_t readBuf[], const ssize_t recvByteCnt);
 static int hcom_nx_trace_msg_pull_all_packets_from_buffer(void);
 static int hcom_nx_trace_msg_route_trace_text(void);
-static int hcom_nx_trace_msg_send_msg_to_uart1(const char *sendBuff, size_t numbBytes);
+static int hcom_nx_trace_msg_send_msg_to_uart1(const char *toUartBuf, size_t numbBytes);
 static int hcom_nx_trace_msg_open_uart1_serial_port(void);
 static void hcom_nx_trace_msg_wait_sem(sem_t *semaphore);
 static void hcom_nx_trace_kthread_exit_initiate(void);
@@ -147,7 +148,8 @@ static uint32_t hcom_nx_trace_get_time_ms(void)
 int hcom_nx_trace_msg_proc_setup()
 {
   _ramlog_reader_kthread_pid = 0;
-  _txRxRecfgStopTime = 0;
+  _txRxReCfgStopTime = 0;
+  sem_init(&_startupSem, 0, 1);
 
   // Check the BBR to determine if initialization is needed, but only
   // during startup. After startup, this is controlled by CLI command
@@ -169,23 +171,9 @@ void hcom_nx_trace_read_bbreg_config()
   // backed registers as it could have been long ago.
   bbrRegValue = getreg32(HCOM_NX_MEADOW_BATTERY_BACKED_REGISTER);
   if((HCOM_BBREG_ROUTE_TRACE_MSG_TO_UART1_BIT & bbrRegValue) > 0)
-  {
     _trace_log_to_uart1 = true;
-  }
   else
-  {
     _trace_log_to_uart1 = false;
-    // PeterM - Can't use meadow config because this code is started
-    // before meadow config is started.
-    //
-    // hcom_nx_config_lock();
-    // meadow_configuration_t *config = hcom_nx_get_configuration();
-    // if (config != NULL)
-    // {
-    //   _trace_log_to_uart1 |= (config->use_uart1_for_trace != 0);
-    // }
-    // hcom_nx_config_unlock();
-  }
 
 #if HCOM_FORCE_SYSLOG_MASK_F7_AND_UART1 > 0
   _trace_log_to_uart1 = true;
@@ -203,8 +191,8 @@ int hcom_nx_trace_msg_mono_started()
 {
   // Since mono has begun we'll grab the time and find a reasonable
   // reconfiguration stop time from now.
-  _txRxRecfgStopTime = hcom_nx_trace_get_time_ms();
-  _txRxRecfgStopTime += ((uint32_t)HCOM_TRACE_RAMLOG_RECONFIG_TIMEOUT * MSEC_PER_SEC);
+  _txRxReCfgStopTime = hcom_nx_trace_get_time_ms();
+  _txRxReCfgStopTime += ((uint32_t)HCOM_TRACE_RAMLOG_RECONFIG_TIMEOUT * MSEC_PER_SEC);
 
   return OK;
 }
@@ -216,10 +204,12 @@ int hcom_nx_trace_msg_lazy_initialization()
 {
   int ret;
 
-  // Already running? Don't restart
-  if(_trace_kthread_running)
+  // Need to guard the thread running flag otherwise may get
+  // 2 ramlog reader threads
+  hcom_nx_trace_msg_wait_sem(&_startupSem);
+  if(_trace_kthread_running)  // Already running? Don't restart
     return OK;
-  
+
   _ramlog_fd = -1;
   _uart1_fd = -1;
   _cliMsgLength = 0;
@@ -245,13 +235,13 @@ int hcom_nx_trace_msg_lazy_initialization()
   ret = hcom_cirbuf_init(_ramlog_cbuf, HCOM_TRACE_LOCAL_SYSLOG_CIR_BUF_SIZE, 0x0a);
   if (ret == HCOM_CIR_BUF_INIT_FAILED)
   {
-    hcom_nx_uart1_direct(LOG_ERR, "%s@%d-Cir buf malloc failed\n", thisFile, __LINE__);
+    hcom_nx_uart1_direct(LOG_ERR, "%s@%d-Cir buf init failed\n", thisFile, __LINE__);
     return -1;
   }
 
-  // Message buffer contining full messages pulled from the ramlog
-  _ramlogMsgBuf = malloc(HCOM_PROTOCOL_REQUEST_MAX_PAYLOAD_LEN);
-  if (_ramlogMsgBuf == NULL)
+  // Message buffer containing full messages pulled from the ramlog
+  _syslogMsgBuf = malloc(HCOM_PROTOCOL_REQUEST_MAX_PAYLOAD_LEN);
+  if (_syslogMsgBuf == NULL)
   {
     hcom_nx_uart1_direct(LOG_ERR, "%s@%d-cir buf malloc\n", thisFile, __LINE__);
     return -1;
@@ -263,6 +253,9 @@ int hcom_nx_trace_msg_lazy_initialization()
   {
     hcom_nx_uart1_direct(LOG_ERR, "%s@%d-thread create, errno:%d\n",
               thisFile, __LINE__, errno);
+
+    free(_syslogMsgBuf);
+    _syslogMsgBuf = NULL;
     return -1;
   }
 
@@ -293,10 +286,14 @@ int hcom_nx_trace_msg_make_thread()
 void *hcom_nx_trace_msg_kthread(int argc, char *argv[])
 {
   int ret;
+  uint8_t *readBuf;
   struct sigaction act;
 
-  _shutting_down = false;
   _trace_kthread_running = true;
+  _shutting_down = false;
+  sem_post(&_startupSem);
+
+  readBuf = malloc(HCOM_TRACE_RAMLOG_READ_BUF_SIZE);
 
 #if HCOM_DIAG_OUTPUT_SYSLOG_PID_OF_NEW_THREADS > 0
   syslog(2, "New kthread [PID:%d],'%s'\n", getpid(), HCOM_THREAD_NAME_TRACE_RAMLOG);
@@ -311,9 +308,11 @@ void *hcom_nx_trace_msg_kthread(int argc, char *argv[])
   if (ret < 0)
   {
     _trace_kthread_running = false;
+    free(readBuf);
     return NULL;
   }
 
+  //-------------------------------------------
   // Only leave this loop when shutting down
   while(!_shutting_down)
   {
@@ -339,18 +338,20 @@ void *hcom_nx_trace_msg_kthread(int argc, char *argv[])
     }
 
     // Attempt to read from the ramlog buffer
-    ret = hcom_nx_trace_msg_read_ramlog_loop();
+    ret = hcom_nx_trace_msg_read_ramlog_loop(readBuf);
     if(_shutting_down) break;
     if(ret < 0)
     {
       hcom_nx_trace_msg_close_and_delay(true);
     }
   }
+  //-------------------------------------------
 
   // Time for this thread to exit
   hcom_nx_trace_kthread_exit_cleanup();
 
   _trace_kthread_running = false;
+  free(readBuf);
 
   return NULL;
 }
@@ -408,10 +409,11 @@ void hcom_nx_trace_kthread_exit_cleanup()
     free(_ramlog_cbuf);
     _ramlog_cbuf = NULL;
   }
-  if(_ramlogMsgBuf != NULL)
+
+  if(_syslogMsgBuf != NULL)
   {
-    free(_ramlogMsgBuf);
-    _ramlogMsgBuf = NULL;
+    free(_syslogMsgBuf);
+    _syslogMsgBuf = NULL;
   }
 }
 
@@ -478,16 +480,16 @@ int hcom_nx_trace_msg_open_uart1_serial_port()
 //=================================================================
 // This function reads the data put into the ramlog by Nuttx
 // Returning on error will close the uart connection
-int hcom_nx_trace_msg_read_ramlog_loop()
+int hcom_nx_trace_msg_read_ramlog_loop(uint8_t *readBuf)
 {
-  uint8_t buffer[HCOM_TRACE_RAMLOG_READ_BUF_SIZE];
   ssize_t readReturn;
   int ret;
+
 
   while(!_shutting_down)
   {
     // Read ramlog
-    readReturn = read(_ramlog_fd, buffer, HCOM_TRACE_RAMLOG_READ_BUF_SIZE);
+    readReturn = read(_ramlog_fd, readBuf, HCOM_TRACE_RAMLOG_READ_BUF_SIZE);
     if(_shutting_down) break;
     if (readReturn < 0 )
     {
@@ -509,9 +511,11 @@ int hcom_nx_trace_msg_read_ramlog_loop()
       // unless all logging has been turned off
       if(_trace_log_to_host || _trace_log_to_uart1)
       {
-        ret = hcom_nx_trace_msg_save_recvd_data(buffer, readReturn);
+        ret = hcom_nx_trace_msg_save_recvd_data(readBuf, readReturn);
         if (ret < 0 )
         {
+          hcom_nx_uart1_direct(LOG_WARNING, "%s@%d hcom_nx_trace_msg_save_recvd_data() returned:%d\n",
+                    thisFile, __LINE__, ret);
           return ret;    // Close connection, wait and try again
         }
       }
@@ -526,7 +530,7 @@ int hcom_nx_trace_msg_read_ramlog_loop()
 // byte by byte or several bytes at once.
 // We assume that the message "unit" (aka line) will be delimited with
 // 0x0a (AKA 'line feed' or '\n')
-int hcom_nx_trace_msg_save_recvd_data(uint8_t recvBuff[], const ssize_t recvByteCnt)
+int hcom_nx_trace_msg_save_recvd_data(uint8_t readBuf[], const ssize_t recvByteCnt)
 {
   int addResult;
   int pullResult;
@@ -539,7 +543,7 @@ int hcom_nx_trace_msg_save_recvd_data(uint8_t recvBuff[], const ssize_t recvByte
   while(!_shutting_down)
   {
     // Can return HCOM_CIR_BUF_ADD_SUCCESS, HCOM_CIR_BUF_ADD_WONT_FIT, HCOM_CIR_BUF_ADD_BAD_ARG,
-    addResult = hcom_cirbuf_add_bytes(_ramlog_cbuf, recvBuff, recvByteCnt);
+    addResult = hcom_cirbuf_add_bytes(_ramlog_cbuf, readBuf, recvByteCnt);
     if(_shutting_down) break;
     if(addResult == HCOM_CIR_BUF_ADD_SUCCESS)
     {
@@ -563,7 +567,7 @@ int hcom_nx_trace_msg_save_recvd_data(uint8_t recvBuff[], const ssize_t recvByte
         // This makes no sense. Like a buffer full of garbage and no delimiter
         hcom_nx_uart1_direct(LOG_ERR, "%s@%d-pull packets from cir buf, none found\n",
                  thisFile, __LINE__);
-        return OK;    // Reported so throw data away.
+        return HCOM_CIR_BUF_GET_NONE_FOUND;    // Reported so throw data away.
       }
 
       if (pullResult == HCOM_CIR_BUF_GET_DEST_NO_ROOM)
@@ -572,20 +576,20 @@ int hcom_nx_trace_msg_save_recvd_data(uint8_t recvBuff[], const ssize_t recvByte
         // The buffer we supplied is too small for the message found
         hcom_nx_uart1_direct(LOG_ERR, "%s@%d-pull packets from cir buf, no room\n",
                  thisFile, __LINE__);
-        return OK;    // Reported so throw data away.
+        return pullResult;    // Reported so throw data away.
       }
     }
     else if (addResult == HCOM_CIR_BUF_ADD_BAD_ARG)
     {
       // A bad argument is never expected
       hcom_nx_uart1_direct(LOG_ERR, "%s@%d-Bad argument to cir buf\n", thisFile, __LINE__);
-      return OK; // Report, throw data away and keep going
+      return addResult; // Report, throw data away and keep going
     }
     else
     {
       // Undefined error????
       hcom_nx_uart1_direct(LOG_ERR, "%s@%d-Unknown cir buf add err:%d\n", thisFile, __LINE__, addResult);
-      return OK; // Report, throw data away and keep going
+      return addResult; // Report, throw data away and keep going
     }
   }   // while(!_shutting_down)
 
@@ -606,14 +610,14 @@ int hcom_nx_trace_msg_pull_all_packets_from_buffer()
   {
     // If buffer too small for the found message packetLength will contain
     // the needed buffer size.
-    ret = hcom_cirbuf_get_next_packet(_ramlog_cbuf, _ramlogMsgBuf,
+    ret = hcom_cirbuf_get_next_packet(_ramlog_cbuf, _syslogMsgBuf,
             HCOM_PROTOCOL_REQUEST_MAX_PAYLOAD_LEN, &packetLength);
     if(_shutting_down) break;
 
     // Any messages available?
     if (ret == HCOM_CIR_BUF_GET_NONE_FOUND)
     {
-      return OK; // Buffer empty, return to get more data
+      return ret; // Buffer empty, return to get more data
     }
 
     if(ret == HCOM_CIR_BUF_GET_DEST_NO_ROOM)
@@ -622,10 +626,10 @@ int hcom_nx_trace_msg_pull_all_packets_from_buffer()
       // Possibly corrupted data....
       hcom_nx_uart1_direct(LOG_ERR, "%s@%d-buffer too small. Needed %d\n",
                 thisFile, __LINE__, packetLength);
-      return OK; // _ramlogMsgBuf too small, throw away data and keep going 
+      return ret; // _syslogMsgBuf too small, throw away data and keep going 
     }
     
-    // ret must be HCOM_CIR_BUF_GET_FOUND_MSG
+    // Circular Buffer ret must have been HCOM_CIR_BUF_GET_FOUND_MSG
     _cliMsgLength = packetLength;
 
     // Route the isolated message
@@ -638,7 +642,7 @@ int hcom_nx_trace_msg_pull_all_packets_from_buffer()
     else
     {
       hcom_nx_uart1_direct(LOG_ERR, "%s@%d-processing data:%d\n", thisFile, __LINE__, ret);
-      return ret;
+      return HCOM_CIR_BUF_GET_NONE_FOUND;   // Assume buffer empty
     }
   }   // while(!_shutting_down)
   
@@ -655,7 +659,7 @@ int hcom_nx_trace_msg_route_trace_text(void)
   if(_trace_log_to_uart1)
   {
     // Route to uart1
-    ret = hcom_nx_trace_msg_send_msg_to_uart1((char *) _ramlogMsgBuf, _cliMsgLength);
+    ret = hcom_nx_trace_msg_send_msg_to_uart1((char *) _syslogMsgBuf, _cliMsgLength);
     if(ret < 0)
     {
       return ret;
@@ -670,7 +674,7 @@ int hcom_nx_trace_msg_route_trace_text(void)
     sem_post(&_sendCliSem);
 
     // Wait for message to be sent before getting next message. Why? Because
-    // the _ramlogMsgBuf buffer is a shared resource.
+    // the _syslogMsgBuf buffer is a shared resource.
     hcom_nx_trace_msg_wait_sem(&_readNxtSem);
   }
 
@@ -711,7 +715,12 @@ size_t hcom_nx_trace_cli_message_transport(char *buff, size_t buffLen)
     msgLength = buffLen;
   else
     msgLength = _cliMsgLength;
-  memcpy(buff, _ramlogMsgBuf, msgLength);
+
+  // Currently the 2 threads run in a ping-pong fashion, only one can run
+  // at a time. With some effort, once the data has been copied to the userland
+  // buffer, the ramlog reader could be allowed to read the next message.
+  // But, at this time the effort doesn't seem to be worth the benefit.
+  memcpy(buff, _syslogMsgBuf, msgLength);
 
   // Return to userland with the message
   return msgLength;
@@ -732,7 +741,9 @@ void hcom_nx_uart1_direct(int priority, const char *fmt, ...)
 #define HCOM_NX_UART1_DIRECT_BUF_LEN (256)
   va_list ap;
   int stringLen;
-  char completeStr[HCOM_NX_UART1_DIRECT_BUF_LEN];
+
+  char *completeStr;
+  completeStr = malloc(HCOM_NX_UART1_DIRECT_BUF_LEN);
 
   // Create the complete message
   va_start(ap, fmt);
@@ -751,11 +762,12 @@ void hcom_nx_uart1_direct(int priority, const char *fmt, ...)
   
   // Need a carrage return which we usually don't add
   hcom_nx_trace_msg_send_msg_to_uart1("\r", 1);
+  free(completeStr);
 }
 
 //==========================================================================
 // Forward the message to the uart1 for transmission
-int hcom_nx_trace_msg_send_msg_to_uart1(const char *sendBuff, size_t numbBytes)
+int hcom_nx_trace_msg_send_msg_to_uart1(const char *toUartBuf, size_t numbBytes)
 {
   // If uart1 not opened do this now
   if(_uart1_fd < 0)
@@ -771,7 +783,7 @@ int hcom_nx_trace_msg_send_msg_to_uart1(const char *sendBuff, size_t numbBytes)
   // we need to reconfigure them after mono starts. The problem is we don't know when
   // this is is. Therefore, we execute this code for a predetermined amount of time,
   // starting when mono has started running.
-  if(_txRxRecfgStopTime != 0)
+  if(_txRxReCfgStopTime != 0)
   {
     // Reconfigure uart1 (takes about 32usec to do all 4 commands)
     stm32_unconfiggpio(GPIO_USART1_TX); // PB14
@@ -780,14 +792,14 @@ int hcom_nx_trace_msg_send_msg_to_uart1(const char *sendBuff, size_t numbBytes)
     stm32_configgpio(GPIO_USART1_RX);
     
     // Run until stop time is exceeded then stop the process
-    if(_txRxRecfgStopTime < hcom_nx_trace_get_time_ms())
+    if(_txRxReCfgStopTime < hcom_nx_trace_get_time_ms())
     {
-      _txRxRecfgStopTime = 0;      // Past so timeout no longer needed
+      _txRxReCfgStopTime = 0;      // Past so timeout no longer needed
     }
   }
 
   // Write string out the uart
-  ssize_t nbytes = write(_uart1_fd, sendBuff, numbBytes);
+  ssize_t nbytes = write(_uart1_fd, toUartBuf, numbBytes);
   if (nbytes < 0)
   {
     return nbytes;
@@ -982,3 +994,24 @@ int hcom_nx_exec_trace_do_not_send_to_uart1(struct hcom_nx_cmd_data *cmdData)
   return OK;
 }
 
+//======================================================================================
+// Called after meadow configuration has started
+void hcom_nx_trace_insure_correct_config(bool uartTracing, bool cliTracing)
+{
+  bool needToInit = false;
+
+  if(uartTracing && (!_trace_log_to_uart1))
+  {
+    _trace_log_to_uart1 = true;
+    needToInit = true;
+  }
+
+  if(cliTracing && (!_trace_log_to_host))
+  {
+    _trace_log_to_host = true;
+    needToInit = true;
+  }
+
+  if(needToInit)
+    hcom_nx_trace_msg_lazy_initialization();
+}

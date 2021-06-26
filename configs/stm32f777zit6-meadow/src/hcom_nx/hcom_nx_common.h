@@ -112,7 +112,7 @@ extern "C"
 #define HCOM_NX_MEADOW_BATTERY_BACKED_REGISTER STM32_RTC_BK31R
 
 // The ramlog is part of nuttx and contains the syslog text
-#define HCOM_THREAD_PRIORITY_TRACE_RAMLOG 180
+#define HCOM_THREAD_PRIORITY_TRACE_RAMLOG 120
 #define HCOM_THREAD_NAME_TRACE_RAMLOG "RamlogRead"
 #define HCOM_THREAD_STACKSIZE_TRACE_RAMLOG 2048
 
@@ -139,7 +139,7 @@ extern "C"
   int hcom_nx_exec_ex_flash_verify_ex_flash(struct hcom_nx_cmd_data *cmdData);
   int hcom_nx_exec_ex_flash_renew_file_system(struct hcom_nx_cmd_data *cmdData);
 
-  // syslog tracing
+  // Syslog tracing
   int hcom_nx_exec_trace_do_not_send_to_host(struct hcom_nx_cmd_data *cmdData);
   int hcom_nx_exec_trace_do_send_to_host(struct hcom_nx_cmd_data *cmdData);
   int hcom_nx_exec_trace_do_not_send_to_uart1(struct hcom_nx_cmd_data *cmdData);
@@ -147,6 +147,7 @@ extern "C"
 #if defined (CONFIG_RAMLOG_SYSLOG)
   int hcom_nx_trace_msg_proc_setup(void);
   int hcom_nx_trace_msg_mono_started(void);
+  void hcom_nx_trace_insure_correct_config (bool uartTracing, bool cliTracing);
   size_t hcom_nx_trace_cli_message_transport(char *buff, size_t bufLen);
   void hcom_nx_uart1_direct(int priority, const char *outputMsg, ...);
 #endif

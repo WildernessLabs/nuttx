@@ -123,6 +123,12 @@ int hcom_nx_utils_startup_handling_of_trace_level()
     _syslogMask &= 0x000000ff;   // LS 8 bits are syslog mask
   }
 
+#if HCOM_FORCE_SYSLOG_MASK_AND_OUTPUT_TO_UART1 > 1
+    _syslogMask = LOG_MASK(LOG_EMERG) | LOG_MASK(LOG_ALERT) | LOG_MASK(LOG_CRIT) |
+              LOG_MASK(LOG_ERR) | LOG_MASK(LOG_WARNING) |
+              LOG_MASK(LOG_NOTICE) | LOG_MASK(LOG_INFO) /* | LOG_MASK(LOG_DEBUG) */;
+#endif
+
   // Save for emergency debugging :-)
   // _syslogMask = LOG_MASK(LOG_EMERG) | LOG_MASK(LOG_ALERT) | LOG_MASK(LOG_CRIT) |
   //             LOG_MASK(LOG_ERR) | LOG_MASK(LOG_WARNING) | LOG_MASK(LOG_NOTICE) | 

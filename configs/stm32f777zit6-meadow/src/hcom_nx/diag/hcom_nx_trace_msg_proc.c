@@ -147,6 +147,7 @@ static uint32_t hcom_nx_trace_get_time_ms(void)
  ****************************************************************************/
 int hcom_nx_trace_msg_proc_setup()
 {
+  _trace_kthread_running = false;
   _ramlog_reader_kthread_pid = 0;
   _txRxReCfgStopTime = 0;
   sem_init(&_startupSem, 0, 1);
@@ -175,7 +176,7 @@ void hcom_nx_trace_read_bbreg_config()
   else
     _trace_log_to_uart1 = false;
 
-#if HCOM_FORCE_SYSLOG_OUTPUT_TO_UART1 > 0
+#if HCOM_FORCE_SYSLOG_MASK_AND_OUTPUT_TO_UART1 > 0
   _trace_log_to_uart1 = true;
 #endif
 

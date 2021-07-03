@@ -48,8 +48,8 @@
 #include <assert.h>
 #include <errno.h>
 #include <debug.h>
-
 #include <nuttx/spi/qspi.h>
+#include <arch/board/board.h>
 
 /************************************************************************************
  * Pre-processor Definitions
@@ -64,8 +64,8 @@
 #define MEADOW_MICRO_VERSION_F7v2 (2)
 
 // Size of each versions flash
-#define MEADOW_MICRO_VERSION_F7v2_FLASH_SIZE (67108864)   // 64 MB
 #define MEADOW_MICRO_VERSION_F7v1_FLASH_SIZE (33554432)   // 32 MB
+#define MEADOW_MICRO_VERSION_F7v2_FLASH_SIZE (67108864)   // 64 MB
 
 //-------------------------------------------------------------------
 // The following define the Manufacture, type and capacity of the flash
@@ -97,6 +97,18 @@
   #define MTD_W25QJV_FLASH_READ_QUADIO        (0xeb)
   #define MTD_W25QJV_FLASH_NUMBER_DUMMIES     (6)   // This needs to match the W25QxxxJV driver
 #endif
+
+typedef struct
+{
+  // Represents the F7v1 Pin identifiers (e.g. PD9, D=3 so 0x39)
+  const uint8_t F7v1PinId;  // Pin port & pin
+  const uint32_t F7v1IDR;   // GPOI input data register
+
+  const uint8_t F7v2PinId;
+  const uint32_t F7v2IDR;   // GPOI input data register
+} meadow_hw_ver_gpio_pin_defns_t;
+
+extern meadow_hw_ver_gpio_pin_defns_t meadow_hw_ver_gpio_pins[];
 
 // Public functions
 uint32_t meadow_hw_version_determine(FAR struct qspi_dev_s *qspi);

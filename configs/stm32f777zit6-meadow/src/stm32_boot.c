@@ -229,8 +229,6 @@ void board_late_initialize(void)
 {
   int ret;
 
-  syslog(LOG_INFO, "\nMeadow initialization has begun.\n");
-
 #if defined (CONFIG_RAMLOG_SYSLOG)
   // Initialize the syslog message pump
   ret = hcom_nx_trace_msg_proc_setup();
@@ -283,9 +281,10 @@ void board_late_initialize(void)
     FAR struct qspi_dev_s *qspi;
 
     // Do generic QSPI initialization to the STM32F7's QSPI hardware
-    // Note: this function will assume that CONFIG_STM32F7_QSPI_FLASH_SIZE
-    // is the correct flash chip memory size. This is corrected below if
-    // it needs to be.
+    // Note: the stm32f7_qspi_initialize() Nuttx function uses the
+    // CONFIG_STM32F7_QSPI_FLASH_SIZE defconfig configuration value to set a
+    // STM32F7 internal register value. But, since this might be wrong it will
+    // be corrected after we determine the Meadow version we're running on.
     qspi = stm32f7_qspi_initialize(0);
     if (!qspi)
     {
@@ -295,7 +294,8 @@ void board_late_initialize(void)
 
     g_qspi = qspi;
 
-    // Using the information available determine the meadow version
+    // Using the information available determine the flash type and thus
+    // the meadow version.
     uint32_t meadowHwVer = meadow_hw_version_determine(qspi);
 
     // Get the correct flash size
@@ -314,12 +314,9 @@ void board_late_initialize(void)
   #endif
     }
 
-    syslog(1, "==> Meadow flash size:%d\n", flashSize);
-
-    // This function was added to Nuttx for Meadow. It will update the
-    // stm32f7's internal register value to correct any flash size error
-    // orginally introduced by the stm32f7_qspi_initialize() function
-    // called above.
+    // This function was added for Meadow. It updates the stm32f7's internal
+    // register value to correct any flash size error orginally introduced by
+    // the stm32f7_qspi_initialize() function previously called.
     if(flashSize != CONFIG_STM32F7_QSPI_FLASH_SIZE)
     {
       stm32f7_qspi_hw_reinitialize(flashSize);

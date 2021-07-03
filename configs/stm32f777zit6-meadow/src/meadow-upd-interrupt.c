@@ -70,6 +70,7 @@
 #include <nuttx/clock.h>    // for testing
 
 #include "meadow-upd.h"
+#include <meadow/meadow_hw_version.h>
 
 // DEVELOPER NOTE:
 // Debounce recognizes the first state transition and then ignores anything after
@@ -93,8 +94,11 @@
 #endif
 
 /****************************************************************************
- * Private Types
+ * Private Data
  ****************************************************************************/
+
+uint32_t f7HardwareVersion;
+
 enum updInterruptProcState_e
 {
   updipstate_uncfg,           // not configured
@@ -123,9 +127,11 @@ enum GlitchAndDebouceReturnValues_e
 struct interruptPinMap_s
 {
   // Represents the CPU Pin identifier (e.g. PD9, D=3 so 39)
-  const uint8_t PinId;
+  uint8_t PinId;
+
   // Address of the "Input Data Register" that holds GPIO port state bits
-  const uint32_t IDRAddress;
+  uint32_t IDRAddress;
+
   // CurrentProcessState - tracks the current processing state for this GPIO
   // defined by an entry in updInterruptProcState_e enum
   uint8_t CurrentProcessState;
@@ -415,8 +421,8 @@ int upd_periodic_timeout_isr(int irq, void *context, void *arg)
     int ret = STM32_TIM_SETMODE(_periodicTimer, STM32_TIM_MODE_DISABLED);
     if(ret < 0)
     {
-      syslog(LOG_ERR, "%s@%d-0x%02x udp-(time isr)--STM32_TIM_SETMODE failed:%d\n",
-                __FILE__, __LINE__, gpioMapTblPtr->PinId, ret);
+      syslog(LOG_ERR, "%s@%d-udp-(time isr)--STM32_TIM_SETMODE failed:%d\n",
+                __FILE__, __LINE__, ret);
     }
   }
 
@@ -819,26 +825,11 @@ int upd_config_interrupt(struct upd_gpio_int_config* cfg)
   uint32_t pinMapOffset;
   int ret;
 
-  // Walk the gpio data array to find the desired entry
-  for(pinMapOffset = 0; pinMapOffset < MEADOW_UPD_F7_SUPPORTED_GPIOS; pinMapOffset++)
-  {
-    if(gpioDebounceData[pinMapOffset].PinId == designator)
-      break;
-  }
-
-  if(pinMapOffset == MEADOW_UPD_F7_SUPPORTED_GPIOS)
-  {
-    // GPIO not found in data table? This us not expected.
-    syslog(LOG_ERR, "upd-(cfg)--No entry in table for 0x%02x\n", designator);
-    return -1;
-  }
-
-  // Grab the correct entry's table address
-  gpioMapTblPtr = &gpioDebounceData[pinMapOffset];
-
   if(_firstTimeConfig)
   {
-    // Only do this once, the first time
+    // Do the following once, the first time
+    f7HardwareVersion = meadow_hw_version_return();
+
     ret = upd_config_interrupt_prep_timer(MEADOW_UPD_INTERRUPT_STM32F7_TIMER_NUMBER);
     if(ret < 0)
     {
@@ -848,24 +839,54 @@ int upd_config_interrupt(struct upd_gpio_int_config* cfg)
 
     for(int i = 0; i < MEADOW_UPD_F7_SUPPORTED_GPIOS; i++)
     {
+      // Clear out the active number of those being timed
       gpiosBeingTimed[i] = NULL;
+
+      // To support multiple meadow hardware version, the gpio table is filled
+      // with values correct for F7v1 at build time. If running on a different
+      // hardware platform the table entries must be updated.
+      if(f7HardwareVersion != MEADOW_MICRO_VERSION_F7v1)
+      {
+        if(meadow_hw_ver_gpio_pins[i].F7v1PinId != 
+           meadow_hw_ver_gpio_pins[i].F7v2PinId)
+        {
+          // Over write the F7v1 defaults with the correct gpio information
+          gpioDebounceData[i].PinId = meadow_hw_ver_gpio_pins[i].F7v2PinId;
+          gpioDebounceData[i].IDRAddress = meadow_hw_ver_gpio_pins[i].F7v2IDR;
+        }
+      }
     }
+
     timedGpioPinCount = 0;
 
     _firstTimeConfig = false;
   }
 
+  // Walk the gpio data array to find the desired entry
+  for(pinMapOffset = 0; pinMapOffset < MEADOW_UPD_F7_SUPPORTED_GPIOS; pinMapOffset++)
+  {
+    if(gpioDebounceData[pinMapOffset].PinId == designator)
+      break;
+  }
+
+  if(pinMapOffset == MEADOW_UPD_F7_SUPPORTED_GPIOS)
+  {
+    // GPIO not found in data table? This is not expected.
+    syslog(LOG_ERR, "upd-(cfg)--No entry in table for 0x%02x\n", designator);
+    return -ENODEV;
+  }
+
+  // Grab the correct entry's table address
+  gpioMapTblPtr = &gpioDebounceData[pinMapOffset];
+
   if(cfg->enable)
   {
-    // Get the current GPIO state which can may be used to when processing
+    // Get the current GPIO state which may be used when processing
     // interrupts
-    // uint32_t idrRegisterValues = *((uint32_t *)(gpioMapTblPtr->IDRAddress));
-    // uint8_t pinNumb = gpioMapTblPtr->PinId & 0x0f;
-    // gpioMapTblPtr->LastKnownGpioState = (idrRegisterValues & (1 << pinNumb)) > 0 ? 1 : 0;
     gpioMapTblPtr->LastKnownGpioState = upd_read_current_gpio_state(gpioMapTblPtr);
     gpioMapTblPtr->GlitchPrevGpioState = gpioMapTblPtr->LastKnownGpioState;
 
-    // Note: the available configuration is 0.0 (none), 0.1 - 1000 millisec.
+    // Note: the available configurations are 0.0 (none), 0.1 - 1000 millisec.
     // Foundation.Core will supply a value of 0, 1 - 10000. Since the timer 
     // is set at 100 usec then the count provided is the same as the number
     // of timer timeouts received.

@@ -102,10 +102,8 @@ typedef struct
 {
   // Represents the F7v1 Pin identifiers (e.g. PD9, D=3 so 0x39)
   const uint8_t F7v1PinId;  // Pin port & pin
-  const uint32_t F7v1IDR;   // GPOI input data register
-
   const uint8_t F7v2PinId;
-  const uint32_t F7v2IDR;   // GPOI input data register
+  const uint32_t F7v2IDR;   // GPIO base register address
 } meadow_hw_ver_gpio_pin_defns_t;
 
 extern meadow_hw_ver_gpio_pin_defns_t meadow_hw_ver_gpio_pins[];
@@ -113,5 +111,6 @@ extern meadow_hw_ver_gpio_pin_defns_t meadow_hw_ver_gpio_pins[];
 // Public functions
 uint32_t meadow_hw_version_determine(FAR struct qspi_dev_s *qspi);
 uint32_t meadow_hw_version_return(void);
+char *meadow_hw_version_string_return(void);
 
 #endif // __CONFIGS_MEADOW_SRC_MEADOW_HW_VERSION__H

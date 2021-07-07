@@ -152,6 +152,11 @@ struct meadow_configuration_s
   char *meadow_software_version;
 
   /*
+   *  Meadow hardware version software is executing on.
+   */
+  char *meadow_hardware_version;
+
+  /*
    *  Serial number of the STM32 microcontroller.
    */
   uint8_t serial_number[16];

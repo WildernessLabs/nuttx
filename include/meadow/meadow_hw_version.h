@@ -55,58 +55,19 @@
  * Pre-processor Definitions
  ************************************************************************************/
 
-// Standard qspi flash read id command
-#define MEADOW_QSPI_FLASH_READ_ID_COMMAND (0x9f)
-
 // Define each Meadow version
 #define MEADOW_MICRO_VERSION_UNKNOWN (0)
 #define MEADOW_MICRO_VERSION_F7v1 (1)
 #define MEADOW_MICRO_VERSION_F7v2 (2)
 
+// Define each Meadow version name
+#define MEADOW_MICRO_VERSION_NAME_UNKNOWN "Unknown"
+#define MEADOW_MICRO_VERSION_NAME_F7v1 "F7v1"
+#define MEADOW_MICRO_VERSION_NAME_F7v2 "F7v2"
+
 // Size of each versions flash
 #define MEADOW_MICRO_VERSION_F7v1_FLASH_SIZE (33554432)   // 32 MB
 #define MEADOW_MICRO_VERSION_F7v2_FLASH_SIZE (67108864)   // 64 MB
-
-//-------------------------------------------------------------------
-// The following define the Manufacture, type and capacity of the flash
-// memory chips used on the following models of the Meadow F7 Micro.
-// F7v1 uses a spansion flash
-// Spansion id 0x01, type 0x60, capacity 19 (256 bytes)
-#define MEADOW_QSPI_FLASH_SPANSION_S25FL256L    (0x00016019)
-
-// F7v2 uses a winbond 512 flash
-// Winbond id 0xef, type 0x40 (Q) or 0x70 (M), capacity 20 (512 bytes)
-#define MEADOW_QSPI_FLASH_WINBOND_W25Q512JVxxQ  (0x00EF4020) // 'Q' version, default QE = 1
-#define MEADOW_QSPI_FLASH_WINBOND_W25Q512JVxxM  (0x00EF7020) // 'M' version, default QE = 0
-
-//-------------------------------------------------------------------
-// The following are duplicates of what's available within each driver
-// They are here because previously they were hardcoded values in
-// configs\stm32f777zit6-meadow\src\stm32_appinitialize.c and this is
-// more obvious.
-// If the driver values change then obviously the following must change too
-#if defined(CONFIG_MTD_S25FL)
-  // keep in sync with s25fl.c driver
-  #define MTD_S25FL_FLASH_QSPI_ADDRLEN       (4)
-  #define MTD_S25FL_FLASH_READ_QUADIO        (0xeb)
-  #define MTD_S25FL_FLASH_NUMBER_DUMMIES     (10)
-#endif
-#if defined(CONFIG_MTD_W25QXXXJV)
-  // Keep in sync with w25qxxxjv.c driver
-  #define MTD_W25QJV_FLASH_QSPI_ADDRLEN       (4)   // W25QxxxJV, xxx < 256 ADDRLEN=3, for xxx >= 256 ADDRLEN=4
-  #define MTD_W25QJV_FLASH_READ_QUADIO        (0xeb)
-  #define MTD_W25QJV_FLASH_NUMBER_DUMMIES     (6)   // This needs to match the W25QxxxJV driver
-#endif
-
-typedef struct
-{
-  // Represents the F7v1 Pin identifiers (e.g. PD9, D=3 so 0x39)
-  const uint8_t F7v1PinId;  // Pin port & pin
-  const uint8_t F7v2PinId;
-  const uint32_t F7v2IDR;   // GPIO base register address
-} meadow_hw_ver_gpio_pin_defns_t;
-
-extern meadow_hw_ver_gpio_pin_defns_t meadow_hw_ver_gpio_pins[];
 
 // Public functions
 uint32_t meadow_hw_version_determine(FAR struct qspi_dev_s *qspi);

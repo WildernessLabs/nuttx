@@ -39,6 +39,7 @@
 #include "hcom_nx_common.h"
 #include <meadow/hcom_upd_shared.h>
 #include <meadow/hcom_nuttx_shared.h>
+#include <meadow/meadow_hw_version.h>
 #include <nuttx/semaphore.h>
 #include <arch/board/boardctl.h>
 #include "stm32_uid.h" // stm32_get_uniqueid()

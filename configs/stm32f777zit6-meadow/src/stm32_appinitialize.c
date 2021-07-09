@@ -52,6 +52,28 @@
 
 #include<meadow/meadow_hw_version.h>
 
+/************************************************************************************
+ * Pre-processor Definitions
+ ************************************************************************************/
+
+// The following are duplicates of what's available within each driver.
+// They are here because previously they were hardcoded values here
+// configs\stm32f777zit6-meadow\src\stm32_appinitialize.c and this is
+// more obvious.
+// If the driver is modified then the following must change too
+#if defined(CONFIG_MTD_S25FL)
+  // keep in sync with s25fl.c driver
+  #define MTD_S25FL_FLASH_QSPI_ADDRLEN       (4)
+  #define MTD_S25FL_FLASH_READ_QUADIO        (0xeb)
+  #define MTD_S25FL_FLASH_NUMBER_DUMMIES     (10)
+#endif
+#if defined(CONFIG_MTD_W25QXXXJV)
+  // Keep in sync with w25qxxxjv.c driver
+  #define MTD_W25QJV_FLASH_QSPI_ADDRLEN       (4)   // W25QxxxJV, xxx < 256 ADDRLEN=3, for xxx >= 256 ADDRLEN=4
+  #define MTD_W25QJV_FLASH_READ_QUADIO        (0xeb)
+  #define MTD_W25QJV_FLASH_NUMBER_DUMMIES     (6)   // This needs to match the W25QxxxJV driver
+#endif
+
 /****************************************************************************
  * Public Functions
  ****************************************************************************/

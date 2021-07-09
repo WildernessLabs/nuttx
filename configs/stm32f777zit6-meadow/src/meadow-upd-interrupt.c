@@ -161,6 +161,8 @@ struct interruptPinMap_s
 
 // Each row represents one Meadow GPIO
 // On board Blue, Green and Red (PA0, PA1, PA2) of course excluded
+// Note: This table is initialized with F7v1 values by the compiler. If this is wrong, at
+// runtime the different values will be modified for the actual hardware version.
 static struct interruptPinMap_s gpioDebounceData[] =
 {
 //                PinId     IDRAddress     Current State   GIM  LKS  DNT DDC GND STC PGS TTP

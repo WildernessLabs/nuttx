@@ -314,9 +314,10 @@ void board_late_initialize(void)
   #endif
     }
 
-    // This function was added for Meadow. It updates the stm32f7's internal
-    // register value to correct any flash size error orginally introduced by
-    // the stm32f7_qspi_initialize() function previously called.
+    // This function was added to an existing Nuttx module for Meadow. It
+    // updates the stm32f7's internal register value to correct any flash
+    // size error orginally introduced by the stm32f7_qspi_initialize()
+    // function previously called.
     if(flashSize != CONFIG_STM32F7_QSPI_FLASH_SIZE)
     {
       stm32f7_qspi_hw_reinitialize(flashSize);
@@ -327,7 +328,7 @@ void board_late_initialize(void)
     stm32_mpu_uheap((uintptr_t)STM32_FMC_BANK4, flashSize);
   #endif
 
-    // Initialize the correct flash driver
+    // Initialize the correct flash drivers. Multiples are okay.
     switch(meadowHwVer)
     {
   #if defined(CONFIG_MTD_S25FL)

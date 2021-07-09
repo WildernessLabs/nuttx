@@ -350,6 +350,15 @@ void board_late_initialize(void)
       break;
     }
 
+  FAR struct mtd_dev_s *mtd = 0;
+#if defined(CONFIG_RAMMTD)
+  mtd = board_init_mtd_ram(MEADOW_RAM_MTD_SIZE);
+#elif defined(CONFIG_MTD_S25FL)
+  if (mtd == NULL)
+    mtd = board_init_mtd_s25fl(qspi);
+#elif defined(CONFIG_MTD_W25QXXXJV)
+  if (mtd == NULL)
+    mtd = board_init_mtd_w25qxxxjv(qspi);
 #endif
 
 #if defined(CONFIG_MTD)

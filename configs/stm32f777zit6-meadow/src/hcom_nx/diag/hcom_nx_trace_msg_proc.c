@@ -190,8 +190,11 @@ void hcom_nx_trace_read_bbreg_config()
 // Called when mono starts
 int hcom_nx_trace_msg_mono_started()
 {
-  // Since mono has begun we'll grab the time and find a reasonable
-  // reconfiguration stop time from now.
+  // When this message is received we know mono has begun running. When mono does
+  // begin it will reconfigured all of the GPIOs, including those needed by this
+  // code to send messages to the UART. Therefore, we must reconfigures these GPIOs
+  // We don't want to do this all the time because there's no reason. So, we'll
+  // grab the current time and calculate a reasonable reconfiguration stop time.
   _txRxReCfgStopTime = hcom_nx_trace_get_time_ms();
   _txRxReCfgStopTime += ((uint32_t)HCOM_TRACE_RAMLOG_RECONFIG_TIMEOUT * MSEC_PER_SEC);
 

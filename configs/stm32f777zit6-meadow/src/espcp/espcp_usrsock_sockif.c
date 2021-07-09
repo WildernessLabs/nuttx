@@ -1,8 +1,8 @@
 /****************************************************************************
- * net/usrsock/usrsock_sockif.c
+ * espcp_usrsock_sockif.c
  *
- *  Copyright (C) 2017 Haltian Ltd. All rights reserved.
- *  Author: Jussi Kivilinna <jussi.kivilinna@haltian.com>
+ *   Copyright (C) 2019-21 Wilderness Labs. All rights reserved.
+ *   Author:  Wilderness Labs
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -92,10 +92,6 @@ static sockcaps_t espcp_usrsock_sockif_sockcaps(struct socket *psock);
 
 static void espcp_usrsock_sockif_addref(struct socket *psock);
 
-static ssize_t espcp_usrsock_sockif_send(struct socket *psock, const void *buf, size_t len, int flags);
-
-static int espcp_usrsock_sockif_close(struct socket *psock);
-
 /****************************************************************************
  * Public Data
  ****************************************************************************/
@@ -117,7 +113,7 @@ const struct sock_intf_s g_usrsock_sockif_esp32 =
 #ifndef CONFIG_DISABLE_POLL
     espcp_usrsock_poll,               /* si_poll */
 #endif
-    espcp_usrsock_sockif_send,        /* si_send */
+    espcp_usrsock_send,               /* si_send */
     espcp_usrsock_sendto,             /* si_sendto */
 #ifdef CONFIG_NET_SENDFILE
     NULL,                             /* si_sendfile */
@@ -202,10 +198,16 @@ static bool espcp_usrsock_poll_request_compare_fd_pointer(uint32_t key, void *it
 }
 
 /****************************************************************************
- * Name: espcp_usrsock_init
+ * Name: espcp_usrsock_sockif_setup
  *
  * Description:
- *   Perform system wide usrsock initialisation for the ESP32 usrsock layer.
+ *  Perform system wide usrsock initialisation for the ESP32 usrsock layer.
+ *
+ * Input Parameters:
+ *  None.
+ *
+ * Returned Value:
+ *  None.
  *
  ****************************************************************************/
 void espcp_usrsock_init()
@@ -257,12 +259,7 @@ static int espcp_usrsock_sockif_setup(struct socket *psock, int protocol)
      * to open socket with kernel networking stack in this case.
      */
 
-    int ret = espcp_usrsock_socket(domain, type, protocol, psock);
-    if (ret == -ENETDOWN)
-    {
-        nwarn("WARNING: usrsock daemon is not running\n");
-    }
-    return OK;
+    return (espcp_usrsock_socket(domain, type, protocol, psock));
 }
 
 /****************************************************************************
@@ -312,10 +309,10 @@ static void espcp_usrsock_sockif_addref(struct socket *psock)
 }
 
 /****************************************************************************
- * Name: espcp_usrsock_sockif_send
+ * Name: espcp_usrsock_send
  *
  * Description:
- *   The espcp_usrsock_sockif_send() call may be used only when the socket is in
+ *   The espcp_usrsock_send() call may be used only when the socket is in
  *   a connected state  (so that the intended recipient is known).
  *
  * Input Parameters:
@@ -325,12 +322,12 @@ static void espcp_usrsock_sockif_addref(struct socket *psock)
  *   flags    Send flags (ignored)
  *
  * Returned Value:
- *   On success, returns the number of characters sent.  On  error, a negated
+ *   On success, returns the number of characters sent.  On error, a negated
  *   errno value is returned (see send() for the list of appropriate error
  *   values.
  *
  ****************************************************************************/
-static ssize_t espcp_usrsock_sockif_send(struct socket *psock, const void *buffer, size_t len, int flags)
+ssize_t espcp_usrsock_send(struct socket *psock, const void *buffer, size_t len, int flags)
 {
     if (espcp_get_configuration()->esp_not_responding)
     {
@@ -383,7 +380,7 @@ static ssize_t espcp_usrsock_sockif_send(struct socket *psock, const void *buffe
             }
             else
             {
-                result = (response->result < 0) ? response->response_errno : response->result;
+                result = (response->result < 0) ? -response->response_errno : response->result;
                 free(response);
             }
         }
@@ -392,71 +389,6 @@ static ssize_t espcp_usrsock_sockif_send(struct socket *psock, const void *buffe
     espcp_delete_message_and_payload(message);
     return (result);
 }
-
-/****************************************************************************
- * Name: espcp_usrsock_sockif_close
- *
- * Description:
- *   Performs the close operation on an USRSOCK socket instance
- *
- * Input Parameters:
- *   psock   Socket instance
- *
- * Returned Value:
- *   0 on success; -1 on error with errno set appropriately.
- *
- * Assumptions:
- *
- ****************************************************************************/
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
-static int espcp_usrsock_sockif_close(struct socket *psock)
-{
-    // struct usrsock_conn_s *conn = psock->s_conn;
-    // int ret;
-
-    if (espcp_get_configuration()->esp_not_responding)
-    {
-        return(-ENETDOWN);
-    }
-    espcp_usrsock_not_implemented(__func__);
-    return (-1);
-
-    /* Perform some pre-close operations for the USRSOCK socket type. */
-
-    /* Is this the last reference to the connection structure (there
-     * could be more if the socket was dup'ed).
-     */
-
-    // if (conn->crefs <= 1)
-    //   {
-    //     /* Yes... inform user-space daemon of socket close. */
-
-    //     ret = espcp_usrsock_close(conn);
-
-    //     /* Free the connection structure */
-
-    //     conn->crefs = 0;
-    //     espcp_usrsock_free(psock->s_conn);
-
-    //     if (ret < 0)
-    //       {
-    //         /* Return with error code, but free resources. */
-
-    //         nerr("ERROR: espcp_usrsock_close failed: %d\n", ret);
-    //         return ret;
-    //       }
-    //   }
-    // else
-    //   {
-    //     /* No.. Just decrement the reference count */
-
-    //     conn->crefs--;
-    //   }
-
-    // return OK;
-}
-#pragma GCC diagnostic pop
 
 /****************************************************************************
  * Name:  espcp_usrsock_accept
@@ -604,7 +536,7 @@ int espcp_usrsock_accept(struct socket *psock, struct sockaddr *addr, socklen_t 
  *   addrlen  Length of 'addr'
  *
  * Returned Value:
- *   0 on success; -1 on error with errno set appropriately
+ *   0 on success, a negated errno is returned on error.
  *
  *   EACCES
  *     The address is protected, and the user is not the superuser.
@@ -614,6 +546,8 @@ int espcp_usrsock_accept(struct socket *psock, struct sockaddr *addr, socklen_t 
  *     The socket is already bound to an address.
  *   ENOTSOCK
  *     psock is a descriptor for a file, not a socket.
+ *   ENETDOWN
+ *     Network not started.
  *
  * Assumptions:
  *
@@ -711,7 +645,7 @@ int espcp_usrsock_bind(struct socket *psock, const struct sockaddr *addr, sockle
  *   conn     usrsock socket connection structure
  * 
  * Returns:
- *  0 if successful, -1 on error and errno is set accordingly.
+ *  0 if successful, negated errno on error.
  * 
  *  EBADF
  *      fd isn't a valid open file descriptor.
@@ -795,7 +729,7 @@ int espcp_usrsock_close(struct socket *psock)
  *   addrlen Length of address buffer
  *
  * Returned Value:
- *   0 on success, -1 on error and errno will be set accordingly.
+ *   0 on success, negated errno on error.
  *
  ****************************************************************************/
 int espcp_usrsock_connect(struct socket *psock, const struct sockaddr *addr, socklen_t addrlen)
@@ -906,8 +840,7 @@ int espcp_usrsock_connect(struct socket *psock, const struct sockaddr *addr, soc
  *   function Function to call, getsockname or getpeername.
  *
  * Returns:
- *  0 on success, -1 on failure and errno will indicate the cause of the
- *  error
+ *  0 on success, negated errno on error.
  *
  ****************************************************************************/
 static int espcp_usrsock_getsockpeername(struct socket *psock, struct sockaddr *addr, socklen_t *addrlen, enum espcp_wi_fi_function function)
@@ -1016,8 +949,7 @@ static int espcp_usrsock_getsockpeername(struct socket *psock, struct sockaddr *
  *   addrlen  Length of sockaddr structure [in/out]
  *
  * Returns:
- *  0 on success, -1 on failure and errno will indicate the cause of the
- *  error
+ *  0 on success, negated errno on error.
  *
  ****************************************************************************/
 int espcp_usrsock_getpeername(struct socket *psock, struct sockaddr *addr, socklen_t *addrlen)
@@ -1051,8 +983,7 @@ int espcp_usrsock_getpeername(struct socket *psock, struct sockaddr *addr, sockl
  *   addrlen  Length of sockaddr structure [in/out]
  *
  * Returns:
- *  0 on success, -1 on failure and errno will indicate the cause of the
- *  error
+ *  0 on success, negated errno on error.
  *
  ****************************************************************************/
 int espcp_usrsock_getsockname(struct socket *psock, struct sockaddr *addr, socklen_t *addrlen)
@@ -1090,8 +1021,7 @@ int espcp_usrsock_getsockname(struct socket *psock, struct sockaddr *addr, sockl
  *   value_len The length of the argument value
  *
  * Returns:
- *  0 on success, -1 on failure and errno will indicate the cause of the
- *  error
+ *  0 on success, negated errno on error.
  *
  ****************************************************************************/
 int espcp_usrsock_getsockopt(struct socket *psock, int level, int option,
@@ -1119,8 +1049,7 @@ int espcp_usrsock_getsockopt(struct socket *psock, int level, int option,
  *   arglen     Number of bytes 
  * 
  * Returns:
- *  0 on success, -1 on failure and errno will indicate the cause of the
- *  error
+ *  0 on success, negated errno on error.
  *
  ****************************************************************************/
 int espcp_usrsock_ioctl(struct socket *psock, int cmd, void *arg, size_t arglen)
@@ -1175,44 +1104,51 @@ int espcp_usrsock_ioctl(struct socket *psock, int cmd, void *arg, size_t arglen)
                     espcp_ioctl_response_t *response = espcp_extract_ioctl_response(message->payload);
                     if (response != NULL)
                     {
-                        switch (cmd)
+                        if (response->result != -1)
                         {
-                            case SIOCGIFCONF:
-                                ifc = (struct ifconf *) arg;
-                                if (arglen < (sizeof(struct ifconf)))
-                                {
-                                    ifc->ifc_len = 0;
-                                }
-                                else
-                                {
-                                    ifc->ifc_len = sizeof(struct ifreq);
-                                    ifr = ifc->ifc_req;
-                                    strcpy(ifr->ifr_name, "wlan0");
-                                    struct sockaddr_in sai;
-                                    sai.sin_family = AF_INET;
-                                    sai.sin_port = 0;
-                                    espcp_sock_addr_t *sockAddr = espcp_extract_sock_addr(response->addr);
-                                    if (sockAddr == NULL)
+                            switch (cmd)
+                            {
+                                case SIOCGIFCONF:
+                                    ifc = (struct ifconf *) arg;
+                                    if (arglen < (sizeof(struct ifconf)))
                                     {
-                                        result = -ENOMEM;
+                                        ifc->ifc_len = 0;
                                     }
                                     else
                                     {
-                                        sai.sin_addr.s_addr = sockAddr->ip4_address;
-                                        free(sockAddr);
-                                        memcpy(&ifr->ifr_ifru.ifru_addr, &sai, sizeof(struct sockaddr));
+                                        ifc->ifc_len = sizeof(struct ifreq);
+                                        ifr = ifc->ifc_req;
+                                        strcpy(ifr->ifr_name, "wlan0");
+                                        struct sockaddr_in sai;
+                                        sai.sin_family = AF_INET;
+                                        sai.sin_port = 0;
+                                        espcp_sock_addr_t *sockAddr = espcp_extract_sock_addr(response->addr);
+                                        if (sockAddr == NULL)
+                                        {
+                                            result = -ENOMEM;
+                                        }
+                                        else
+                                        {
+                                            sai.sin_addr.s_addr = sockAddr->ip4_address;
+                                            free(sockAddr);
+                                            memcpy(&ifr->ifr_ifru.ifru_addr, &sai, sizeof(struct sockaddr));
+                                        }
                                     }
-                                }
-                                break;
-                            case SIOCGIFFLAGS:
-                                ifr = (struct ifreq *) arg;
-                                strcpy(ifr->ifr_name, "wlan0");
-                                ifr->ifr_flags = response->flags;
-                                break;
-                            default:
-                                syslog(LOG_CRIT, "%s@%d Unknown ioctl command %08x.\n", _thisFile, __LINE__, cmd);
-                                result = -EINVAL;
-                                break;
+                                    break;
+                                case SIOCGIFFLAGS:
+                                    ifr = (struct ifreq *) arg;
+                                    strcpy(ifr->ifr_name, "wlan0");
+                                    ifr->ifr_flags = response->flags;
+                                    break;
+                                default:
+                                    syslog(LOG_CRIT, "%s@%d Unknown ioctl command %08x.\n", _thisFile, __LINE__, cmd);
+                                    result = -EINVAL;
+                                    break;
+                            }
+                        }
+                        else
+                        {
+                            result = -response->response_errno;
                         }
                         free(response);
                     }
@@ -1254,8 +1190,7 @@ int espcp_usrsock_ioctl(struct socket *psock, int cmd, void *arg, size_t arglen)
  *            may be ignored so that retries succeed.
  *
  * Returned Value:
- *   On success, zero is returned. On error, a negated errno value is
- *   returned.  See list() for the set of appropriate error values.
+ *  0 on success, negated errno on error.
  *
  ****************************************************************************/
 int espcp_usrsock_listen(struct socket *psock, int backlog)
@@ -1329,7 +1264,7 @@ int espcp_usrsock_listen(struct socket *psock, int backlog)
  *   fds   - The structure describing the events to be monitored.
  *
  * Returned Value:
- *  0: Success; Negated errno on failure
+ *  0 on success, negated errno on error.
  *
  ****************************************************************************/
 #pragma GCC diagnostic push
@@ -1431,8 +1366,8 @@ static int espcp_usrsock_poll_setup(struct socket *psock, struct pollfd *fds)
  *   fds   - The structure describing the events to be monitored.
  *
  * Returned Value:
- *  0: Success; Negated errno on failure
- 
+ *  0 on success, negated errno on error.
+ * 
  ****************************************************************************/
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -1564,7 +1499,7 @@ void espcp_usrsock_poll_interrupt_handler(espcp_message_t *message)
  *   fds   - The structure describing the events to be monitored.
  *
  * Returned Value:
- *  0: Success; Negated errno on failure
+ *  0 on success, negated errno on error.
  *
  ****************************************************************************/
 #pragma GCC diagnostic push
@@ -1654,7 +1589,7 @@ static int espcp_usrsock_direct_poll(struct socket *psock, struct pollfd *fds)
  *   setup - true: Setup up the poll; false: Teardown the poll
  *
  * Returned Value:
- *  0: Success; Negated errno on failure
+ *  0 on success, negated errno on error.
  *
  ****************************************************************************/
 int espcp_usrsock_poll(struct socket *psock, struct pollfd *fds, bool setup)
@@ -1717,7 +1652,7 @@ int espcp_usrsock_poll(struct socket *psock, struct pollfd *fds, bool setup)
  *   fromlen  The length of the address structure
  * 
  * Returns:
- *  0 on success, -1 on error and errno will be set accordingly.
+ *  0 on success, negated errno on error.
  *
  ****************************************************************************/
 ssize_t espcp_usrsock_recvfrom(struct socket *psock, void *buffer, size_t len,
@@ -1873,7 +1808,7 @@ ssize_t espcp_usrsock_recvfrom(struct socket *psock, void *buffer, size_t len,
  *   tolen    The length of the address structure
  * 
  * Returns:
- *  0 on success, -1 on failure and errno will be set accordingly.
+ *  0 on success, negated errno on error.
  *
  ****************************************************************************/
 ssize_t espcp_usrsock_sendto(struct socket *psock, const void *buffer,
@@ -1995,7 +1930,7 @@ ssize_t espcp_usrsock_sendto(struct socket *psock, const void *buffer,
                         else
                         {
                             sendingData = false;
-                            result = (response->result < 0) ? response->response_errno : response->result;
+                            result = (response->result < 0) ? -response->response_errno : response->result;
                         }
                         free(response);
                     }
@@ -2047,7 +1982,7 @@ ssize_t espcp_usrsock_sendto(struct socket *psock, const void *buffer,
  *   value_len The length of the argument value
  * 
  * Returns:
- *  0 on success, -1 on failure and errno will be set accordingly.
+ *  0 on success, negated errno on error.
  *
  ****************************************************************************/
 int espcp_usrsock_setsockopt(struct socket *psock, int level, int option,
@@ -2156,7 +2091,7 @@ int espcp_usrsock_setsockopt(struct socket *psock, int level, int option,
                     }
                     else
                     {
-                        result = (response->result < 0) ? response->response_errno : response->result;
+                        result = (response->result < 0) ? -response->response_errno : response->result;
                         if (errno == ENOPROTOOPT)
                         {
                             result = 0;
@@ -2194,7 +2129,7 @@ int espcp_usrsock_setsockopt(struct socket *psock, int level, int option,
  *              initialized.
  *
  * Returned Value:
- *   0 on success; negative error-code on error
+ *  0 on success, negated errno on error.
  *
  *   EACCES
  *     Permission to create a socket of the specified type and/or protocol
@@ -2306,7 +2241,8 @@ int espcp_usrsock_socket(int domain, int type, int protocol, struct socket *psoc
  *  count - Size of the buffer.
  *
  * Returned Value:
- *  If successful, the number of bytes read from the socket, -1 otherwise.
+ *  If successful, the number of bytes read from the socket.
+ *  On error a negated errno is returned.
  *
  * Assumptions/Limitations:
  *  None
@@ -2370,7 +2306,7 @@ int32_t espcp_usrsock_read(struct socket *psock, const void *buffer, size_t coun
                         memcpy((void *) buffer, response->buffer, response->buffer_length);
                         free(response->buffer);
                     }
-                    result = (response->read_response_result < 0) ? response->read_response_errno : response->read_response_result;
+                    result = (response->read_response_result < 0) ? -response->read_response_errno : response->read_response_result;
                     free(response);
                 }
             }
@@ -2393,7 +2329,7 @@ int32_t espcp_usrsock_read(struct socket *psock, const void *buffer, size_t coun
  *  new_psock - Pointer to the duplicated socket.
  *
  * Returned Value:
- *  
+ *  -1
  *
  * Assumptions/Limitations:
  *  None
@@ -2418,6 +2354,7 @@ int espcp_usrsock_dup2(struct socket *old_psock, struct socket *new_psock)
  *  flags - Flags
  *
  * Returned Value:
+ *  -1
  *
  * Assumptions/Limitations:
  *  None
@@ -2426,7 +2363,7 @@ int espcp_usrsock_dup2(struct socket *old_psock, struct socket *new_psock)
 size_t espcp_usrsock_sendmsg(struct socket *psock, const struct msghdr *msg, int flags)
 {
   espcp_usrsock_not_implemented(__func__);
-  return(0);
+  return(-1);
 }
 
 /****************************************************************************
@@ -2441,6 +2378,7 @@ size_t espcp_usrsock_sendmsg(struct socket *psock, const struct msghdr *msg, int
  *  how - Indicate how the socket should be shutdown.
  *
  * Returned Value:
+ *  -1
  *
  * Assumptions/Limitations:
  *  None
@@ -2465,6 +2403,7 @@ int espcp_usrsock_shutdown(struct socket *psock, int how)
  *  flags - 
  *
  * Returned Value:
+ *  -1
  *
  * Assumptions/Limitations:
  *  None
@@ -2473,7 +2412,7 @@ int espcp_usrsock_shutdown(struct socket *psock, int how)
 size_t espcp_usrsock_recvmsg(struct socket *psock, struct msghdr *msg, int flags)
 {
   espcp_usrsock_not_implemented(__func__);
-  return(0);
+  return(-1);
 }
 
 /****************************************************************************
@@ -2486,6 +2425,7 @@ size_t espcp_usrsock_recvmsg(struct socket *psock, struct msghdr *msg, int flags
  * 
  *
  * Returned Value:
+ *  -1
  *
  * Assumptions/Limitations:
  *  None

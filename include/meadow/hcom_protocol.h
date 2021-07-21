@@ -1,7 +1,7 @@
 /****************************************************************************
  * \include\meadow\hcom_protocol.h
  * 
- *   Copyright (C) 2019 - 2020 Wilderness Labs. All rights reserved.
+ *   Copyright (C) 2019 - 2021 Wilderness Labs. All rights reserved.
  *   Author:  Wilderness Labs
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,82 +45,60 @@
 // determined.
 #define HCOM_PROTOCOL_HCOM_VERSION_NUMBER   ((uint16_t) 0x0006)
 
-// COBS needs a specific delimiter. Zero seems to be tradition
+// COBS needs a specific delimiter. Zero seems to be traditional.
 #define HCOM_PROTOCOL_COBS_ENCODING_DELIMITER_VALUE (0x00)
 
 // What sequence number is used to identify a non-data message?
 #define HCOM_PROTOCOL_NON_DATA_SEQUENCE_NUMBER (0)
 
-// Note: while the MD5 hash is 128-bits  (16-bytes) long it is not a binary
-// number but a string containing 32 hex characters
+// Note: while the MD5 hash is 128-bits (16-bytes), it is 32 character
+// hex string from ESP32
 #define HCOM_PROTOCOL_COMMAND_MD5_HASH_LENGTH (32)
 
 //--------------------------------------------------------------------
-// The following structs define the hcom protocol
-//--------------------------------------------------------------------'
-// For sending binary data the header must contain the sequence number and
-// a reference to the start of the binary data
+// The following structs define the HCOM Data Message
+//--------------------------------------------------------------------
+// This structure defines a data message header
 struct HcomProtocolDataHeader_s
 {
-  // If the sequence number is > 0 it indicates it's a data packet. A data
-  // packet must have been proceeded by an earlier non-data packet defining
-  // how the, soon to follow data packets are to be used.
+  // If the sequence number is 1 - 65635 it indicates it's a data packet.
   // A data packet's only requirement is that the sequence number increments
   // starting with 1 and moving upward with each data packet.
-  // Currently, the only feature that uses data packets is file downloads.
   uint16_t seqNumber;
-
-  // Binary data
-  uint8_t binData[0];
 
 } __attribute__((packed));
 typedef struct HcomProtocolDataHeader_s HcomProtocolDataHeader_t;
 
 #define HCOM_PROTOCOL_DATA_HEADER_SIZE (sizeof(HcomProtocolDataHeader_t))
 
-//--------------------------------------------------------------------'
-// HCOM protocol consists of a sequence number followed by other information.
-// 
-struct HcomProtocolCmdHeader_s
+//--------------------------------------------------------------------
+// Complete HCOM data message
+struct HcomProtocolDataMessage_s
 {
-  // If the sequence number is zero (0), it indicates that this is a non-data
-  // message. Non-data messages always contain basic message related
-  // information. Most messages fit this category.
-  uint16_t seqNumber;
+  // After the header is binary data for a data message
+  HcomProtocolDataHeader_t dataHeader;
 
-  // Protocol Version
-  // The first header field is the 'Version' field. This value is updated
-  // for each change or enhancment to the protocol.
-  // The version field is considered a single number which is incremented for each
-  // protocol change, not each new Request Type.
-  uint16_t version;
-
-  // Request Type
-  // The second header field is the 'Request Type' which defines the type of
-  // message. Each message type must have a unique request type.
-  uint16_t rqstType;
-
-  // Extra
-  // The third header field is called Extra Data. However, it is no longer
-  // used and can be considered 'future'.
-  uint16_t extraData;
-
-  // User Data
-  // The forth and last header field is the 'User Data' field. This field can
-  // be used for any purpose specified by the Request Type.
-  uint32_t userData;
+  // Body just binary data
+  uint8_t binData[0];
 
 } __attribute__((packed));
-typedef struct HcomProtocolCmdHeader_s HcomProtocolCmdHeader_t;
 
-#define HCOM_PROTOCOL_CMD_HEADER_SIZE (sizeof(HcomProtocolCmdHeader_t))
+typedef struct HcomProtocolDataMessage_s HcomProtocolDataMessage_t;
+
+#define HCOM_PROTOCOL_DATA_MSG_TOTAL_SIZE (sizeof(HcomProtocolDataMessage_t))
+#define HCOM_PROTOCOL_DATA_MSG_BIN_DATA_OFF (offsetof(HcomProtocolDataMessage_t, binData))
 
 //--------------------------------------------------------------------
+// The following are used to define the HCOM Command Message
+// The first group represent information provided in the body
+// of the command header
+//--------------------------------------------------------------------
 // This structure defines the additional information needed to initiate a file
-// download.
+// download, delete and other file related messages. Many of the following
+// fields are not required nor needed for every message type.
 struct HcomProtocolFileInfo_s
 {
-  // File size
+  // File size length of file
   uint32_t fileSize;
 
   // File checksum calculated by sender (not used by ESP32)
@@ -132,8 +110,9 @@ struct HcomProtocolFileInfo_s
   // The MD5 Hash is 32 char hex string (used only by ESP32)
   char fileMD5Hash[HCOM_PROTOCOL_COMMAND_MD5_HASH_LENGTH];
 
-  // The protocol should be modified to include this length field
-  // // Length of the file name
+  // >>> Breaking protocol change.
+  // It would be an improvement if a length field was added so the length
+  // wouldn't need to be calculated based on the packet length.
   // uint32_t fileNameLen;
 
   // File name (variable length, not used by ESP32)
@@ -144,31 +123,25 @@ struct HcomProtocolFileInfo_s
 typedef struct HcomProtocolFileInfo_s HcomProtocolFileInfo_t;
 
 #define HCOM_PROTOCOL_FILE_INFO_SIZE (sizeof(HcomProtocolFileInfo_t))
-#define  HCOM_PROTOCOL_FILE_INFO_NAME_OFF (offsetof(HcomProtocolFileInfo_t, fileName))
+#define HCOM_PROTOCOL_FILE_INFO_NAME_OFF (offsetof(HcomProtocolFileInfo_t, fileName))
 
 //--------------------------------------------------------------------
-// Used to send debugging data between HCOM and CLI.
-struct HcomProtocolSimpleText_s
+// Used to send text messages, mostly to host PC
+struct HcomProtocolTextInfo_s
 {
-  // The protocol should be modified to include this length field
-  // uint32_t textMsgLen;
-
   char textMsg[0];
 
 } __attribute__((packed));
 
-typedef struct HcomProtocolSimpleText_s HcomProtocolSimpleText_t;
+typedef struct HcomProtocolTextInfo_s HcomProtocolTextInfo_t;
 
-#define HCOM_PROTOCOL_DBG_INFO_SIZE (sizeof(HcomProtocolSimpleText_t))
-#define HCOM_PROTOCOL_DBG_DATA_OFF (offsetof(HcomProtocolSimpleText_t, dbgData))
+#define HCOM_PROTOCOL_TEXT_INFO_SIZE (sizeof(HcomProtocolTextInfo_t))
+#define HCOM_PROTOCOL_TEXT_INFO_DATA_OFF (offsetof(HcomProtocolTextInfo_t, dbgData))
 
 //--------------------------------------------------------------------
 // Used to send debugging data between HCOM and CLI.
 struct HcomProtocolDbgInfo_s
 {
-  // The protocol should be modified to include this length field
-  // uint32_t dbgDataLen;
-
   uint8_t dbgData[0];
 
 } __attribute__((packed));
@@ -176,41 +149,41 @@ struct HcomProtocolDbgInfo_s
 typedef struct HcomProtocolDbgInfo_s HcomProtocolDbgInfo_t;
 
 #define HCOM_PROTOCOL_DBG_INFO_SIZE (sizeof(HcomProtocolDbgInfo_t))
-#define HCOM_PROTOCOL_DBG_DATA_OFF (offsetof(HcomProtocolDbgInfo_t, dbgData))
+#define HCOM_PROTOCOL_DBG_INFO_OFF (offsetof(HcomProtocolDbgInfo_t, dbgData))
 
 //--------------------------------------------------------------------
-// Messages
-//--------------------------------------------------------------------
-// HCOM protocol message 
-struct HcomProtocolSeqMessage_s
+// This struct defines a command header. This type of header is used for most
+// message types.
+struct HcomProtocolCmdHeader_s
 {
-  // The sequence number is the first part of every message
-    uint16_t seqNumber;
+  // If the sequence number is zero (0), it indicates that this is a non-data
+  // message.Non-data messages always contain basic message related
+  // information. Most messages fit this category.
+  uint16_t seqNumber;
+
+  // The second header field is the 'Version' field. This value is updated for each
+  // breaking change to the protocol.
+  // The version field is considered a single number which is incremented for each
+  // protocol change.
+  uint16_t version;
+
+  // The third header field is the 'Request Type' which defines the type of
+  // message. Each message type must have a unique request type. These are
+  // defined below.
+  uint16_t rqstType;
+
+  // The forth header field is called Extra Data. However, it is no longer
+  // used and can be considered 'future'.
+  uint16_t extraData;
+
+  // The fifth and last header field is the 'User Data' field. This field can
+  // be used for any purpose specified by the Request Type.
+  uint32_t userData;
 
 } __attribute__((packed));
+typedef struct HcomProtocolCmdHeader_s HcomProtocolCmdHeader_t;
 
-typedef struct HcomProtocolSeqMessage_s HcomProtocolSeqMessage_t;
-
-#define HCOM_PROTOCOL_HCOM_SEQ_MESSAGE_SIZE (sizeof(HcomProtocolSeqMessage_t))
-
-//--------------------------------------------------------------------
-// Complete HCOM protocol message
-struct HcomProtocolDataMessage_s
-{
-  // After the sequence number, binary data for a data message
-  // Currently, the only feature that uses data packets is file downloads.
-  HcomProtocolDataHeader_t dataHeader;   // 6
-
-// OR This???
-  // uint16_t seqNumber;
-  // // Binary data
-  // uint8_t binData[0];
-
-} __attribute__((packed));
-
-typedef struct HcomProtocolDataMessage_s HcomProtocolDataMessage_t;
-
-#define HCOM_PROTOCOL_HCOM_DATA_MESSAGE_SIZE (sizeof(HcomProtocolDataMessage_t))
+#define HCOM_PROTOCOL_CMD_HEADER_SIZE (sizeof(HcomProtocolCmdHeader_t))
 
 //--------------------------------------------------------------------
 struct HcomProtocolCmdMessage_s
@@ -218,20 +191,20 @@ struct HcomProtocolCmdMessage_s
   // This is the only thing used in a simple message
   HcomProtocolCmdHeader_t cmdHeader;     // 12
 
-  // The following fields are not often used in messages.
-  // The protocol defines these messages as 'simple' messages because they only
-  // have the basic and possibly a text string but no additional complex data.
+  // Body is a union of several diffent type of information
+  // After the header different types of data may be added. If there is no
+  // additional information or only text it is considered a 'simple' message.
   union
   {
-    // Optional additional information relate to file downloads.
-    HcomProtocolFileInfo_t fileInfo;  // 52
-
-    // Optional additional information relate to debugging.
-    HcomProtocolDbgInfo_t dbgInfo;    // 0
+    // Additional information relate to file downloads.
+    HcomProtocolFileInfo_t fileInfo;
 
     // Some 'simple' messages contain string information. This is currently
-    // only in messages going from HCOM to CLI
-    HcomProtocolSimpleText_t textInfo;  // 0
+    // used in messages going from HCOM to CLI
+    HcomProtocolTextInfo_t textInfo;
+
+    // Additional information relate to debugging.
+    HcomProtocolDbgInfo_t dbgInfo;
 
   }  __attribute__((packed));   // Yes, this is needed
 
@@ -242,18 +215,12 @@ typedef struct HcomProtocolCmdMessage_s HcomProtocolCmdMessage_t;
 #define HCOM_PROTOCOL_HCOM_CMD_MESSAGE_SIZE (sizeof(HcomProtocolCmdMessage_t))
 #define  HCOM_PROTOCOL_SIMPLE_MSG_USED_SPACE (offsetof(HcomProtocolCmdMessage_t, fileInfo))
 #define  HCOM_PROTOCOL_CMD_MSG_FILE_INFO_OFF (offsetof(HcomProtocolCmdMessage_t, fileInfo))
+#define  HCOM_PROTOCOL_CMD_MSG_TEXT_INFO_OFF (offsetof(HcomProtocolCmdMessage_t, textInfo))
 #define  HCOM_PROTOCOL_CMD_MSG_DBG_INFO_OFF (offsetof(HcomProtocolCmdMessage_t, dbgInfo))
 
 //--------------------------------------------------------------------
 // Note: because 'sizeof' and 'offsetof' are process by the C preprocessor
 // and not the compiler, these defines cannot be used in #if statements.
-
-// Knowing that message HcomProtocolDataHeader_t is at the beginning of the
-// message makes this work
-#define HCOM_PROTOCOL_COMMAND_BINDATA_OFFSET (offsetof(HcomProtocolDataHeader_t, binData))
-
-// Used to send messages to CLI
-#define HCOM_PROTOCOL_COMMAND_SIZE_OF_HEADER_ONLY (offsetof(HcomProtocolMessage_t, fileInfo))
 
 // Define some large packet sizes for sent and receive
 #define HCOM_PROTOCOL_PACKET_MAX_SIZE 512
@@ -264,14 +231,15 @@ typedef struct HcomProtocolCmdMessage_s HcomProtocolCmdMessage_t;
           (HCOM_PROTOCOL_SIMPLE_MSG_USED_SPACE))
 
 // What would be a safe size for the receive buffer that can hold an encoded message?
-// The COBS encoding can add 2 bytes every 254 bytes. We add a small fudge factor of 8
+// The COBS encoding can add 2 bytes every 254 bytes. We add a fudge factor of 8
 #define HCOM_PROTOCOL_SAFE_ENCODED_MSG_BUF_SIZE (HCOM_PROTOCOL_PACKET_MAX_SIZE + \
           (HCOM_PROTOCOL_PACKET_MAX_SIZE/254) + 8)
 
 //--------------------------------------------------------------------------
 // HCOM Protocol message type definitions
 //--------------------------------------------------------------------------
-// ToDo rename from HeaderTypes to MsgCategory or =
+// >>> Breaking protocol change.
+// Rename from HeaderTypes to Category or Classification...
 enum HcomProtocolHeaderTypes
 {
   HCOM_PROTOCOL_HEADER_TYPE_UNDEFINED = 0x0000,
@@ -330,11 +298,13 @@ enum HcomMeadowRequestType
   HCOM_MDOW_REQUEST_MONO_FLASH              = 0x19 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
   HCOM_MDOW_REQUEST_SEND_TRACE_TO_UART      = 0x1a | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
   HCOM_MDOW_REQUEST_NO_TRACE_TO_UART        = 0x1b | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
+  // >>> Breaking protocol change.
   // ToDo: This message is miscategorized should be HCOM_PROTOCOL_HEADER_TYPE_FILE_START
   HCOM_MDOW_REQUEST_MONO_UPDATE_RUNTIME     = 0x1c | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
   HCOM_MDOW_REQUEST_MONO_UPDATE_FILE_END    = 0x1d | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
   HCOM_MDOW_REQUEST_MONO_START_DBG_SESSION  = 0x1e | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
   HCOM_MDOW_REQUEST_GET_DEVICE_NAME         = 0x1f | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
+  // >>> Breaking protocol change.
   // ToDo: This message is miscategorized should be HCOM_PROTOCOL_HEADER_TYPE_FILE_START
   HCOM_MDOW_REQUEST_GET_INITIAL_FILE_BYTES  = 0x20 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
 

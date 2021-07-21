@@ -75,7 +75,7 @@
 //==================================================
 // Host text message buffer sizes for text messages
 #define HCOM_DECODE_XMIT_RQST_TYPE_LEN 48
-#define HCOM_SHORT_HOST_STRING_BUFF_LENGTH 128                  // automatic variable
+#define HCOM_SHORT_HOST_STRING_BUFF_LENGTH 144                  // automatic variable
 // This is the maximum length of a message that can be in a single packet
 #define HCOM_LARGE_HOST_STRING_BUFF_LENGTH  HCOM_PROTOCOL_COMMAND_MAX_PAYLOAD_LEN
 #define HCOM_MAX_HOST_STRING_BUFF_LENGTH 2048                   // allocate
@@ -192,7 +192,7 @@ typedef struct meadow_configuration_s meadow_configuration_t;
 // When set to 1 the syslog mask is set for all tracing except for
 // debug. At startup syslog messages are routed to UART1 without
 // the need for configuration or the CLI Uart1Trace command.
-#define HCOM_FORCE_SYSLOG_MASK_AND_OUTPUT_TO_UART1    1
+#define HCOM_FORCE_SYSLOG_MASK_AND_OUTPUT_TO_UART1    0
 
 // Cause the build to include the ability to print a buffer
 // full of data, showing hex and ascii. Duplicate code is created
@@ -215,7 +215,7 @@ typedef struct meadow_configuration_s meadow_configuration_t;
 #define HCOM_DIAG_INCLUDE_STARTUP_SYSLOG              0
 
 // Should mono be prevented from running?
-#define HCOM_DIAG_PREVENT_MONO_FROM_RUNNING           1
+#define HCOM_DIAG_PREVENT_MONO_FROM_RUNNING           0
 
 // Adds code that takes the HCOM messages from CLI and outputs
 // a decoded version to syslog

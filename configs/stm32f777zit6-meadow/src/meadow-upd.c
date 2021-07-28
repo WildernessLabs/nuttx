@@ -217,7 +217,7 @@ static int upd_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
     case MUPD_ESP32_COMMAND:
       return upd_handle_esp32_command((struct upd_esp32_command *) arg);
     case MUPD_ESP32_GET_EVENT_RESULT:
-      return upd_handle_esp32_get_event_result((struct upd_event_data_request *) arg);
+      return upd_handle_esp32_get_event_result((espcp_event_data_payload_t *) arg);
 
     case MUPD_PWR_RESET:
       up_systemreset();
@@ -677,11 +677,11 @@ int upd_handle_esp32_command(struct upd_esp32_command *data)
  *  None
  *
  ****************************************************************************/
-int upd_handle_esp32_get_event_result(struct upd_event_data_request *data)
+int upd_handle_esp32_get_event_result(espcp_event_data_payload_t *data)
 {
   int result = OK;
 
-  espcp_message_t *message = (espcp_message_t *) data->status_code;
+  espcp_message_t *message = espcp_get_event_data(data->message_id);
   if (message != NULL)
   {
       if (data->payload_length >= message->payload_length)
@@ -691,12 +691,10 @@ int upd_handle_esp32_get_event_result(struct upd_event_data_request *data)
           memcpy(data->payload, message->payload, message->payload_length);
         }
         data->payload_length = message->payload_length;
-        data->status_code = message->status_code;
       }
       else
       {
         data->payload_length = 0;
-        data->status_code = espcp_status_codes_failure;
         result = ERROR;
       }
 

@@ -43,6 +43,7 @@
 
 #include <string.h>
 #include <nuttx/mqueue.h>
+#include "espcp/espcp_encoders.h"
 
 #define QUEUE_NAME          "/mdw_int"
 #define QUEUE_MSG_SIZE      2
@@ -90,7 +91,7 @@ struct upd_event_data_request
 // in meadow-upd-interrupt.c called from meadow-upd.c
 int upd_config_interrupt(struct upd_gpio_int_config* cfg);
 int upd_handle_esp32_command(struct upd_esp32_command *);
-int upd_handle_esp32_get_event_result(struct upd_event_data_request *);
+int upd_handle_esp32_get_event_result(espcp_event_data_payload_t *);
 
 
 #endif  // __CONFIGS_MEADOW_SRC_MEADOW_UPD__H

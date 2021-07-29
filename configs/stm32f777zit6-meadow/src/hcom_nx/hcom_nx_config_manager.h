@@ -38,10 +38,24 @@
 #include <meadow/hcom_shared_common.h>
 #include "../libcyaml/cyaml.h"
 
+/*
+ *  Config values that can be read or written.
+ *
+ *  Important: These values must match those in the file F7Configuration.cs.
+ */
+enum configuration_values
+{ 
+  cv_device_name = 0, cv_product, cv_model, cv_os_version, cv_build_date, cv_processor_type, cv_unique_id, cv_serial_number, 
+  cv_coprocessor_type, cv_coprocessor_firmware_version, cv_mono_version
+
+};
+typedef enum configuration_values configuration_values_t;
+
 // Configuration methods.
 void hcom_nx_config_init(void);
 void hcom_nx_config_lock(void);
 void hcom_nx_config_unlock(void);
 meadow_configuration_t *hcom_nx_get_configuration(void);
+int hcom_nx_config_get_set_config_value(int, uint8_t, uint8_t *, int);
 
 #endif // __CONFIGS_MEADOW_SRC_HCOM_NX_CONFIG_MANAGER__H

@@ -358,7 +358,8 @@ int hcom_nx_upd_execute_gpio_write(unsigned long arg)
 
   if (gpio_write->gpioHcomId > HCOM_NUMBER_OF_GPIO_OUTPUT_MAP_ELEMENTS)
   {
-    syslog(LOG_ERR, "%s@%d-GPIO output defn:%d out of range\n", thisFile, __LINE__, gpio_write->gpioHcomId);
+    syslog(LOG_ERR, "%s@%d-GPIO output defn:%d out of range\n", thisFile, __LINE__,
+              gpio_write->gpioHcomId);
     return -1;
   }
   uint32_t gpioOutputDefn = gpioOutputDefnArray[gpio_write->gpioHcomId].gpio_output_defn;

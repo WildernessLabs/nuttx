@@ -149,8 +149,19 @@ int hcom_nx_upd_diag_gpio_config(unsigned long arg)
 {
   int ret;
   uint32_t gpioIODefn;
+  static bool firstExecution = true;
   struct hcom_nx_upd_gpio_config_s *gpio_config;
 
+  if(firstExecution)
+  {
+    // Need to check the version and if not F7v1 update the
+    // gpio table for F7v2
+    if(meadow_hw_version_return() == MEADOW_MICRO_VERSION_F7v2)
+    {
+
+    }
+  }
+  
   gpio_config = (struct hcom_nx_upd_gpio_config_s*)arg;
 
   if(gpio_config->configValue == HCOM_NX_GPIO_DIGITAL_CONFIG_OUTPUT)

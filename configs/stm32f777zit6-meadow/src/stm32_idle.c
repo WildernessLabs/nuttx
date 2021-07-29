@@ -55,7 +55,11 @@
 #include "stm32_exti.h"
 
 #include "stm32f777zit6-meadow.h"
+#include <meadow/meadow_debug_helpers.h>
 
+void stm32_gpiowrite(uint32_t, bool);
+
+#define DEBUG_PIN_D15_HEX (0x00040c6c)
 
 /****************************************************************************
  * Public Functions
@@ -76,6 +80,8 @@
 
 void up_idle(void)
 {
+  stm32_gpiowrite(DEBUG_PIN_D15_HEX, true);
+
 #if defined(CONFIG_SUPPRESS_INTERRUPTS) || defined(CONFIG_SUPPRESS_TIMER_INTS)
   /* If the system is idle and there are no timer interrupts, then process
    * "fake" timer interrupts. Hopefully, something will wake up.
@@ -85,5 +91,6 @@ void up_idle(void)
 #else
   asm("WFI");
 #endif
+  stm32_gpiowrite(DEBUG_PIN_D15_HEX, false);
 }
 

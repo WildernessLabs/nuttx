@@ -200,7 +200,7 @@ typedef struct meadow_configuration_s meadow_configuration_t;
 
 // The F7's GPIOs can be used for diagnostics. Especially useful
 // when debugging within the syslog code or for timing
-#define HCOM_INCLUDE_IN_BUILD_DIAGNOSTIC_GPIO_CODE    0
+#define HCOM_INCLUDE_IN_BUILD_DIAGNOSTIC_GPIO_CODE    1
 
 // UART1 & UART4 are sometimes used for diagnostic
 // purposes. This define prevents these from being configured

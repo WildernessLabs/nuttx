@@ -219,6 +219,8 @@ struct mtd_dev_s * board_init_mtd_w25qxxxjv(FAR struct qspi_dev_s *qspi)
  *   board-specific device drivers.
  *
  ************************************************************************************/
+#define DEBUG_PIN_D14 (GPIO_OUTPUT | GPIO_FLOAT | GPIO_PUSHPULL | GPIO_SPEED_100MHz | GPIO_PORTB | GPIO_PIN12)
+#define DEBUG_PIN_D15 (GPIO_OUTPUT | GPIO_FLOAT | GPIO_PUSHPULL | GPIO_SPEED_100MHz | GPIO_PORTG | GPIO_PIN12)
 
 #if defined(CONFIG_STM32F7_QUADSPI)
 extern struct qspi_dev_s *g_qspi;
@@ -229,6 +231,11 @@ void board_late_initialize(void)
 {
   int ret;
   FAR struct mtd_dev_s *mtd = NULL;
+syslog(1, "#define DEBUG_PIN_D14_HEX (0x%08x)\n", DEBUG_PIN_D14);
+syslog(1, "#define DEBUG_PIN_D15_HEX (0x%08x)\n", DEBUG_PIN_D15);
+
+  stm32_configgpio(DEBUG_PIN_D14);
+  stm32_configgpio(DEBUG_PIN_D15);
 
 #if defined (CONFIG_RAMLOG_SYSLOG)
   // Initialize the syslog message pump
@@ -238,6 +245,7 @@ void board_late_initialize(void)
     syslog(LOG_CRIT, "%s@%d-setup trace msg pump %d\n", __FILE__, __LINE__, ret);
   }
 #endif
+
 
 #if defined(CONFIG_STM32F7_PWR)
   // Initialize the backup SRAM and the 32 registers
@@ -280,6 +288,9 @@ void board_late_initialize(void)
   size_t flashSize = 0;
   FAR struct qspi_dev_s *qspi;
 
+  // The different version of Meadow use different QSPI flash chips.
+  // The following allows the determination of which flash chip
+  // to be made at runtime.
   // Do generic QSPI initialization to the STM32F7's QSPI hardware
   // Note: the stm32f7_qspi_initialize() Nuttx function uses the
   // CONFIG_STM32F7_QSPI_FLASH_SIZE defconfig configuration value to set a

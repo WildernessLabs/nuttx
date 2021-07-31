@@ -198,15 +198,6 @@ typedef struct meadow_configuration_s meadow_configuration_t;
 // on both the apps and nuttx side of hcom
 #define HCOM_INCLUDE_DIAG_PRINT_BUFFER_CODE           0
 
-// The F7's GPIOs can be used for diagnostics. Especially useful
-// when debugging within the syslog code or for timing
-#define HCOM_INCLUDE_IN_BUILD_DIAGNOSTIC_GPIO_CODE    0
-
-// UART1 & UART4 are sometimes used for diagnostic
-// purposes. This define prevents these from being configured
-// as gpio outputs
-#define HCOM_NX_DIAG_GPIO_DIAGNOSTIC_PERSERVE_UARTS   0
-
 // Outputs to syslog the PID of each new thread
 #define HCOM_DIAG_OUTPUT_SYSLOG_PID_OF_NEW_THREADS    0
 

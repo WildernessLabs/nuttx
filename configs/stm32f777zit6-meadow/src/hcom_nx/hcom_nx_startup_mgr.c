@@ -106,13 +106,6 @@ int hcom_nx_setup_mgr(FAR struct mtd_dev_s *mtd)
     return ERROR;
   }
   bool reset_esp32 = config->reset_esp32_at_startup;
-  if (config->device_name != NULL)
-  {
-    if (*config->device_name != 0)
-    {
-      sethostname(config->device_name, strlen(config->device_name));
-    }
-  }
   
   // Start trace messaging if so configured
   hcom_nx_trace_insure_correct_config((config->use_uart1_for_trace ? true : false), false);

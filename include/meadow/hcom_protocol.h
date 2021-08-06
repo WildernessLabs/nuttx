@@ -55,6 +55,13 @@
 // hex string from ESP32
 #define HCOM_PROTOCOL_COMMAND_MD5_HASH_LENGTH (32)
 
+// Note: because 'sizeof' and 'offsetof' are process by the C preprocessor
+// and not the compiler, these defines cannot be used in #if statements.
+
+// Define the absolute maximum packet sizes for sent and receive. The length
+// on the wire will be a bit longer because it's encoded.
+#define HCOM_PROTOCOL_PACKET_MAX_SIZE 512
+
 //--------------------------------------------------------------------
 // The following structs define the HCOM Data Message
 //--------------------------------------------------------------------
@@ -69,7 +76,7 @@ struct HcomProtocolDataHeader_s
 } __attribute__((packed));
 typedef struct HcomProtocolDataHeader_s HcomProtocolDataHeader_t;
 
-#define HCOM_PROTOCOL_DATA_HEADER_SIZE (sizeof(HcomProtocolDataHeader_t))
+#define HCOM_PROTOCOL_DATA_MSG_HEADER_SIZE (sizeof(HcomProtocolDataHeader_t))
 
 //--------------------------------------------------------------------
 // This structure defines the data information. Not much here either
@@ -85,6 +92,7 @@ typedef struct HcomProtocolDataInfo_s HcomProtocolDataInfo_t;
 
 //--------------------------------------------------------------------
 // Complete HCOM data message
+// PeterM-This should be removed and all messages use the standard message format
 struct HcomProtocolDataMessage_s
 {
   // After the header is binary data for a data message
@@ -98,6 +106,8 @@ struct HcomProtocolDataMessage_s
 typedef struct HcomProtocolDataMessage_s HcomProtocolDataMessage_t;
 
 #define HCOM_PROTOCOL_DATA_MSG_DATA_INFO_OFF (offsetof(HcomProtocolDataMessage_t, dataInfo))
+#define HCOM_PROTOCOL_DATA_MSG_MAX_DATA_LENGTH (HCOM_PROTOCOL_PACKET_MAX_SIZE - \
+                                                HCOM_PROTOCOL_DATA_MSG_DATA_INFO_OFF)
 
 //--------------------------------------------------------------------
 // The following are used to define the HCOM Command Message
@@ -146,8 +156,10 @@ typedef struct HcomProtocolTextInfo_s HcomProtocolTextInfo_t;
 
 //--------------------------------------------------------------------
 // Used to send debugging data between HCOM and CLI.
+  // PeterM-CHANGE THIS TO HcomProtocolBinInfo_s
 struct HcomProtocolDbgInfo_s
 {
+  // PeterM-CHANGE THIS TO binData
   uint8_t dbgData[0];
 
 } __attribute__((packed));
@@ -192,21 +204,22 @@ typedef struct HcomProtocolCmdHeader_s HcomProtocolCmdHeader_t;
 #define HCOM_PROTOCOL_CMD_HEADER_SIZE (sizeof(HcomProtocolCmdHeader_t))
 
 //--------------------------------------------------------------------
+// PeterM-CHANGE THIS FROM CMD TO STD
 struct HcomProtocolCmdMessage_s
 {
-  // This is the only thing used in a simple message
+  // This is the only thing in a header only message
   HcomProtocolCmdHeader_t cmdHeader;
 
   // Body is a union of several diffent type of information
   // After the header different types of data may be added. If there is no
-  // additional information or only text it is considered a 'simple' message.
+  // additional information it is considered a 'simple' message.
   union
   {
+    // Note all of the following are considered "payload"
     // Additional information relate to file downloads.
     HcomProtocolFileInfo_t fileInfo;
 
-    // Some 'simple' messages contain string information. This is currently
-    // used in messages going from HCOM to CLI
+    // Some 'simple' messages contain string information.
     HcomProtocolTextInfo_t textInfo;
 
     // Additional information relate to debugging.
@@ -217,23 +230,23 @@ struct HcomProtocolCmdMessage_s
 } __attribute__((packed));
 
 typedef struct HcomProtocolCmdMessage_s HcomProtocolCmdMessage_t;
+// This isn't very useful except to determine the worst case non-data message size
+#define HCOM_PROTOCOL_HCOM_CMD_MESSAGE_SIZE (sizeof(HcomProtocolCmdMessage_t))
 
-// #define HCOM_PROTOCOL_HCOM_CMD_MESSAGE_SIZE (sizeof(HcomProtocolCmdMessage_t))
-#define  HCOM_PROTOCOL_SIMPLE_MSG_USED_SPACE (offsetof(HcomProtocolCmdMessage_t, fileInfo))
-#define  HCOM_PROTOCOL_CMD_MSG_FILE_INFO_OFF (offsetof(HcomProtocolCmdMessage_t, fileInfo))
-#define  HCOM_PROTOCOL_CMD_MSG_TEXT_INFO_OFF (offsetof(HcomProtocolCmdMessage_t, textInfo))
-#define  HCOM_PROTOCOL_CMD_MSG_DBG_INFO_OFF (offsetof(HcomProtocolCmdMessage_t, dbgInfo))
+// ALL OF THE FOLLOWING ARE THE SAME VALUE - PLEASES DON'T USE
+// The length of a message with only a header
+#define HCOM_PROTOCOL_STD_MSG_HEADER_LENGTH (offsetof(HcomProtocolCmdMessage_t, fileInfo))
+
+#define HCOM_PROTOCOL_CMD_MSG_FILE_INFO_OFF (offsetof(HcomProtocolCmdMessage_t, fileInfo))
+
+#define HCOM_PROTOCOL_CMD_MSG_TEXT_INFO_OFF (offsetof(HcomProtocolCmdMessage_t, textInfo))
+
+#define HCOM_PROTOCOL_CMD_MSG_DBG_INFO_OFF (offsetof(HcomProtocolCmdMessage_t, dbgInfo))
 
 //--------------------------------------------------------------------
-// Note: because 'sizeof' and 'offsetof' are process by the C preprocessor
-// and not the compiler, these defines cannot be used in #if statements.
-
-// Define some large packet sizes for sent and receive
-#define HCOM_PROTOCOL_PACKET_MAX_SIZE 512
-
 // What is the amount of space available in a message with only a header?
 #define HCOM_PROTOCOL_COMMAND_MAX_PAYLOAD_LEN (HCOM_PROTOCOL_PACKET_MAX_SIZE - \
-          (HCOM_PROTOCOL_SIMPLE_MSG_USED_SPACE))
+          (HCOM_PROTOCOL_STD_MSG_HEADER_LENGTH))
 
 // This is the maximum length of a message that can fit in a single packet
 #define HCOM_LARGE_HOST_STRING_BUFF_LENGTH  HCOM_PROTOCOL_COMMAND_MAX_PAYLOAD_LEN
@@ -252,116 +265,130 @@ typedef struct HcomProtocolCmdMessage_s HcomProtocolCmdMessage_t;
 //--------------------------------------------------------------------------
 enum HcomProtocolHeaderTypes
 {
-  HCOM_PROTOCOL_HEADER_TYPE_UNDEFINED = 0x0000,
+  HCOM_PROTOCOL_HEADER_UNDEFINED_TYPE = 0x0000,
 
-  // Simple request types, include 4-byte user data. The User data field
-  // is type dependent
-  HCOM_PROTOCOL_HEADER_TYPE_SIMPLE = 0x0100,
+  // The header of all mesasges include a 4-byte field called user data. The
+  // User data field's meaning is determined by the message type
+  
+  // Header only request types,
+  HCOM_PROTOCOL_HEADER_ONLY_TYPE = 0x0100,
 
   // File related types includes 4-byte user data (used for the destination
   // partition id), 4-byte file size, 4-byte checksum, 4-byte destination address
   // and variable length destination file name. Note: The  4-byte destination address
   // is currently only used for the STM32F7 to ESP32 downloads.
-  HCOM_PROTOCOL_HEADER_TYPE_FILE_START = 0x0200,
+  HCOM_PROTOCOL_HEADER_FILE_START_TYPE = 0x0200,
 
-  // Simple text. The text will fit in the space after the header
-  HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT = 0x0300,
+  // Simple text is a header followed by text without a terminating NULL.
+  HCOM_PROTOCOL_HEADER_SIMPLE_TEXT_TYPE = 0x0300,
 
-  // Header followed by binary data. The size of the data can be up to
-  // HCOM_PROTOCOL_PACKET_MAX_SIZE minus header size
-  HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_BINARY = 0x0400,
+  // Simple binary is a header followed by binary data. The size of the data
+  // can be up to HCOM_PROTOCOL_PACKET_MAX_SIZE minus header size
+  HCOM_PROTOCOL_HEADER_SIMPLE_BINARY_TYPE = 0x0400,
 };
 
 // Messages sent from host to Meadow 
 enum HcomMeadowRequestType
 {
-  HCOM_MDOW_REQUEST_UNDEFINED_REQUEST       = 0x00 | HCOM_PROTOCOL_HEADER_TYPE_UNDEFINED,
+  HCOM_MDOW_REQUEST_UNDEFINED_REQUEST       = 0x00 | HCOM_PROTOCOL_HEADER_UNDEFINED_TYPE,
 
   // No longer supported
-  // HCOM_MDOW_REQUEST_CREATE_ENTIRE_FLASH_FS  = 0x01 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_CHANGE_TRACE_LEVEL      = 0x02 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_FORMAT_FLASH_FILE_SYS   = 0x03 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_END_FILE_TRANSFER       = 0x04 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_RESTART_PRIMARY_MCU     = 0x05 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_VERIFY_ERASED_FLASH     = 0x06 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
+  // HCOM_MDOW_REQUEST_CREATE_ENTIRE_FLASH_FS  = 0x01 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_CHANGE_TRACE_LEVEL      = 0x02 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_FORMAT_FLASH_FILE_SYS   = 0x03 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_END_FILE_TRANSFER       = 0x04 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_RESTART_PRIMARY_MCU     = 0x05 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_VERIFY_ERASED_FLASH     = 0x06 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
   // No longer supported
-  // HCOM_MDOW_REQUEST_PARTITION_FLASH_FS      = 0x07 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
+  // HCOM_MDOW_REQUEST_PARTITION_FLASH_FS      = 0x07 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
   // No longer supported
-  // HCOM_MDOW_REQUEST_MOUNT_FLASH_FS          = 0x08 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
+  // HCOM_MDOW_REQUEST_MOUNT_FLASH_FS          = 0x08 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
   // No longer supported
-  // HCOM_MDOW_REQUEST_INITIALIZE_FLASH_FS     = 0x09 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_BULK_FLASH_ERASE        = 0x0a | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_ENTER_DFU_MODE          = 0x0b | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_ENABLE_DISABLE_NSH      = 0x0c | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_LIST_PARTITION_FILES    = 0x0d | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_LIST_PART_FILES_AND_CRC = 0x0e | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_MONO_DISABLE            = 0x0f | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_MONO_ENABLE             = 0x10 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_MONO_RUN_STATE          = 0x11 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_GET_DEVICE_INFORMATION  = 0x12 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_PART_RENEW_FILE_SYS     = 0x13 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_NO_TRACE_TO_HOST        = 0x14 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_SEND_TRACE_TO_HOST      = 0x15 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_END_ESP_FILE_TRANSFER   = 0x16 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_READ_ESP_MAC_ADDRESS    = 0x17 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_RESTART_ESP32           = 0x18 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_MONO_FLASH              = 0x19 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_SEND_TRACE_TO_UART      = 0x1a | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_NO_TRACE_TO_UART        = 0x1b | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  // >>> Breaking protocol change.
-  // ToDo: This message is miscategorized should be HCOM_PROTOCOL_HEADER_TYPE_FILE_START
-  HCOM_MDOW_REQUEST_MONO_UPDATE_RUNTIME     = 0x1c | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_MONO_UPDATE_FILE_END    = 0x1d | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_MONO_START_DBG_SESSION  = 0x1e | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_GET_DEVICE_NAME         = 0x1f | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  // >>> Breaking protocol change.
-  // ToDo: This message is miscategorized should be HCOM_PROTOCOL_HEADER_TYPE_FILE_START
-  HCOM_MDOW_REQUEST_GET_INITIAL_FILE_BYTES  = 0x20 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
+  // HCOM_MDOW_REQUEST_INITIALIZE_FLASH_FS     = 0x09 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_BULK_FLASH_ERASE        = 0x0a | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_ENTER_DFU_MODE          = 0x0b | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_ENABLE_DISABLE_NSH      = 0x0c | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_LIST_PARTITION_FILES    = 0x0d | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_LIST_PART_FILES_AND_CRC = 0x0e | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_MONO_DISABLE            = 0x0f | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_MONO_ENABLE             = 0x10 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_MONO_RUN_STATE          = 0x11 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_GET_DEVICE_INFORMATION  = 0x12 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_PART_RENEW_FILE_SYS     = 0x13 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_NO_TRACE_TO_HOST        = 0x14 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_SEND_TRACE_TO_HOST      = 0x15 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_END_ESP_FILE_TRANSFER   = 0x16 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_READ_ESP_MAC_ADDRESS    = 0x17 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_RESTART_ESP32           = 0x18 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_MONO_FLASH              = 0x19 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_SEND_TRACE_TO_UART      = 0x1a | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_NO_TRACE_TO_UART        = 0x1b | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
 
-  // Only used for testing
-  HCOM_MDOW_REQUEST_DEVELOPER_1             = 0xf0 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_DEVELOPER_2             = 0xf1 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_DEVELOPER_3             = 0xf2 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_DEVELOPER_4             = 0xf3 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  // Testing QSPI flash
-  HCOM_MDOW_REQUEST_QSPI_FLASH_INIT         = 0xf4 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_QSPI_FLASH_WRITE        = 0xf5 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
-  HCOM_MDOW_REQUEST_QSPI_FLASH_READ         = 0xf6 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE,
+  // >>> Breaking protocol change.
+  // ToDo: This message is miscategorized should be HCOM_PROTOCOL_HEADER_FILE_START_TYPE
+  // like HCOM_MDOW_REQUEST_START_FILE_TRANSFER.
+  HCOM_MDOW_REQUEST_MONO_UPDATE_RUNTIME     = 0x1c | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_MONO_UPDATE_FILE_END    = 0x1d | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_MONO_START_DBG_SESSION  = 0x1e | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_GET_DEVICE_NAME         = 0x1f | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+
+  // >>> Breaking protocol change.
+  // ToDo: This message is miscategorized should be HCOM_PROTOCOL_HEADER_SIMPLE_TEXT_TYPE
+  // since it is a header followed by text (the file name)
+  HCOM_MDOW_REQUEST_GET_INITIAL_FILE_BYTES  = 0x20 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_ABORT_FILE_UPLOAD       = 0x21 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
 
   // The file types have the optional data field defined for sending file information
-  HCOM_MDOW_REQUEST_START_FILE_TRANSFER     = 0x01 | HCOM_PROTOCOL_HEADER_TYPE_FILE_START,
-  HCOM_MDOW_REQUEST_DELETE_FILE_BY_NAME     = 0x02 | HCOM_PROTOCOL_HEADER_TYPE_FILE_START,
-  HCOM_MDOW_REQUEST_START_ESP_FILE_TRANSFER = 0x03 | HCOM_PROTOCOL_HEADER_TYPE_FILE_START,
+  HCOM_MDOW_REQUEST_START_FILE_TRANSFER     = 0x01 | HCOM_PROTOCOL_HEADER_FILE_START_TYPE,
+  HCOM_MDOW_REQUEST_DELETE_FILE_BY_NAME     = 0x02 | HCOM_PROTOCOL_HEADER_FILE_START_TYPE,
+  HCOM_MDOW_REQUEST_START_ESP_FILE_TRANSFER = 0x03 | HCOM_PROTOCOL_HEADER_FILE_START_TYPE,
+
+  // These message are a header followed by text
+  HCOM_MDOW_REQUEST_START_FILE_UPLOAD       = 0x01 | HCOM_PROTOCOL_HEADER_SIMPLE_TEXT_TYPE,
   
   // This is a simple type with binary data
-  HCOM_MDOW_REQUEST_DEBUGGING_DEBUGGER_DATA = 0x01 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_BINARY,
+  HCOM_MDOW_REQUEST_DEBUGGING_DEBUGGER_DATA = 0x01 | HCOM_PROTOCOL_HEADER_SIMPLE_BINARY_TYPE,
+
+  // Only used for testing
+  HCOM_MDOW_REQUEST_DEVELOPER_1             = 0xf0 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_DEVELOPER_2             = 0xf1 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_DEVELOPER_3             = 0xf2 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_DEVELOPER_4             = 0xf3 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  // Testing QSPI flash
+  HCOM_MDOW_REQUEST_QSPI_FLASH_INIT         = 0xf4 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_QSPI_FLASH_WRITE        = 0xf5 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
+  HCOM_MDOW_REQUEST_QSPI_FLASH_READ         = 0xf6 | HCOM_PROTOCOL_HEADER_ONLY_TYPE,
 };
 
 // Messages sent from meadow to host
 enum HcomHostRequestType
 {
-  HCOM_HOST_REQUEST_UNDEFINED_REQUEST       = 0x00 | HCOM_PROTOCOL_HEADER_TYPE_UNDEFINED,
+  HCOM_HOST_REQUEST_UNDEFINED_REQUEST       = 0x00 | HCOM_PROTOCOL_HEADER_UNDEFINED_TYPE,
+
+  // For sending file data to host
+  HCOM_HOST_REQUEST_START_UPLOAD_TRANSFER   = 0x01 | HCOM_PROTOCOL_HEADER_FILE_START_TYPE,
 
   // Simple with some text message
-  HCOM_HOST_REQUEST_TEXT_REJECTED           = 0x01 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT,
-  HCOM_HOST_REQUEST_TEXT_ACCEPTED           = 0x02 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT,
-  HCOM_HOST_REQUEST_TEXT_CONCLUDED          = 0x03 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT,
-  HCOM_HOST_REQUEST_TEXT_ERROR              = 0x04 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT,
-  HCOM_HOST_REQUEST_TEXT_INFORMATION        = 0x05 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT,
-  HCOM_HOST_REQUEST_TEXT_LIST_HEADER        = 0x06 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT,
-  HCOM_HOST_REQUEST_TEXT_LIST_MEMBER        = 0x07 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT,
-  HCOM_HOST_REQUEST_TEXT_CRC_MEMBER         = 0x08 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT,
-  HCOM_HOST_REQUEST_TEXT_MONO_STDOUT        = 0x09 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT,
-  HCOM_HOST_REQUEST_TEXT_DEVICE_INFO        = 0x0A | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT,
-  HCOM_HOST_REQUEST_TEXT_TRACE_MSG          = 0x0B | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT,
-  HCOM_HOST_REQUEST_TEXT_RECONNECT          = 0x0C | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT,
-  HCOM_HOST_REQUEST_TEXT_MONO_STDERR        = 0x0D | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT,
-  HCOM_HOST_REQUEST_FILE_START_OKAY         = 0x0E | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT,
-  HCOM_HOST_REQUEST_FILE_START_FAIL         = 0x0F | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_TEXT,
+  HCOM_HOST_REQUEST_TEXT_REJECTED           = 0x01 | HCOM_PROTOCOL_HEADER_SIMPLE_TEXT_TYPE,
+  HCOM_HOST_REQUEST_TEXT_ACCEPTED           = 0x02 | HCOM_PROTOCOL_HEADER_SIMPLE_TEXT_TYPE,
+  HCOM_HOST_REQUEST_TEXT_CONCLUDED          = 0x03 | HCOM_PROTOCOL_HEADER_SIMPLE_TEXT_TYPE,
+  HCOM_HOST_REQUEST_TEXT_ERROR              = 0x04 | HCOM_PROTOCOL_HEADER_SIMPLE_TEXT_TYPE,
+  HCOM_HOST_REQUEST_TEXT_INFORMATION        = 0x05 | HCOM_PROTOCOL_HEADER_SIMPLE_TEXT_TYPE,
+  HCOM_HOST_REQUEST_TEXT_LIST_HEADER        = 0x06 | HCOM_PROTOCOL_HEADER_SIMPLE_TEXT_TYPE,
+  HCOM_HOST_REQUEST_TEXT_LIST_MEMBER        = 0x07 | HCOM_PROTOCOL_HEADER_SIMPLE_TEXT_TYPE,
+  HCOM_HOST_REQUEST_TEXT_CRC_MEMBER         = 0x08 | HCOM_PROTOCOL_HEADER_SIMPLE_TEXT_TYPE,
+  HCOM_HOST_REQUEST_TEXT_MONO_STDOUT        = 0x09 | HCOM_PROTOCOL_HEADER_SIMPLE_TEXT_TYPE,
+  HCOM_HOST_REQUEST_TEXT_DEVICE_INFO        = 0x0A | HCOM_PROTOCOL_HEADER_SIMPLE_TEXT_TYPE,
+  HCOM_HOST_REQUEST_TEXT_TRACE_MSG          = 0x0B | HCOM_PROTOCOL_HEADER_SIMPLE_TEXT_TYPE,
+  HCOM_HOST_REQUEST_TEXT_RECONNECT          = 0x0C | HCOM_PROTOCOL_HEADER_SIMPLE_TEXT_TYPE,
+  HCOM_HOST_REQUEST_TEXT_MONO_STDERR        = 0x0D | HCOM_PROTOCOL_HEADER_SIMPLE_TEXT_TYPE,
+  HCOM_HOST_REQUEST_FILE_START_OKAY         = 0x0E | HCOM_PROTOCOL_HEADER_SIMPLE_TEXT_TYPE,
+  HCOM_HOST_REQUEST_FILE_START_FAIL         = 0x0F | HCOM_PROTOCOL_HEADER_SIMPLE_TEXT_TYPE,
 
   // Simple with mono debug data
-  HCOM_HOST_REQUEST_DEBUGGING_MONO_DATA     = 0x01 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_BINARY,
-  HCOM_HOST_REQUEST_SEND_INITIAL_FILE_BYTES = 0x02 | HCOM_PROTOCOL_HEADER_TYPE_SIMPLE_BINARY,
+  HCOM_HOST_REQUEST_DEBUGGING_MONO_DATA     = 0x01 | HCOM_PROTOCOL_HEADER_SIMPLE_BINARY_TYPE,
+  HCOM_HOST_REQUEST_UPLOADING_FILE_DATA     = 0x02 | HCOM_PROTOCOL_HEADER_SIMPLE_BINARY_TYPE,
+
 };
 
 #endif  // __INCLUDE_MEADOW_HCOM_PROTOCOL__H

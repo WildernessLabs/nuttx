@@ -142,37 +142,9 @@ typedef struct HcomProtocolFileInfo_s HcomProtocolFileInfo_t;
 #define HCOM_PROTOCOL_FILE_INFO_NAME_OFF (offsetof(HcomProtocolFileInfo_t, fileName))
 
 //--------------------------------------------------------------------
-// Used to send text messages and file names
-struct HcomProtocolTextInfo_s
-{
-  char textData[0];
-
-} __attribute__((packed));
-
-typedef struct HcomProtocolTextInfo_s HcomProtocolTextInfo_t;
-
-#define HCOM_PROTOCOL_TEXT_INFO_SIZE (sizeof(HcomProtocolTextInfo_t))
-#define HCOM_PROTOCOL_TEXT_INFO_TEXT_DATA_OFF (offsetof(HcomProtocolTextInfo_t, textData))
-
-//--------------------------------------------------------------------
-// Used to send debugging data between HCOM and CLI.
-  // PeterM-CHANGE THIS TO HcomProtocolBinInfo_s
-struct HcomProtocolDbgInfo_s
-{
-  // PeterM-CHANGE THIS TO binData
-  uint8_t dbgData[0];
-
-} __attribute__((packed));
-
-typedef struct HcomProtocolDbgInfo_s HcomProtocolDbgInfo_t;
-
-#define HCOM_PROTOCOL_DBG_INFO_SIZE (sizeof(HcomProtocolDbgInfo_t))
-#define HCOM_PROTOCOL_DBG_INFO_OFF (offsetof(HcomProtocolDbgInfo_t, dbgData))
-
-//--------------------------------------------------------------------
 // This struct defines a command header. This type of header is used for most
 // message types.
-struct HcomProtocolCmdHeader_s
+struct HcomProtocolStdHeader_s
 {
   // If the sequence number is zero (0), it indicates that this is a non-data
   // message.Non-data messages always contain basic message related
@@ -199,54 +171,74 @@ struct HcomProtocolCmdHeader_s
   uint32_t userData;
 
 } __attribute__((packed));
-typedef struct HcomProtocolCmdHeader_s HcomProtocolCmdHeader_t;
+typedef struct HcomProtocolStdHeader_s HcomProtocolStdHeader_t;
 
-#define HCOM_PROTOCOL_CMD_HEADER_SIZE (sizeof(HcomProtocolCmdHeader_t))
+#define HCOM_PROTOCOL_STD_HEADER_SIZE (sizeof(HcomProtocolStdHeader_t))
 
 //--------------------------------------------------------------------
-// PeterM-CHANGE THIS FROM CMD TO STD
-struct HcomProtocolCmdMessage_s
+// Header only
+struct HcomProtocolHdrMessage_s
 {
   // This is the only thing in a header only message
-  HcomProtocolCmdHeader_t cmdHeader;
-
-  // Body is a union of several diffent type of information
-  // After the header different types of data may be added. If there is no
-  // additional information it is considered a 'simple' message.
-  union
-  {
-    // Note all of the following are considered "payload"
-    // Additional information relate to file downloads.
-    HcomProtocolFileInfo_t fileInfo;
-
-    // Some 'simple' messages contain string information.
-    HcomProtocolTextInfo_t textInfo;
-
-    // Additional information relate to debugging.
-    HcomProtocolDbgInfo_t dbgInfo;
-
-  }  __attribute__((packed));   // Yes, this is needed
+  HcomProtocolStdHeader_t stdHeader;
 
 } __attribute__((packed));
 
-typedef struct HcomProtocolCmdMessage_s HcomProtocolCmdMessage_t;
-// This isn't very useful except to determine the worst case non-data message size
-#define HCOM_PROTOCOL_HCOM_CMD_MESSAGE_SIZE (sizeof(HcomProtocolCmdMessage_t))
+typedef struct HcomProtocolHdrMessage_s HcomProtocolHdrMessage_t;
+#define HCOM_PROTOCOL_HEADER_MSG_LENGTH (sizeof(HcomProtocolHdrMessage_t))
 
-// ALL OF THE FOLLOWING ARE THE SAME VALUE - PLEASES DON'T USE
-// The length of a message with only a header
-#define HCOM_PROTOCOL_STD_MSG_HEADER_LENGTH (offsetof(HcomProtocolCmdMessage_t, fileInfo))
+//--------------------------------------------------------------------
+// Header plus File Info
+struct HcomProtocolFileMessage_s
+{
+  // This is the only thing in a header only message
+  HcomProtocolStdHeader_t stdHeader;
 
-#define HCOM_PROTOCOL_CMD_MSG_FILE_INFO_OFF (offsetof(HcomProtocolCmdMessage_t, fileInfo))
+  // Additional information relate to file downloads/uploads
+  HcomProtocolFileInfo_t fileInfo;
 
-#define HCOM_PROTOCOL_CMD_MSG_TEXT_INFO_OFF (offsetof(HcomProtocolCmdMessage_t, textInfo))
+} __attribute__((packed));
 
-#define HCOM_PROTOCOL_CMD_MSG_DBG_INFO_OFF (offsetof(HcomProtocolCmdMessage_t, dbgInfo))
+typedef struct HcomProtocolFileMessage_s HcomProtocolFileMessage_t;
+#define HCOM_PROTOCOL_FILE_MSG_LENGTH (sizeof(HcomProtocolFileMessage_t))
+
+//--------------------------------------------------------------------
+// Header plus Text  Info
+struct HcomProtocolTextMessage_s
+{
+  // This is the only thing in a header only message
+  HcomProtocolStdHeader_t stdHeader;
+
+  // Some 'simple' messages contain string information.
+  char textData[0];
+
+} __attribute__((packed));
+
+typedef struct HcomProtocolTextMessage_s HcomProtocolTextMessage_t;
+#define HCOM_PROTOCOL_TEXT_MSG_LENGTH (sizeof(HcomProtocolFileMessage_t))
+#define HCOM_PROTOCOL_TEXT_MSG_START_OFF (offsetof(HcomProtocolTextMessage_t, textData))
+
+//--------------------------------------------------------------------
+// Header plus Binary Info
+struct HcomProtocolBinMessage_s
+{
+  // This is the only thing in a header only message
+  HcomProtocolStdHeader_t stdHeader;
+
+  // Additional binary information for debugging or file data
+  uint8_t binData[0];
+
+} __attribute__((packed));
+
+typedef struct HcomProtocolBinMessage_s HcomProtocolBinMessage_t;
+#define HCOM_PROTOCOL_BIN_MSG_LENGTH (sizeof(HcomProtocolBinMessage_t))
+#define HCOM_PROTOCOL_BIN_DATA_OFFSET (offsetof(HcomProtocolBinMessage_t, binData))
+
 
 //--------------------------------------------------------------------
 // What is the amount of space available in a message with only a header?
 #define HCOM_PROTOCOL_COMMAND_MAX_PAYLOAD_LEN (HCOM_PROTOCOL_PACKET_MAX_SIZE - \
-          (HCOM_PROTOCOL_STD_MSG_HEADER_LENGTH))
+          (HCOM_PROTOCOL_HEADER_MSG_LENGTH))
 
 // This is the maximum length of a message that can fit in a single packet
 #define HCOM_LARGE_HOST_STRING_BUFF_LENGTH  HCOM_PROTOCOL_COMMAND_MAX_PAYLOAD_LEN
@@ -387,8 +379,8 @@ enum HcomHostRequestType
 
   // Simple with mono debug data
   HCOM_HOST_REQUEST_DEBUGGING_MONO_DATA     = 0x01 | HCOM_PROTOCOL_HEADER_SIMPLE_BINARY_TYPE,
-  HCOM_HOST_REQUEST_UPLOADING_FILE_DATA     = 0x02 | HCOM_PROTOCOL_HEADER_SIMPLE_BINARY_TYPE,
-
+  HCOM_HOST_REQUEST_SEND_INITIAL_FILE_BYTES = 0x02 | HCOM_PROTOCOL_HEADER_SIMPLE_BINARY_TYPE,
+  HCOM_HOST_REQUEST_UPLOADING_FILE_DATA     = 0x03 | HCOM_PROTOCOL_HEADER_SIMPLE_BINARY_TYPE,
 };
 
 #endif  // __INCLUDE_MEADOW_HCOM_PROTOCOL__H

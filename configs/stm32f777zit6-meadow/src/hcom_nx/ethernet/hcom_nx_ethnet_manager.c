@@ -80,7 +80,7 @@ struct dhcp_info_s* hcom_nx_eth_mgr_get_dhcp_info()
 
 //==============================================================
 // This is the main entry point.
-int hcom_nx_start_up_ethernet(void)
+int hcom_nx_eth_mgr_startup(void)
 {
   dhcp_info = malloc(sizeof(struct dhcp_info_s));
   if(dhcp_info == NULL)
@@ -100,16 +100,15 @@ int hcom_nx_start_up_ethernet(void)
     syslog(LOG_ERR, "%s@%d-Creation of Ethernet kthread FAILED\n", thisFile, __LINE__);
     return -ENOEXEC;
   }
+
   return OK;
 }
 
 #else
 
-int hcom_nx_start_up_ethernet(void)
+int hcom_nx_eth_mgr_startup(void)
 {
   return OK;
 }
 
 #endif    // #if defined(CONFIG_HCOM_INCLUDE_ETHNET_IN_BUILD)
-
-

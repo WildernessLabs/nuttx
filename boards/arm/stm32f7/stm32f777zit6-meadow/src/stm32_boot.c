@@ -47,7 +47,10 @@
 extern FAR struct qspi_dev_s *stm32f7_qspi_initialize(int intf);
 #endif
 
-/****************************************************************************
+#ifdef CONFIG_DEV_GPIO
+extern int meadow_gpio_initialize(void);
+#endif
+/************************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
 
@@ -130,6 +133,8 @@ void board_late_initialize(void)
   FAR struct qspi_dev_s *qspi;
   FAR struct mtd_dev_s *mtd;
 #endif
+
+  int ret;
 
 #ifdef CONFIG_STM32F7_QUADSPI
 

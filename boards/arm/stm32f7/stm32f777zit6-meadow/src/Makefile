@@ -20,7 +20,8 @@
 
 include $(TOPDIR)/Make.defs
 
-CSRCS = stm32_boot.c stm32_bringup.c stm32_spi.c
+ASRCS =
+CSRCS = stm32_boot.c stm32_bringup.c stm32_spi.c meadow-gpio.c
 
 ifeq ($(CONFIG_ARCH_LEDS),y)
 CSRCS += stm32_autoleds.c

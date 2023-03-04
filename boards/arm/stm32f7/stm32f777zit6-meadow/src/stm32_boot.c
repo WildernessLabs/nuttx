@@ -134,8 +134,6 @@ void board_late_initialize(void)
   FAR struct mtd_dev_s *mtd;
 #endif
 
-  int ret;
-
 #ifdef CONFIG_STM32F7_QUADSPI
 
   struct qspi_meminfo_s meminfo;
@@ -149,7 +147,7 @@ void board_late_initialize(void)
       return;
     }
 
-  mtd = s25fl5_initialize(qspi, true);
+  mtd = s25fl_initialize(qspi, true);
   if (!mtd)
     {
       syslog(LOG_ERR, "ERROR: s25fl5_initialize failed\n");

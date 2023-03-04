@@ -169,7 +169,7 @@ void board_late_initialize(void)
 
     stm32f7_qspi_enter_memorymapped(qspi, &meminfo, 80000000);
 
-    stm32_mpu_uheap((uintptr_t)0x90000000, 0x4000000);
+    //stm32_mpu_uheap((uintptr_t)0x90000000, 0x4000000);
     }
 
 #endif

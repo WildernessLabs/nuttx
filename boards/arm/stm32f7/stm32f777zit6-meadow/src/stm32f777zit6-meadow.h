@@ -61,20 +61,15 @@
 
 #define GPIO_INT1         0
 
+#define MGPIO_PIN_COUNT         16
 
-
-#define MGPIO_PIN_COUNT			16
-
-#define MGPIO_PIN_TYPE_INPUT	0
-#define MGPIO_PIN_TYPE_OUTPUT	1
-#define MGPIO_PIN_TYPE_INT		2
+#define MGPIO_PIN_TYPE_INPUT    0
+#define MGPIO_PIN_TYPE_OUTPUT   1
+#define MGPIO_PIN_TYPE_INT      2
 
 #define MGPIO_SET_CONFIG        1
 #define MGPIO_WRITE             3
 #define MGPIO_READ              4
-
-
-
 
 #define BOARD_NGPIOIN	1
 #define BOARD_NGPIOOUT	1
@@ -85,20 +80,33 @@
 
 #define GPIO_INT1         0
 
-
-
-#define MGPIO_PIN_COUNT			16
+#define MGPIO_PIN_COUNT         16
 
 #define MGPIO_PIN_TYPE_INPUT	0
 #define MGPIO_PIN_TYPE_OUTPUT	1
-#define MGPIO_PIN_TYPE_INT		2
+#define MGPIO_PIN_TYPE_INT      2
 
 #define MGPIO_SET_CONFIG        1
 #define MGPIO_WRITE             3
 #define MGPIO_READ              4
 
+/* USB OTG FS */
 
+#define GPIO_OTGFS_VBUS   (GPIO_INPUT|GPIO_FLOAT|GPIO_SPEED_100MHz|\
+                           GPIO_OPENDRAIN|GPIO_PORTA|GPIO_PIN9)
 
+#define GPIO_OTGFS_PWRON  (GPIO_OUTPUT|GPIO_FLOAT|GPIO_SPEED_100MHz|\
+                           GPIO_PUSHPULL|GPIO_PORTG|GPIO_PIN6)
+
+#ifdef CONFIG_USBHOST
+#  define GPIO_OTGFS_OVER (GPIO_INPUT|GPIO_EXTI|GPIO_FLOAT|\
+                           GPIO_SPEED_100MHz|GPIO_PUSHPULL|\
+                           GPIO_PORTG|GPIO_PIN7)
+
+#else
+#  define GPIO_OTGFS_OVER (GPIO_INPUT|GPIO_FLOAT|GPIO_SPEED_100MHz|\
+                           GPIO_PUSHPULL|GPIO_PORTG|GPIO_PIN7)
+#endif
 
 /* Pushbutton B1, labelled "User", is connected to GPIO PA0.  A high
  * value will be sensed when the button is depressed. Note that

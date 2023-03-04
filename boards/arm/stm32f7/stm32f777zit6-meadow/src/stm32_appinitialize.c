@@ -24,6 +24,14 @@
 
 #include <nuttx/config.h>
 #include <sys/types.h>
+#include <sys/boardctl.h>
+
+#include <nuttx/usb/usbdev.h>
+#include <nuttx/usb/usbdev_trace.h>
+
+#ifdef CONFIG_CDCACM
+#  include <nuttx/usb/cdcacm.h>
+#endif
 
 #include "stm32f777zit6-meadow.h"
 

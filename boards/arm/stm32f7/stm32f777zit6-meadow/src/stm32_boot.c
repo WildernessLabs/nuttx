@@ -169,7 +169,13 @@ void board_late_initialize(void)
 
     stm32f7_qspi_enter_memorymapped(qspi, &meminfo, 80000000);
 
-    //stm32_mpu_uheap((uintptr_t)0x90000000, 0x4000000);
+#ifdef CONFIG_ARM_MPU
+    /* Memory protection unit heap, needed for QSPI flash
+     * uheap = user heap i.e sets the user mpu heap to the following
+     */
+
+    stm32_mpu_uheap((uintptr_t)0x90000000, 0x4000000);
+#endif
     }
 
 #endif

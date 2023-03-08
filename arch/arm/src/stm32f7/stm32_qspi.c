@@ -2126,15 +2126,18 @@ static int qspi_command(struct qspi_dev_s *dev,
         }
 
       MEMORY_SYNC();
+
+      /* Wait for Transfer complete */
+
+      qspi_waitstatusflags(priv, QSPI_SR_TCF, 1);
     }
   else
     {
       ret = OK;
     }
 
-  /* Wait for Transfer complete, and not busy */
+  /* Wait for not busy */
 
-  qspi_waitstatusflags(priv, QSPI_SR_TCF, 1);
   qspi_waitstatusflags(priv, QSPI_SR_BUSY, 0);
 
 #endif

@@ -103,7 +103,7 @@
 
 /* Debug ********************************************************************/
 
-#if defined(CONFIG_DEBUG_INFO) && defined (CONFIG_DEBUG_USB)
+#if defined(CONFIG_DEBUG_USB_INFO)
 static void     usbmsc_dumpdata(const char *msg, const uint8_t *buf,
                   int buflen);
 #else

@@ -32,7 +32,7 @@
 #include "mpu.h"
 #include "stm32_mpuinit.h"
 
-#if defined(CONFIG_BUILD_PROTECTED) && defined(CONFIG_ARM_MPU)
+#if defined(CONFIG_ARM_MPU)
 
 /****************************************************************************
  * Private Data

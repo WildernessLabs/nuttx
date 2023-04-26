@@ -609,8 +609,10 @@ int modlib_bind(FAR struct module_s *modp,
    * contents to memory and invalidating the I cache).
    */
 
+#if 0
   up_coherent_dcache(loadinfo->textalloc, loadinfo->textsize);
   up_coherent_dcache(loadinfo->datastart, loadinfo->datasize);
+#endif
 
   return ret;
 }

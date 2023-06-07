@@ -52,15 +52,26 @@
 #define STM32_FMC_NADDRCONFIGS 23
 #define STM32_FMC_NDATACONFIGS 16
 
-#define STM32_SDRAM_CLKEN     FMC_SDRAM_MODE_CMD_CLK_ENABLE | FMC_SDRAM_CMD_BANK_1
-#define STM32_SDRAM_PALL      FMC_SDRAM_MODE_CMD_PALL | FMC_SDRAM_CMD_BANK_1
-#define STM32_SDRAM_REFRESH   FMC_SDRAM_MODE_CMD_AUTO_REFRESH | FMC_SDRAM_CMD_BANK_1 |\
-                                (3 << FMC_SDRAM_AUTO_REFRESH_SHIFT)
-#define STM32_SDRAM_MODEREG   FMC_SDRAM_MODE_CMD_LOAD_MODE | FMC_SDRAM_CMD_BANK_1 |\
-                                FMC_SDRAM_MODEREG_BURST_LENGTH_1 | \
-                                FMC_SDRAM_MODEREG_BURST_TYPE_SEQUENTIAL |\
-                                FMC_SDRAM_MODEREG_CAS_LATENCY_3 |\
-                                FMC_SDRAM_MODEREG_WRITEBURST_MODE_SINGLE
+//#define STM32_SDRAM_CLKEN     FMC_SDCMR_MODE_CLK_ENABLE | FMC_SDRAM_CMD_BANK_1
+#define STM32_SDRAM_CLKEN     FMC_SDCMR_CTB1 | FMC_SDCMR_MODE_CLK_ENABLE
+//#define STM32_SDRAM_PALL      FMC_SDCMR_MODE_PALL | FMC_SDRAM_CMD_BANK_1
+#define STM32_SDRAM_PALL      FMC_SDCMR_CTB1 | FMC_SDCMR_MODE_PALL
+//#define STM32_SDRAM_REFRESH   FMC_SDCMR_MODE_AUTO_REFRESH | FMC_SDRAM_CMD_BANK_1 |\
+//                                (3 << FMC_SDRAM_AUTO_REFRESH_SHIFT)
+#define STM32_SDRAM_REFRESH   FMC_SDCMR_CTB1 | FMC_SDCMR_MODE_AUTO_REFRESH |\
+                                FMC_SDCMR_NRFS(8)
+//#define STM32_SDRAM_MODEREG   FMC_SDCMR_MODE_LOAD_MODE | FMC_SDRAM_CMD_BANK_1 |\
+//                                FMC_SDCMR_MRD_BURST_LENGTH_1 | \
+//                                FMC_SDCMR_MRD_BURST_TYPE_SEQUENTIAL |\
+//                                FMC_SDCMR_MRD_CAS_LATENCY_3 |\
+//                                FMC_SDCMR_MRD_WRITEBURST_MODE_SINGLE
+
+#define STM32_SDRAM_MODEREG   FMC_SDCMR_CTB1 | FMC_SDCMR_MODE_LOAD_MODE |\
+                                FMC_SDCMR_MRD_BURST_LENGTH_1 | \
+                                FMC_SDCMR_MRD_BURST_TYPE_SEQUENTIAL |\
+                                FMC_SDCMR_MRD_CAS_LATENCY_3 |\
+                                FMC_SDCMR_MRD_OPERATING_MODE_STANDARD |\
+                                FMC_SDCMR_MRD_WRITEBURST_MODE_SINGLE
 
 /****************************************************************************
  * Public Data
@@ -116,6 +127,35 @@ static void stm32_extmemgpios(const uint32_t *gpios, int ngpios)
 }
 
 /****************************************************************************
+ * Name: stm32_sdramcommand
+ *
+ * Description:
+ *   Initialize data line GPIOs for external memory access
+ */
+
+
+static void stm32_sdramcommand(uint32_t command)
+{
+  uint32_t  regval;
+  volatile  uint32_t timeout = 0xffff;
+
+  regval = getreg32(STM32_FMC_SDSR) & 0x00000020;
+  while ((regval != 0) && timeout-- > 0)
+    {
+      regval = getreg32(STM32_FMC_SDSR) & 0x00000020;
+    }
+
+  putreg32(command, STM32_FMC_SDCMR);
+  timeout = 0xffff;
+  regval = getreg32(STM32_FMC_SDSR) & 0x00000020;
+  while ((regval != 0) && timeout-- > 0)
+    {
+      regval = getreg32(STM32_FMC_SDSR) & 0x00000020;
+    }
+}
+
+
+/****************************************************************************
  * Public Functions
  ****************************************************************************/
 
@@ -130,6 +170,7 @@ static void stm32_extmemgpios(const uint32_t *gpios, int ngpios)
 void stm32_sdram_initialize(void)
 {
   uint32_t val;
+  uint32_t regval;
   volatile int count;
 
   /* Enable GPIOs as FMC / memory pins */
@@ -148,31 +189,31 @@ void stm32_sdram_initialize(void)
    *   All timings from the datasheet for Speedgrade -7 (=7ns)
    */
 
-  putreg32(FMC_SDRAM_CR_RPIPE_1 |
-           FMC_SDRAM_CR_SDCLK_2X |
-           FMC_SDRAM_CR_CASLAT_3 |
-           FMC_SDRAM_CR_BANKS_4 |
-           FMC_SDRAM_CR_WIDTH_16 |
-           FMC_SDRAM_CR_ROWBITS_13 |
-           FMC_SDRAM_CR_COLBITS_9,
+  putreg32(FMC_SDCR_RPIPE_1 |
+           FMC_SDCR_SDCLK_2X |
+           FMC_SDCR_CASLAT_3 |
+           FMC_SDCR_BANKS_4 |
+           FMC_SDCR_WIDTH_16 |
+           FMC_SDCR_ROWBITS_13 |
+           FMC_SDCR_COLBITS_9,
       STM32_FMC_SDCR1);
 
-  putreg32(FMC_SDRAM_CR_RPIPE_1 |
-           FMC_SDRAM_CR_SDCLK_2X |
-           FMC_SDRAM_CR_CASLAT_3 |
-           FMC_SDRAM_CR_BANKS_4 |
-           FMC_SDRAM_CR_WIDTH_16 |
-           FMC_SDRAM_CR_ROWBITS_13 |
-           FMC_SDRAM_CR_COLBITS_9,
+  putreg32(FMC_SDCR_RPIPE_1 |
+           FMC_SDCR_SDCLK_2X |
+           FMC_SDCR_CASLAT_3 |
+           FMC_SDCR_BANKS_4 |
+           FMC_SDCR_WIDTH_16 |
+           FMC_SDCR_ROWBITS_13 |
+           FMC_SDCR_COLBITS_9,
       STM32_FMC_SDCR2);
 
-  putreg32((2 << FMC_SDRAM_TR_TRCD_SHIFT) |  /* tRCD min = 15ns */
-           (2 << FMC_SDRAM_TR_TRP_SHIFT) |   /* tRP  min = 15ns */
-           (2 << FMC_SDRAM_TR_TWR_SHIFT) |   /* tWR      = 2CLK */
-           (7 << FMC_SDRAM_TR_TRC_SHIFT) |   /* tRC  min = 63ns */
-           (4 << FMC_SDRAM_TR_TRAS_SHIFT) |  /* tRAS min = 42ns */
-           (7 << FMC_SDRAM_TR_TXSR_SHIFT) |  /* tXSR min = 70ns */
-           (2 << FMC_SDRAM_TR_TMRD_SHIFT),   /* tMRD     = 2CLK */
+  putreg32((2 << FMC_SDTR_TRCD_SHIFT) |  /* tRCD min = 15ns */
+           (2 << FMC_SDTR_TRP_SHIFT) |   /* tRP  min = 15ns */
+           (2 << FMC_SDTR_TWR_SHIFT) |   /* tWR      = 2CLK */
+           (7 << FMC_SDTR_TRC_SHIFT) |   /* tRC  min = 63ns */
+           (4 << FMC_SDTR_TRAS_SHIFT) |  /* tRAS min = 42ns */
+           (7 << FMC_SDTR_TXSR_SHIFT) |  /* tXSR min = 70ns */
+           (2 << FMC_SDTR_TMRD_SHIFT),   /* tMRD     = 2CLK */
       STM32_FMC_SDTR1);
 
   /* SDRAM Initialization sequence */

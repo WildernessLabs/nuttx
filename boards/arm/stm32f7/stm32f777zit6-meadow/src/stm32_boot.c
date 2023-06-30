@@ -31,6 +31,11 @@
 #include <nuttx/mtd/mtd.h>
 #include <nuttx/spi/qspi.h>
 
+#include <nuttx/usb/usbdev.h>
+#include <nuttx/usb/usbhost.h>
+#include <nuttx/usb/usbdev_trace.h>
+#include <sys/boardctl.h>
+
 #include "stm32f777zit6-meadow.h"
 
 #ifdef CONFIG_STM32F7_QUADSPI
@@ -107,6 +112,9 @@ void stm32_boardinitialize(void)
 #ifdef CONFIG_STM32F7_FMC
   stm32_sdram_initialize();
 #endif
+#ifdef CONFIG_STM32F7_OTGFS
+  stm32_usbinitialize();
+#endif
 }
 
 /****************************************************************************
@@ -165,6 +173,9 @@ void board_late_initialize(void)
 
     stm32_mpu_uheap((uintptr_t)0x90000000, 0x4000000);
 #endif
+#if defined(CONFIG_CDCACM)
+  board_init_usbdev();
+#endif
 
 #if defined(CONFIG_NSH_LIBRARY) && !defined(CONFIG_BOARDCTL)
   /* Perform NSH initialization here instead of from the NSH.  This
@@ -175,4 +186,33 @@ void board_late_initialize(void)
   board_app_initialize();
 #endif
 }
+int board_init_usbdev()
+{
+#if defined(CONFIG_BOARDCTL_USBDEVCTRL)
+  FAR void *handle;
+  struct boardioc_usbdev_ctrl_s ctrl;
+
+#if defined(CONFIG_CDCACM)
+  ctrl.usbdev   = BOARDIOC_USBDEV_CDCACM;
+  ctrl.action   = BOARDIOC_USBDEV_CONNECT;
+  ctrl.instance = 0;
+  ctrl.handle   = &handle;
+#else
+  ctrl.usbdev   = BOARDIOC_USBDEV_PL2303;
+  ctrl.action   = BOARDIOC_USBDEV_CONNECT;
+  ctrl.instance = 0;
+  ctrl.handle   = &handle;
 #endif
+
+  int ret = boardctl(BOARDIOC_USBDEV_CONTROL, (uintptr_t)&ctrl);
+  if (ret < 0)
+    {
+      return ret;
+    }
+#endif
+
+  return OK;
+}
+#endif
+
+

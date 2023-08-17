@@ -20,7 +20,6 @@
 
 include $(TOPDIR)/Make.defs
 
-MEADOW_OS_DIR=Meadow.OS
 
 CSRCS = stm32_boot.c stm32_bringup.c stm32_spi.c
 
@@ -71,6 +70,9 @@ ifeq ($(CONFIG_STM32F7_SDMMC2),y)
 CSRCS += meadow_sdmmc.c
 endif
 
+ifdef MEADOW_OS
+MEADOW_OS_DIR=Meadow.OS
+
 ifeq ($(CONFIG_MEADOW_HCOM),y)
 CSRCS += $(MEADOW_OS_DIR)/hcom_nx/hcom_nx_upd.c \
 $(MEADOW_OS_DIR)/hcom_nx/hcom_nx_startup_mgr.c \
@@ -87,27 +89,27 @@ $(MEADOW_OS_DIR)/hcom_nx/diag/hcom_nx_trace_msg_proc.c \
 $(MEADOW_OS_DIR)/hcom_nx/tests/hcom_nx_qspi_flash_tests.c
 
 ifeq ($(CONFIG_ARCH_IDLE_CUSTOM),y)
-CSRCS +=  misc/meadow_idle_monitor.c
+CSRCS +=  $(MEADOW_OS_DIR)/misc/meadow_idle_monitor.c
 endif
 
 ifeq ($(CONFIG_MEADOW_PWR_MGMT_SUPPORT),y)
-CSRCS += pwrmgmt/pwrmgmt_calib_lsi_clock.c \
-pwrmgmt/pwrmgmt_config_wakeup_timer.c \
-pwrmgmt/pwrmgmt_config_wakeup_alarm.c \
-pwrmgmt/pwrmgmt_control.c \
-pwrmgmt/pwrmgmt_enter_stop_mode.c \
-pwrmgmt/pwrmgmt_misc.c \
-pwrmgmt/pwrmgmt_switch_rtc_clock.c \
-pwrmgmt/pwrmgmt_time_support.c
+CSRCS += $(MEADOW_OS_DIR)/pwrmgmt_calib_lsi_clock.c \
+$(MEADOW_OS_DIR)/pwrmgmt_config_wakeup_timer.c \
+$(MEADOW_OS_DIR)/pwrmgmt_config_wakeup_alarm.c \
+$(MEADOW_OS_DIR)/pwrmgmt_control.c \
+$(MEADOW_OS_DIR)/pwrmgmt_enter_stop_mode.c \
+$(MEADOW_OS_DIR)/pwrmgmt_misc.c \
+$(MEADOW_OS_DIR)/pwrmgmt_switch_rtc_clock.c \
+$(MEADOW_OS_DIR)/pwrmgmt_time_support.c
 endif
 
 ifeq ($(CONFIG_MEADOW_TIMER_SUPPORT),y)
-CSRCS += timers/timer_manager.c \
-timers/cpu_measure.c \
-timers/pulse_width.c \
-timers/freq_duty.c \
-timers/rc_servo_decode.c \
-timers/lsi_clk_freq_measure.c
+CSRCS += $(MEADOW_OS_DIR)/timers/timer_manager.c \
+$(MEADOW_OS_DIR)/timers/cpu_measure.c \
+$(MEADOW_OS_DIR)/timers/pulse_width.c \
+$(MEADOW_OS_DIR)/timers/freq_duty.c \
+$(MEADOW_OS_DIR)/timers/rc_servo_decode.c \
+$(MEADOW_OS_DIR)/timers/lsi_clk_freq_measure.c
 endif
 
 CSRCS += $(MEADOW_OS_DIR)/ethernet/meadow_ethnet_start.c \
@@ -134,9 +136,9 @@ CSRCS += $(MEADOW_OS_DIR)/espcp/espcp_thread.c \
 endif
 
 CSRCS += $(MEADOW_OS_DIR)/kerneltests/espcp_tests.c \
-         $(MEADOW_OS_DIR)/kerneltests/ethernet_tests.c \
-         $(MEADOW_OS_DIR)/kerneltests/bg77_tests.c \
-         $(MEADOW_OS_DIR)/kerneltests/network_tests.c \
+		 $(MEADOW_OS_DIR)/kerneltests/ethernet_tests.c \
+		 $(MEADOW_OS_DIR)/kerneltests/bg77_tests.c \
+		 $(MEADOW_OS_DIR)/kerneltests/network_tests.c \
 		 $(MEADOW_OS_DIR)/kerneltests/sdcard_tests.c \
 		 $(MEADOW_OS_DIR)/kerneltests/power_management_tests.c \
 		 $(MEADOW_OS_DIR)/kerneltests/iso8601_time_tests.c \
@@ -156,13 +158,11 @@ CSRCS += $(MEADOW_OS_DIR)/misc/meadow_logging.c
 #	The libyaml library is required by cyaml.
 #
 CSRCS += $(MEADOW_OS_DIR)/libyaml/api.c $(MEADOW_OS_DIR)/libyaml/dumper.c $(MEADOW_OS_DIR)/libyaml/emitter.c $(MEADOW_OS_DIR)/libyaml/loader.c \
-         $(MEADOW_OS_DIR)/libyaml/parser.c $(MEADOW_OS_DIR)/libyaml/reader.c $(MEADOW_OS_DIR)/libyaml/scanner.c $(MEADOW_OS_DIR)/libyaml//writer.c
+		 $(MEADOW_OS_DIR)/libyaml/parser.c $(MEADOW_OS_DIR)/libyaml/reader.c $(MEADOW_OS_DIR)/libyaml/scanner.c $(MEADOW_OS_DIR)/libyaml//writer.c
 #
 #	The cyaml library maps the items from the libyaml output to the structures used by the application.
 #
 CSRCS += $(MEADOW_OS_DIR)/libcyaml/mem.c $(MEADOW_OS_DIR)/libcyaml/free.c $(MEADOW_OS_DIR)/libcyaml/load.c $(MEADOW_OS_DIR)/libcyaml/save.c $(MEADOW_OS_DIR)/libcyaml/util.c $(MEADOW_OS_DIR)/libcyaml/utf8.c
-
-endif
 
 #
 #	Add Meadow Cloud support
@@ -174,5 +174,7 @@ CSRCS += $(MEADOW_OS_DIR)/meadow_cloud/meadow_cloud.c
 #
 CSRCS += $(MEADOW_OS_DIR)/meadow_os/meadow_os_config.c
 
+endif
+endif # MEADOW_OS
 
 include $(TOPDIR)/boards/Board.mk
